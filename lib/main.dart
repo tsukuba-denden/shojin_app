@@ -103,8 +103,10 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   
   static final List<Widget> _screens = [
+    const HomeScreen(),
     const ProblemsScreen(),
     const EditorScreen(),
+    const SettingsScreen(),
   ];
   
   void _onItemTapped(int index) {
@@ -126,12 +128,52 @@ class _MainScreenState extends State<MainScreen> {
         selectedIndex: _selectedIndex,
         destinations: const [
           NavigationDestination(
+            icon: Icon(Icons.home),
+            label: 'ホーム',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.list_alt),
             label: '問題',
           ),
           NavigationDestination(
             icon: Icon(Icons.code),
             label: 'エディタ',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings),
+            label: '設定',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            'ホーム画面',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'AtCoderの練習アプリへようこそ',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -190,6 +232,38 @@ class EditorScreen extends StatelessWidget {
               padding: const EdgeInsets.all(16.0),
               child: Text(
                 'コードエディタがここに実装されます',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Theme.of(context).colorScheme.secondary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            '設定画面',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'アプリの設定がここに表示されます',
                 style: TextStyle(
                   fontSize: 16,
                   color: Theme.of(context).colorScheme.secondary,
