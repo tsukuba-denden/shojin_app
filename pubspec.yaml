@@ -36,6 +36,11 @@ dependencies:
   cupertino_icons: ^1.0.8
   dynamic_color: ^1.6.9
   google_fonts: ^6.1.0
+  
+  # AtCoder問題のスクレイピングに必要なパッケージ
+  http: ^1.1.0
+  html: ^0.15.4
+  flutter_markdown: ^0.6.18
 
 dev_dependencies:
   flutter_test:

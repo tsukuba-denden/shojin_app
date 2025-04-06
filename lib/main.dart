@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'screens/problem_detail_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -186,30 +187,8 @@ class ProblemsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text(
-            '問題画面',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'AtCoderの問題がここに表示されます',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    // 問題詳細画面を直接表示する
+    return const ProblemDetailScreen();
   }
 }
 
