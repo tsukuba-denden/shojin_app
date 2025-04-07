@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
 import 'dart:developer' as developer;
 import '../models/problem.dart';
 import '../services/atcoder_service.dart';
@@ -187,18 +188,12 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    problem.title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  _buildTeXTitle(problem.title),
                   const Divider(),
-                  _buildSection('問題文', problem.statement),
-                  _buildSection('制約', problem.constraints),
-                  _buildSection('入力', problem.inputFormat),
-                  _buildSection('出力', problem.outputFormat),
+                  _buildTeXSection('問題文', problem.statement),
+                  _buildTeXSection('制約', problem.constraints),
+                  _buildTeXSection('入力', problem.inputFormat),
+                  _buildTeXSection('出力', problem.outputFormat),
                   ...problem.samples.map((sample) => _buildSampleIO(sample)),
                 ],
               ),
@@ -209,7 +204,38 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
     );
   }
 
-  Widget _buildSection(String title, String content) {
+  // タイトルをTeXとして表示
+  Widget _buildTeXTitle(String title) {
+    try {
+      return Math.tex(
+        title,
+        textStyle: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+        onErrorFallback: (error) {
+          return Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      return Text(
+        title,
+        style: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+  }
+
+  // セクションをTeXとして表示（コードブロック処理を含む）
+  Widget _buildTeXSection(String title, String content) {
     if (content.isEmpty) return const SizedBox.shrink();
     
     // デバッグ情報
@@ -217,18 +243,20 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
     
     // 入力形式のフォーマット処理
     List<Widget> contentWidgets = [];
+    
+    // コードブロックと通常テキストを分離
     final parts = content.split(RegExp(r'```'));
     
-    // パートが複数ある場合（コードブロックが含まれている場合） 
+    // パートが複数ある場合（コードブロックが含まれている場合）
     if (parts.length > 1) {
       for (int i = 0; i < parts.length; i++) {
         if (parts[i].trim().isEmpty) continue;
         
         if (i % 2 == 0) {
-          // 通常テキスト部分
-          contentWidgets.add(Text(parts[i].trim()));
+          // 通常テキスト部分 - TeXとして表示
+          contentWidgets.add(_renderTeXWithParagraphSupport(parts[i].trim()));
         } else {
-          // コードブロック部分
+          // コードブロック部分 - そのまま表示
           contentWidgets.add(
             Container(
               width: double.infinity,
@@ -239,7 +267,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
               ),
-              child: Text(
+              child: SelectableText(
                 parts[i].trim(), 
                 style: const TextStyle(
                   fontFamily: 'monospace',
@@ -250,8 +278,8 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
         }
       }
     } else {
-      // コードブロックがない場合は通常のテキスト表示
-      contentWidgets.add(Text(content));
+      // コードブロックがない場合は全体をTeXとして処理
+      contentWidgets.add(_renderTeXWithParagraphSupport(content));
     }
     
     // セクション全体の構築
@@ -259,6 +287,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 16),
+        // セクションタイトルには通常テキストを使用
         Text(
           title,
           style: const TextStyle(
@@ -269,6 +298,100 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
         const SizedBox(height: 8),
         ...contentWidgets,
       ],
+    );
+  }
+
+  // 段落ごとにTeXレンダリングを行う（改行を保持）
+  Widget _renderTeXWithParagraphSupport(String text) {
+    // 段落で分割
+    final paragraphs = text.split(RegExp(r'\n\s*\n'));
+    List<Widget> paragraphWidgets = [];
+    
+    for (var paragraph in paragraphs) {
+      if (paragraph.trim().isEmpty) continue;
+      
+      // 段落内の各行を取得（単一改行を処理）
+      final lines = paragraph.split('\n');
+      List<Widget> lineWidgets = [];
+      
+      for (var line in lines) {
+        if (line.trim().isEmpty) {
+          lineWidgets.add(const SizedBox(height: 4));
+          continue;
+        }
+        
+        // 行内の数式記号を検出
+        final hasMathMarkers = line.contains(r'$') || 
+                              line.contains(r'\begin{') || 
+                              line.contains(r'\end{') ||
+                              line.contains(r'\frac') ||
+                              line.contains(r'\sum');
+        
+        try {
+          if (hasMathMarkers) {
+            // 行内に数式記号がある場合はTeX処理
+            lineWidgets.add(
+              Container(
+                width: double.infinity,
+                alignment: Alignment.centerLeft,
+                margin: const EdgeInsets.only(bottom: 4),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Math.tex(
+                    line.trim(),
+                    textStyle: const TextStyle(fontSize: 16),
+                    onErrorFallback: (error) {
+                      return Text(line.trim());
+                    },
+                    overflow: TextOverflow.visible,
+                    mathStyle: MathStyle.text,
+                  ),
+                ),
+              )
+            );
+          } else {
+            // 数式記号がない場合は通常のテキストとして処理
+            lineWidgets.add(
+              Container(
+                width: double.infinity,
+                alignment: Alignment.centerLeft,
+                margin: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  line.trim(),
+                  style: const TextStyle(fontSize: 16),
+                  overflow: TextOverflow.clip,
+                ),
+              )
+            );
+          }
+        } catch (e) {
+          // パースエラーのフォールバック
+          lineWidgets.add(
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 4),
+              child: Text(line.trim()),
+            )
+          );
+        }
+      }
+      
+      // 段落全体をグループ化
+      paragraphWidgets.add(
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: lineWidgets,
+          ),
+        )
+      );
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: paragraphWidgets,
     );
   }
 
@@ -306,7 +429,10 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
             color: Theme.of(context).colorScheme.surfaceVariant,
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Text(sample.input, style: const TextStyle(fontFamily: 'monospace')),
+          child: SelectableText(
+            sample.input, 
+            style: const TextStyle(fontFamily: 'monospace'),
+          ),
         ),
         const SizedBox(height: 8),
         Row(
@@ -338,7 +464,10 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
             color: Theme.of(context).colorScheme.surfaceVariant,
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Text(sample.output, style: const TextStyle(fontFamily: 'monospace')),
+          child: SelectableText(
+            sample.output, 
+            style: const TextStyle(fontFamily: 'monospace'),
+          ),
         ),
       ],
     );
