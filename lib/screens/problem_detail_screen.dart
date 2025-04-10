@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:developer' as developer;
+// import 'package:latext/latext.dart'; // latext パッケージは削除
 import '../models/problem.dart';
 import '../services/atcoder_service.dart';
-
 class ProblemDetailScreen extends StatefulWidget {
   final String? initialUrl;
   
@@ -225,8 +225,11 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
         if (parts[i].trim().isEmpty) continue;
         
         if (i % 2 == 0) {
-          // 通常テキスト部分
-          contentWidgets.add(Text(parts[i].trim()));
+          // 通常テキスト部分 (通常のTextウィジェットに戻す)
+          contentWidgets.add(Text(
+            _replaceTexCommands(parts[i].trim()), // TeXコマンドを置換
+            style: Theme.of(context).textTheme.bodyMedium,
+          ));
         } else {
           // コードブロック部分
           contentWidgets.add(
@@ -250,8 +253,11 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
         }
       }
     } else {
-      // コードブロックがない場合は通常のテキスト表示
-      contentWidgets.add(Text(content));
+      // コードブロックがない場合は通常のTextウィジェットに戻す
+      contentWidgets.add(Text(
+        _replaceTexCommands(content), // TeXコマンドを置換
+        style: Theme.of(context).textTheme.bodyMedium,
+      ));
     }
     
     // セクション全体の構築
@@ -305,8 +311,9 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceVariant,
             borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(sample.input, style: const TextStyle(fontFamily: 'monospace')),
+           ),
+           // サンプル入力は通常のTextで表示 (LaTeXとして解釈させない)
+           child: Text(sample.input, style: const TextStyle(fontFamily: 'monospace')),
         ),
         const SizedBox(height: 8),
         Row(
@@ -337,10 +344,22 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceVariant,
             borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(sample.output, style: const TextStyle(fontFamily: 'monospace')),
+           ),
+           // サンプル出力は通常のTextで表示 (LaTeXとして解釈させない)
+           child: Text(sample.output, style: const TextStyle(fontFamily: 'monospace')),
         ),
       ],
     );
+  }
+
+  // TeXコマンドを対応するUnicode文字に置換するヘルパーメソッド
+  String _replaceTexCommands(String input) {
+    return input
+        .replaceAll(r'\leq', '≤')
+        .replaceAll(r'\geq', '≥')
+        .replaceAll(r'\times', '×')
+        .replaceAll(r'\dots', '…')
+        // 必要に応じて他の置換ルールを追加
+        ;
   }
 }
