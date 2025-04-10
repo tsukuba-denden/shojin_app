@@ -10,10 +10,7 @@ class TemplateProvider extends ChangeNotifier {
   final List<String> supportedLanguages = [
     'C++',
     'Python',
-    'Java',
-    'Ruby',
-    'JavaScript',
-    'Dart'
+    'Rust'
   ];
 
   TemplateProvider() {
@@ -38,21 +35,14 @@ class TemplateProvider extends ChangeNotifier {
   String getDefaultTemplate(String language) {
     switch (language) {
       case 'C++':
-        return '''#include <iostream>
-#include <vector>
-#include <string>
-#include <algorithm>
+        return '''#include <bits/stdc++.h>
 using namespace std;
+int main(){
 
-int main() {
-    int n;
-    cin >> n;
-    cout << "Hello World!" << endl;
-    return 0;
 }''';
       case 'Python':
         return '''n = int(input())
-print("Hello World!")''';
+print("")''';
       case 'Java':
         return '''import java.util.Scanner;
 
@@ -63,20 +53,7 @@ public class Main {
         System.out.println("Hello World!");
     }
 }''';
-      case 'Ruby':
-        return '''n = gets.to_i
-puts "Hello World!"''';
-      case 'JavaScript':
-        return '''function main(input) {
-    const n = parseInt(input.trim());
-    console.log("Hello World!");
-}
-main(require('fs').readFileSync('/dev/stdin', 'utf8'));''';
-      case 'Dart':
-        return '''void main() {
-  final n = int.parse(stdin.readLineSync()!);
-  print("Hello World!");
-}''';
+      
       default:
         return '// ここにコードを書いてください';
     }
