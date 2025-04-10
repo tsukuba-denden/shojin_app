@@ -41,9 +41,6 @@ dependencies:
   http: ^1.1.0
   html: ^0.15.4
   flutter_markdown: ^0.6.18
-  
-  # 数式を美しく表示するためのパッケージ
-  flutter_math_fork: ^0.7.2
 
 dev_dependencies:
   flutter_test:
