@@ -5,8 +5,11 @@ name: Android Build
 # ワークフローが実行されるトリガーを指定
 on:
   push:
-    branches:
-      - main # mainブランチへのpush時に実行
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
@@ -55,3 +58,27 @@ jobs:
           name: release-apk # 成果物の名前
           path: build/app/outputs/flutter-apk/app-*-release.apk
           # 単一APKの場合のパス例: build/app/outputs/apk/release/app-release.apk
+
+  release:
+    name: Create Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Android build
+        uses: actions/download-artifact@v3
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/
+          
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            android-release/app-release.apk
+          draft: true
+          prerelease: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
