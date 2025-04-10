@@ -38,22 +38,15 @@ class TemplateProvider extends ChangeNotifier {
         return '''#include <bits/stdc++.h>
 using namespace std;
 int main(){
-
+  int n;
+  cin >> n;
+  cout << n << endl;
 }''';
+        
       case 'Python':
         return '''n = int(input())
-print("")''';
-      case 'Java':
-        return '''import java.util.Scanner;
-
-public class Main {
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        int n = sc.nextInt();
-        System.out.println("Hello World!");
-    }
-}''';
-      
+print(n)''';
+        
       default:
         return '// ここにコードを書いてください';
     }
