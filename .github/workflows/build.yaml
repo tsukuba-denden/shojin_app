@@ -1,56 +1,57 @@
-name: Android CD
+# .github/workflows/android_build.yml
 
-# 発火条件
+name: Android Build
+
+# ワークフローが実行されるトリガーを指定
 on:
-  #ソースをmasterブランチにプッシュする時
   push:
-    branches: [ master ]
-  #他のブランチをmasterブランチにマッジする時
-  pull_request:
-    branches: [ master ]
+    branches:
+      - main # mainブランチへのpush時に実行
 
 jobs:
   build:
-    #ビルド環境
+    # 実行環境としてUbuntuの最新版を使用
     runs-on: ubuntu-latest
 
     steps:
-      #リポジトリからソースをダンロード
-      - uses: actions/checkout@v2
-      #JAVA環境構築
-      - name: install java 8.x
-        uses: actions/setup-java@v1
-        with:
-          java-version: '8.x'
+      # Step 1: リポジトリのコードをチェックアウト
+      - name: Checkout code
+        uses: actions/checkout@v4 # 最新バージョンを確認してください
 
-      - name: setup cache
-        uses: actions/cache@v1
+      # Step 2: Java Development Kit (JDK) をセットアップ (Androidビルドに必要)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4 # 最新バージョンを確認してください
         with:
-          path: /Users/runner/hostedtoolcache/flutter
-          key: ${{ runner.OS }}-flutter-install-cache
+          distribution: 'temurin' # または他のディストリビューション
+          java-version: '17'    # プロジェクトに必要なJavaバージョンを指定
 
-      #Flutter環境構築
-      - name: install flutter
-        uses: subosito/flutter-action@v1
+      # Step 3: Flutter SDK をセットアップ
+      # (オプション) プロジェクトルートに .flutter-version ファイルがあればそのバージョンが使われます
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2 # 最新バージョンを確認してください
         with:
-          #Flutterのバージョン
-          flutter-version: '2.5.3'
-          channel: 'stable'
+          channel: 'stable' # stable, beta, dev, master から選択
+          # flutter-version: '3.x.x' # 特定のバージョンを指定する場合
 
-      - name: flutter dependencies install
-        #ライブラリーの導入
+      # Step 4: Flutterの依存関係を取得
+      - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: build apk
-        run: |
-          echo '${{ secrets.KEYSTORE_BASE64 }}' | base64 -d > android/release.keystore
-          export KEYSTORE_PASSWORD='${{ secrets.KEYSTORE_PASSWORD }}'
-          export KEY_ALIAS='${{ secrets.KEY_ALIAS }}'
-          export KEY_PASSWORD='${{ secrets.KEY_PASSWORD }}'
-          flutter build apk --release
+      # Step 5: (オプション) ビルド前にクリーンアップ
+      # - name: Clean Flutter project
+      #   run: flutter clean
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v1.0.0
+      # Step 6: Android APK をビルド (--release オプションでリリースモード)
+      # --split-per-abi をつけるとCPUアーキテクチャごとにAPKが分割されます
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
+        # 単一のAPKが必要な場合は: flutter build apk --release
+
+      # Step 7: ビルドされたAPKを成果物としてアップロード
+      # --split-per-abi を使用した場合、複数のAPKが生成されるためワイルドカードを使用
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4 # 最新バージョンを確認してください
         with:
-          name: android
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: release-apk # 成果物の名前
+          path: build/app/outputs/flutter-apk/app-*-release.apk
+          # 単一APKの場合のパス例: build/app/outputs/apk/release/app-release.apk
