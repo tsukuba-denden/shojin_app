@@ -4,12 +4,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'screens/problem_detail_screen.dart';
 import 'screens/editor_screen.dart';
+import 'screens/template_edit_screen.dart';
+import 'screens/settings_screen.dart';
 import 'providers/theme_provider.dart';
+import 'providers/template_provider.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => TemplateProvider()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -218,88 +224,6 @@ class ProblemsScreen extends StatelessWidget {
     return const ProblemDetailScreen();
   }
 }
-
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '設定',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    'テーマ設定',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                  ),
-                ),
-                const Divider(height: 1),
-                ...ThemeModeOption.values.map((mode) => RadioListTile<ThemeModeOption>(
-                  title: Text(mode.label),
-                  value: mode,
-                  groupValue: themeProvider.themeMode,
-                  onChanged: (value) {
-                    if (value != null) {
-                      themeProvider.setThemeMode(value);
-                    }
-                  },
-                  secondary: _getThemeIcon(mode),
-                )),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    'アプリについて',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.secondary,
-                    ),
-                  ),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  title: const Text('バージョン'),
-                  subtitle: const Text('0.0.1'),
-                  leading: const Icon(Icons.info_outline),
-                ),
-                ListTile(
-                  title: const Text('開発者'),
-                  subtitle: const Text('電子電脳技術研究会'),
-                  leading: const Icon(Icons.code),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
   
   // テーマモードに対応するアイコンを返す
   Widget _getThemeIcon(ThemeModeOption mode) {
@@ -314,4 +238,3 @@ class SettingsScreen extends StatelessWidget {
         return const Icon(Icons.nights_stay);
     }
   }
-}
