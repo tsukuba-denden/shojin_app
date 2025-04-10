@@ -28,17 +28,8 @@ class _EditorScreenState extends State<EditorScreen> {
     super.initState();
     // 初期コード
     _codeController = CodeController(
-      text: '''// ここにコードを書いてください
-#include <iostream>
-using namespace std;
-
-int main() {
-    int n;
-    cin >> n;
-    cout << "Hello World!" << endl;
-    return 0;
-}''',
-      language: dart, // 初期言語はDartを設定（実際には後で変更される）
+      text: '''# ここにコードを書いてください''',
+      language: python, // 初期言語はDartを設定（実際には後で変更される）
     );
   }
 
