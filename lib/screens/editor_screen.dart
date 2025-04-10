@@ -102,40 +102,77 @@ main(require('fs').readFileSync('/dev/stdin', 'utf8'));''';
       });
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'コードエディタ',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Text('言語: ', style: TextStyle(fontSize: 14)),
+                    DropdownButton<String>(
+                      value: _selectedLanguage,
+                      isDense: true, // コンパクト表示
+                      underline: Container(height: 1, color: Colors.grey), // 細いアンダーライン
+                      onChanged: _onLanguageChanged,
+                      items: _languages.map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value, style: const TextStyle(fontSize: 14)),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.play_arrow),
+                      tooltip: '実行',
+                      onPressed: () {
+                        // コードを実行する処理
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('実行機能は準備中です')),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.send),
+                      tooltip: '提出',
+                      onPressed: () {
+                        // コードを提出する処理
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('提出機能は準備中です')),
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip: 'リセット',
+                      onPressed: () {
+                        // コードをリセット
+                        _codeController.text = _getTemplateForLanguage(_selectedLanguage);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Text('言語: ', style: TextStyle(fontSize: 16)),
-              DropdownButton<String>(
-                value: _selectedLanguage,
-                onChanged: _onLanguageChanged,
-                items: _languages.map<DropdownMenuItem<String>>((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
           Expanded(
             child: Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
+              elevation: 2,
+              margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4.0),
                 child: CodeTheme(
                   data: CodeThemeData(
                     styles: _isDarkMode ? monokaiSublimeTheme : githubTheme,
@@ -144,46 +181,21 @@ main(require('fs').readFileSync('/dev/stdin', 'utf8'));''';
                     child: CodeField(
                       controller: _codeController,
                       textStyle: GoogleFonts.sourceCodePro(),
+                      gutterStyle: GutterStyle(
+                        width: 32, // 行番号のための幅を少し小さくする
+                        textAlign: TextAlign.right,
+                      ),
+                      lineNumberStyle: LineNumberStyle(
+                        textStyle: TextStyle(
+                          color: _isDarkMode ? Colors.grey : Colors.grey.shade700,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () {
-                  // コードを実行する処理
-                  // 実際の実装ではAPIを使用して実行結果を取得する
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('実行機能は準備中です')),
-                  );
-                },
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('実行'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  // コードを提出する処理
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('提出機能は準備中です')),
-                  );
-                },
-                icon: const Icon(Icons.send),
-                label: const Text('提出'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () {
-                  // コードをリセット
-                  _codeController.text = _getTemplateForLanguage(_selectedLanguage);
-                },
-                icon: const Icon(Icons.refresh),
-                label: const Text('リセット'),
-              ),
-            ],
           ),
         ],
       ),
