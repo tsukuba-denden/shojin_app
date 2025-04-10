@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'screens/problem_detail_screen.dart';
 import 'screens/editor_screen.dart';
+import 'providers/theme_provider.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 // デフォルトのカラースキーム
@@ -21,16 +28,34 @@ const _defaultDarkColorScheme = ColorScheme.dark(
   secondary: Colors.blueAccent,
 );
 
+// ピュアブラックモードのカラースキーム
+final _pureBlackColorScheme = ColorScheme.dark(
+  primary: Colors.blue,
+  onPrimary: Colors.white,
+  secondary: Colors.blueAccent,
+  background: Colors.black,
+  surface: Colors.black,
+  surfaceVariant: Colors.black,
+  onSurface: Colors.white,
+  surfaceTint: Colors.transparent,
+);
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // テーマプロバイダーの状態を監視
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
         // ダイナミックカラーが利用できる場合はそれを使用し、利用できない場合はデフォルトのカラースキームを使用
         ColorScheme lightColorScheme = lightDynamic ?? _defaultLightColorScheme;
-        ColorScheme darkColorScheme = darkDynamic ?? _defaultDarkColorScheme;
+        // ピュアブラックモードが選択されている場合はピュアブラックカラースキームを使用
+        ColorScheme darkColorScheme = themeProvider.isPureBlack
+            ? _pureBlackColorScheme
+            : (darkDynamic ?? _defaultDarkColorScheme);
 
         // Noto Sans JPフォントをテキストテーマに適用
         final textTheme = TextTheme(
@@ -49,9 +74,7 @@ class MyApp extends StatelessWidget {
           labelLarge: GoogleFonts.notoSansJp(fontSize: 14, fontWeight: FontWeight.w500),
           labelMedium: GoogleFonts.notoSansJp(fontSize: 12, fontWeight: FontWeight.w500),
           labelSmall: GoogleFonts.notoSansJp(fontSize: 11, fontWeight: FontWeight.w500),
-        );
-
-        return MaterialApp(
+        );        return MaterialApp(
           title: 'Shojin App',
           theme: ThemeData(
             colorScheme: lightColorScheme,
@@ -75,18 +98,21 @@ class MyApp extends StatelessWidget {
           darkTheme: ThemeData(
             colorScheme: darkColorScheme,
             useMaterial3: true,
-            appBarTheme: const AppBarTheme(
+            appBarTheme: AppBarTheme(
               centerTitle: true,
               elevation: 2,
+              backgroundColor: themeProvider.isPureBlack ? Colors.black : null,
             ),
-            cardTheme: const CardTheme(
+            cardTheme: CardTheme(
               elevation: 2,
-              margin: EdgeInsets.all(8),
+              margin: const EdgeInsets.all(8),
+              color: themeProvider.isPureBlack ? const Color(0xFF121212) : null,
             ),
+            scaffoldBackgroundColor: themeProvider.isPureBlack ? Colors.black : null,
             textTheme: textTheme,
             fontFamily: GoogleFonts.notoSansJp().fontFamily,
           ),
-          themeMode: ThemeMode.system,
+          themeMode: themeProvider.themeModeForFlutter,
           home: const MainScreen(),
         );
       },
@@ -198,29 +224,94 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '設定画面',
+            '設定',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'アプリの設定がここに表示されます',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Theme.of(context).colorScheme.secondary,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'テーマ設定',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                  ),
                 ),
-              ),
+                const Divider(height: 1),
+                ...ThemeModeOption.values.map((mode) => RadioListTile<ThemeModeOption>(
+                  title: Text(mode.label),
+                  value: mode,
+                  groupValue: themeProvider.themeMode,
+                  onChanged: (value) {
+                    if (value != null) {
+                      themeProvider.setThemeMode(value);
+                    }
+                  },
+                  secondary: _getThemeIcon(mode),
+                )),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    'アプリについて',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.secondary,
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  title: const Text('バージョン'),
+                  subtitle: const Text('0.0.1'),
+                  leading: const Icon(Icons.info_outline),
+                ),
+                ListTile(
+                  title: const Text('開発者'),
+                  subtitle: const Text('電子電脳技術研究会'),
+                  leading: const Icon(Icons.code),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+  
+  // テーマモードに対応するアイコンを返す
+  Widget _getThemeIcon(ThemeModeOption mode) {
+    switch (mode) {
+      case ThemeModeOption.system:
+        return const Icon(Icons.settings_suggest);
+      case ThemeModeOption.light:
+        return const Icon(Icons.light_mode);
+      case ThemeModeOption.dark:
+        return const Icon(Icons.dark_mode);
+      case ThemeModeOption.pureBlack:
+        return const Icon(Icons.nights_stay);
+    }
   }
 }
