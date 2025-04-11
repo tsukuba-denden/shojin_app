@@ -154,7 +154,7 @@ class AtCoderService {
           developer.log("入力形式の例がないため、preタグを直接探す");
           
           // 入力例から入力形式を推測
-          Element? inputExample = null;
+          Element? inputExample;
           for (var h3 in h3Elements) {
             if (h3.text.contains('入力例 1') || h3.text.contains('Input Example #1')) {
               inputExample = h3;
@@ -251,7 +251,7 @@ class AtCoderService {
       final firstSampleInput = samples[0].input.trim();
       final inputLines = firstSampleInput.split('\n');
       
-      if (inputLines.length >= 1) {
+      if (inputLines.isNotEmpty) {
         statementBuilder.write('入力の1行目には整数 a が与えられます。\n');
       }
       if (inputLines.length >= 2) {

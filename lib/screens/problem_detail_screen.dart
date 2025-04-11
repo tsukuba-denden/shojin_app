@@ -7,7 +7,7 @@ import '../services/atcoder_service.dart';
 class ProblemDetailScreen extends StatefulWidget {
   final String? initialUrl;
   
-  const ProblemDetailScreen({Key? key, this.initialUrl}) : super(key: key);
+  const ProblemDetailScreen({super.key, this.initialUrl});
 
   @override
   State<ProblemDetailScreen> createState() => _ProblemDetailScreenState();
@@ -238,7 +238,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
               margin: const EdgeInsets.symmetric(vertical: 8),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceVariant,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
               ),
@@ -309,7 +309,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceVariant,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(4),
            ),
            // サンプル入力は通常のTextで表示 (LaTeXとして解釈させない)
@@ -342,7 +342,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceVariant,
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(4),
            ),
            // サンプル出力は通常のTextで表示 (LaTeXとして解釈させない)
