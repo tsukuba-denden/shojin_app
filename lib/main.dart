@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'screens/problem_detail_screen.dart';
 import 'screens/editor_screen.dart';
-import 'screens/template_edit_screen.dart';
 import 'screens/settings_screen.dart';
 import 'providers/theme_provider.dart';
 import 'providers/template_provider.dart';
@@ -39,9 +38,8 @@ final _pureBlackColorScheme = ColorScheme.dark(
   primary: Colors.blue,
   onPrimary: Colors.white,
   secondary: Colors.blueAccent,
-  background: Colors.black,
   surface: Colors.black,
-  surfaceVariant: Colors.black,
+  surfaceContainerHighest: Colors.black,
   onSurface: Colors.white,
   surfaceTint: Colors.transparent,
 );
@@ -153,7 +151,7 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         title: const Text('Shojin App'),
       ),
       body: _screens[_selectedIndex],
