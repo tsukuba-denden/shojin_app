@@ -1,4 +1,4 @@
-package com.example.shojin_app
+package com.tsukuba.atcoder.shojin
 
 import io.flutter.embedding.android.FlutterActivity
 
