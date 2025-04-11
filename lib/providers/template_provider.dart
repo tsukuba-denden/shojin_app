@@ -8,9 +8,11 @@ class TemplateProvider extends ChangeNotifier {
 
   // サポートする言語リスト
   final List<String> supportedLanguages = [
-    'C++',
     'Python',
-    'Rust'
+    'C++',
+    'Rust',
+    'Java',
+    'C#'
   ];
 
   TemplateProvider() {
@@ -32,21 +34,45 @@ class TemplateProvider extends ChangeNotifier {
   }
 
   // デフォルトのテンプレートを取得
+
   String getDefaultTemplate(String language) {
     switch (language) {
       case 'C++':
-        return '''#include <bits/stdc++.h>
+        return '''#include <iostream>
 using namespace std;
-int main(){
-  int n;
-  cin >> n;
-  cout << n << endl;
+int main() {
+    int n;
+    cin >> n;
+    cout << "Hello World!" << endl;
+    return 0;
 }''';
-        
       case 'Python':
         return '''n = int(input())
-print(n)''';
-        
+print("Hello World!")''';
+      case 'Rust':
+        return '''use std::io;
+fn main() {
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).expect("Failed reading line");
+    println!("Hello World!");
+}''';
+      case 'Java':
+        return '''import java.util.Scanner;
+public class Main {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        System.out.println("Hello World!");
+    }
+}''';
+      case 'C#':
+        return '''using System;
+public class Program {
+    public static void Main() {
+        int n = int.Parse(Console.ReadLine());
+        Console.WriteLine("Hello World!");
+    }
+}''';
       default:
         return '// ここにコードを書いてください';
     }

@@ -17,8 +17,8 @@ class _EditorScreenState extends State<EditorScreen> {
   late final CodeController _codeController;
   
   // 言語選択用
-  String _selectedLanguage = 'C++';
-  final List<String> _languages = ['C++', 'Python', 'Java', 'Ruby', 'JavaScript', 'Dart'];
+  String _selectedLanguage = 'Python';
+  final List<String> _languages = ['Python', 'C++', 'Rust', 'Java', 'C#'];
   
   // ダークモードか確認するための変数
   bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
@@ -55,29 +55,29 @@ int main() {
       case 'Python':
         return '''n = int(input())
 print("Hello World!")''';
+      case 'Rust':
+        return '''use std::io;
+fn main() {
+   let mut input = String::new();
+   io::stdin().read_line(&mut input).expect("Failed to read line");
+   println!("Hello World!");
+}''';
       case 'Java':
         return '''import java.util.Scanner;
-
 public class Main {
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        int n = sc.nextInt();
-        System.out.println("Hello World!");
-    }
+   public static void main(String[] args) {
+       Scanner sc = new Scanner(System.in);
+       int n = sc.nextInt();
+       System.out.println("Hello World!");
+   }
 }''';
-      case 'Ruby':
-        return '''n = gets.to_i
-puts "Hello World!"''';
-      case 'JavaScript':
-        return '''function main(input) {
-    const n = parseInt(input.trim());
-    console.log("Hello World!");
-}
-main(require('fs').readFileSync('/dev/stdin', 'utf8'));''';
-      case 'Dart':
-        return '''void main() {
-  final n = int.parse(stdin.readLineSync()!);
-  print("Hello World!");
+      case 'C#':
+        return '''using System;
+public class Program {
+   public static void Main() {
+       int n = int.Parse(Console.ReadLine());
+       Console.WriteLine("Hello World!");
+   }
 }''';
       default:
         return '// ここにコードを書いてください';
