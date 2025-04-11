@@ -29,7 +29,7 @@ class _EditorScreenState extends State<EditorScreen> {
     // 初期コード
     _codeController = CodeController(
       text: '''# ここにコードを書いてください''',
-      language: python, // 初期言語はDartを設定（実際には後で変更される）
+      language: dart, // 初期言語
     );
   }
 
