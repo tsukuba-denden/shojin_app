@@ -1,5 +1,6 @@
-import 'dart:convert'; // JSONエンコード/デコード用
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Clipboardのために追加
 import 'package:flutter_code_editor/flutter_code_editor.dart';
 import 'package:highlight/languages/dart.dart'; // CodeControllerの初期化に必要
 import 'package:flutter_highlight/themes/monokai-sublime.dart';
@@ -46,6 +47,19 @@ class _EditorScreenState extends State<EditorScreen> {
     _codeController.dispose();
     _stdinController.dispose();
     super.dispose();
+  }
+
+  // 言語が変更されたときの処理
+  void _onLanguageChanged(String? newLanguage) {
+    if (newLanguage != null && newLanguage != _selectedLanguage) {
+      setState(() {
+        _selectedLanguage = newLanguage;
+        _codeController.text = _getTemplateForLanguage(newLanguage);
+        // 言語変更時に実行結果もクリア
+        _output = '';
+        _error = '';
+      });
+    }
   }
 
   // 選択した言語に基づいてコードのテンプレートを取得
@@ -97,17 +111,17 @@ public class Program {
   String _getWandboxLanguageName(String language) {
     switch (language) {
       case 'C++':
-        return 'gcc-head'; // 例: 最新のGCC
+        return 'gcc-13.2.0'; // 例: 最新のGCC
       case 'Python':
-        return 'cpython-3.11.0'; // 例: Python 3.11
+        return 'cpython-3.12.7'; // 例: Python 3.12
       case 'Rust':
         return 'rust-1.70.0'; // 例: Rust 1.70
       case 'Java':
-        return 'openjdk-jdk-17.0.1+12'; // 例: OpenJDK 17
+        return 'openjdk-jdk-22+36'; // 例: OpenJDK jdk-22+36
       case 'C#':
-        return 'csharp-mono-6.12.0.122'; // 例: Mono C#
+        return 'mcs-6.12.0.199'; // 例: mcs 6.12.0.199
       default:
-        return 'python'; // デフォルト
+        return 'cpython-3.12.7'; // デフォルト
     }
   }
 
@@ -169,25 +183,12 @@ public class Program {
     }
   }
 
-
-  // 言語が変更されたときの処理
-  void _onLanguageChanged(String? newLanguage) {
-    if (newLanguage != null && newLanguage != _selectedLanguage) {
-      setState(() {
-        _selectedLanguage = newLanguage;
-        _codeController.text = _getTemplateForLanguage(newLanguage);
-        // 言語変更時に実行結果もクリア
-        _output = '';
-        _error = '';
-      });
-    }
-  }
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch, // 子要素を横幅いっぱいに広げる
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0),
@@ -312,6 +313,7 @@ public class Program {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // --- Standard Output Display ---
                       if (_output.isNotEmpty)
                         Text(
                           '実行結果 (stdout):',
@@ -322,19 +324,38 @@ public class Program {
                           _output,
                           style: GoogleFonts.sourceCodePro(fontSize: 13),
                         ),
+
+                      // --- Error Output Display ---
                       if (_error.isNotEmpty)
                         Padding(
-                          padding: EdgeInsets.only(top: _output.isNotEmpty ? 8.0 : 0), // stdoutがあれば少し間隔を空ける
-                          child: Text(
-                            'エラー出力 (stderr):',
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.red),
+                          padding: EdgeInsets.only(top: _output.isNotEmpty ? 8.0 : 0),
+                          child: Row( // Rowを追加してタイトルとボタンを横並びにする
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween, // 両端に寄せる
+                            children: [
+                              Text(
+                                'エラー出力 (stderr):',
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.red),
+                              ),
+                              IconButton( // コピーボタンを追加
+                                icon: const Icon(Icons.copy, size: 18),
+                                tooltip: 'エラーをコピー',
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: _error));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('エラー出力をコピーしました')),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ),
                       if (_error.isNotEmpty)
-                        SelectableText(
+                        SelectableText( // エラー内容自体はSelectableTextのまま
                           _error,
                           style: GoogleFonts.sourceCodePro(fontSize: 13, color: Colors.red),
                         ),
+
+                      // --- Placeholder Text ---
                       if (_output.isEmpty && _error.isEmpty && !_isRunning)
                          Text(
                            '実行ボタンを押すと、ここに結果が表示されます。',
