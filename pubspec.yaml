@@ -27,7 +27,7 @@ dependencies:
   flutter_highlight: ^0.7.0
   
   # 設定の保存に必要
-  shared_preferences: ^2.2.2
+  shared_preferences: ^2.5.3
   provider: ^6.1.1
 
 dev_dependencies:

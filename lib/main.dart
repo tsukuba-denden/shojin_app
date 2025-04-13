@@ -133,14 +133,14 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  
+
   static final List<Widget> _screens = [
     const HomeScreen(),
     const ProblemsScreen(),
-    const EditorScreen(),
+    EditorScreen(problemId: 'default_problem'),
     const SettingsScreen(),
   ];
-  
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -154,7 +154,10 @@ class _MainScreenState extends State<MainScreen> {
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         title: const Text('Shojin App'),
       ),
-      body: _screens[_selectedIndex],
+      body: IndexedStack(
+        index: _selectedIndex, // 現在のタブのインデックスを指定
+        children: _screens, // 各タブのウィジェットを保持
+      ),
       bottomNavigationBar: NavigationBar(
         onDestinationSelected: _onItemTapped,
         selectedIndex: _selectedIndex,
