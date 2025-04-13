@@ -224,6 +224,30 @@ public class Main {
     }
   }
 
+  // 現在のコードを復元する関数
+  Future<void> _restoreCode() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedCode = prefs.getString('code_${widget.problemId}_$_selectedLanguage');
+      if (savedCode != null) {
+        setState(() {
+          _codeController.text = savedCode;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$_selectedLanguage のコードを復元しました')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('保存されたコードが見つかりません')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('コードの復元に失敗しました: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -278,6 +302,11 @@ public class Main {
                     icon: const Icon(Icons.save),
                     tooltip: '保存',
                     onPressed: _saveCode, // 保存ボタン
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.restore),
+                    tooltip: '復元',
+                    onPressed: _restoreCode, // 復元ボタン
                   ),
                   IconButton(
                     icon: const Icon(Icons.refresh),
