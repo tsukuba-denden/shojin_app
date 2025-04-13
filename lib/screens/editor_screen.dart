@@ -27,7 +27,8 @@ class _EditorScreenState extends State<EditorScreen> {
 
   // 言語選択用
   String _selectedLanguage = 'Python';
-  final List<String> _languages = ['Python', 'C++', 'Rust', 'Java', 'C#'];
+  // C#をリストから削除
+  final List<String> _languages = ['Python', 'C++', 'Rust', 'Java'];
 
   // ダークモードか確認するための変数
   bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
@@ -94,14 +95,6 @@ public class Main {
        System.out.println("Hello World!");
    }
 }''';
-      case 'C#':
-        return '''using System;
-public class Program {
-   public static void Main() {
-       int n = int.Parse(Console.ReadLine());
-       Console.WriteLine("Hello World!");
-   }
-}''';
       default:
         return '// ここにコードを書いてください';
     }
@@ -118,10 +111,9 @@ public class Program {
         return 'rust-1.70.0'; // 例: Rust 1.70
       case 'Java':
         return 'openjdk-jdk-22+36'; // 例: OpenJDK jdk-22+36
-      case 'C#':
-        return 'mcs-6.12.0.199'; // 例: mcs 6.12.0.199
       default:
-        return 'cpython-3.12.7'; // デフォルト
+        // デフォルトもバージョン指定にしてみる
+        return 'cpython-3.11.0';
     }
   }
 
