@@ -114,12 +114,12 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     ListTile(
                       title: const Text('バージョン'),
-                      subtitle: const Text('1.0.0'),
+                      subtitle: const Text('Alpha'),
                       leading: const Icon(Icons.tag),
                     ),
                     ListTile(
                       title: const Text('開発者'),
-                      subtitle: const Text('筑波電子同好会'),
+                      subtitle: const Text('筑波大学附属中学校 電子電脳技術研究会'),
                       leading: const Icon(Icons.code),
                     ),
                   ],

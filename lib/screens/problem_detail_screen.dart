@@ -4,10 +4,16 @@ import 'dart:developer' as developer;
 // import 'package:latext/latext.dart'; // latext パッケージは削除
 import '../models/problem.dart';
 import '../services/atcoder_service.dart';
+
 class ProblemDetailScreen extends StatefulWidget {
   final String? initialUrl;
-  
-  const ProblemDetailScreen({super.key, this.initialUrl});
+  final Function(String) onProblemChanged; // コールバック関数を追加
+
+  const ProblemDetailScreen({
+    super.key,
+    this.initialUrl,
+    required this.onProblemChanged, // コンストラクタで必須にする
+  });
 
   @override
   State<ProblemDetailScreen> createState() => _ProblemDetailScreenState();
@@ -51,7 +57,13 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
         _problem = problem;
         _isLoading = false;
       });
+      // 問題取得成功時にコールバックを呼び出す
+      if (_problem != null) {
+         developer.log('Problem fetched successfully: ${_problem!.url}', name: 'ProblemDetailScreen'); // id を url に変更
+         widget.onProblemChanged(_problem!.url); // id を url に変更
+      }
     } catch (e) {
+      developer.log('Failed to fetch problem: $e', name: 'ProblemDetailScreen', error: e);
       setState(() {
         _errorMessage = '問題の取得に失敗しました: $e';
         _isLoading = false;

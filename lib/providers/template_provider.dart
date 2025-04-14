@@ -8,12 +8,11 @@ class TemplateProvider extends ChangeNotifier {
 
   // サポートする言語リスト
   final List<String> supportedLanguages = [
-    'C++',
     'Python',
+    'C++',
+    'Rust',
     'Java',
-    'Ruby',
-    'JavaScript',
-    'Dart'
+    'C#'
   ];
 
   TemplateProvider() {
@@ -35,15 +34,12 @@ class TemplateProvider extends ChangeNotifier {
   }
 
   // デフォルトのテンプレートを取得
+
   String getDefaultTemplate(String language) {
     switch (language) {
       case 'C++':
         return '''#include <iostream>
-#include <vector>
-#include <string>
-#include <algorithm>
 using namespace std;
-
 int main() {
     int n;
     cin >> n;
@@ -53,9 +49,15 @@ int main() {
       case 'Python':
         return '''n = int(input())
 print("Hello World!")''';
+      case 'Rust':
+        return '''use std::io;
+fn main() {
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).expect("Failed reading line");
+    println!("Hello World!");
+}''';
       case 'Java':
         return '''import java.util.Scanner;
-
 public class Main {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -63,19 +65,13 @@ public class Main {
         System.out.println("Hello World!");
     }
 }''';
-      case 'Ruby':
-        return '''n = gets.to_i
-puts "Hello World!"''';
-      case 'JavaScript':
-        return '''function main(input) {
-    const n = parseInt(input.trim());
-    console.log("Hello World!");
-}
-main(require('fs').readFileSync('/dev/stdin', 'utf8'));''';
-      case 'Dart':
-        return '''void main() {
-  final n = int.parse(stdin.readLineSync()!);
-  print("Hello World!");
+      case 'C#':
+        return '''using System;
+public class Program {
+    public static void Main() {
+        int n = int.Parse(Console.ReadLine());
+        Console.WriteLine("Hello World!");
+    }
 }''';
       default:
         return '// ここにコードを書いてください';

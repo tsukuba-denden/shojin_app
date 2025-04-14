@@ -7,13 +7,28 @@ import 'screens/editor_screen.dart';
 import 'screens/settings_screen.dart';
 import 'providers/theme_provider.dart';
 import 'providers/template_provider.dart';
+import 'dart:developer' as developer; // developerログのために追加
 
-void main() {
+void main() async {
+  // Flutter Engineの初期化を保証
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Providerのインスタンスを作成
+  final themeProvider = ThemeProvider();
+  final templateProvider = TemplateProvider();
+
+  // 非同期でテーマとテンプレートの読み込みが完了するのを待つ
+  // 各プロバイダー内の_loadFromPrefsの完了を待つため、
+  // isLoadingがfalseになるまで短い遅延を入れて待機する
+  while (themeProvider.isLoading || templateProvider.isLoading) {
+    await Future.delayed(const Duration(milliseconds: 10));
+  }
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => TemplateProvider()),
+        ChangeNotifierProvider.value(value: themeProvider),
+        ChangeNotifierProvider.value(value: templateProvider),
       ],
       child: const MyApp(),
     ),
@@ -133,14 +148,31 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  
-  static final List<Widget> _screens = [
-    const HomeScreen(),
-    const ProblemsScreen(),
-    const EditorScreen(),
-    const SettingsScreen(),
-  ];
-  
+  // 現在選択されている問題IDを保持する状態変数
+  String _currentProblemId = 'default_problem';
+
+  // 問題IDを更新するためのコールバック関数
+  void _updateProblemId(String newProblemId) {
+    setState(() {
+      _currentProblemId = newProblemId;
+    });
+    // デバッグ用にコンソールに出力
+    developer.log('問題IDが更新されました: $_currentProblemId', name: 'MainScreen');
+  }
+
+  // _screensリストをbuildメソッド内で動的に生成するメソッド
+  List<Widget> _buildScreens() {
+    return [
+      const HomeScreen(),
+      ProblemsScreen(onProblemChanged: _updateProblemId),
+      EditorScreen(
+        key: ValueKey(_currentProblemId), // 問題IDが変わったら再描画されるようにキーを設定
+        problemId: _currentProblemId,
+      ),
+      const SettingsScreen(),
+    ];
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -149,12 +181,18 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // _buildScreens() を呼び出して最新の画面リストを取得
+    final screens = _buildScreens();
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         title: const Text('Shojin App'),
       ),
-      body: _screens[_selectedIndex],
+      body: IndexedStack(
+        index: _selectedIndex, // 現在のタブのインデックスを指定
+        children: screens, // 動的に生成された画面リストを使用
+      ),
       bottomNavigationBar: NavigationBar(
         onDestinationSelected: _onItemTapped,
         selectedIndex: _selectedIndex,
@@ -213,13 +251,17 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
+// ProblemsScreen はコールバックを受け取るように修正が必要
 class ProblemsScreen extends StatelessWidget {
-  const ProblemsScreen({super.key});
+  final Function(String) onProblemChanged; // コールバック関数を受け取る
+
+  const ProblemsScreen({super.key, required this.onProblemChanged});
 
   @override
   Widget build(BuildContext context) {
-    // 問題詳細画面を直接表示する
-    return const ProblemDetailScreen();
+    // ProblemDetailScreen にコールバックを渡す
+    // ProblemDetailScreen が onProblemChanged を受け取るように後で修正が必要
+    return ProblemDetailScreen(onProblemChanged: onProblemChanged);
   }
 }
   
