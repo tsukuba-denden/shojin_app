@@ -3,7 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Clipboardのために追加
 import 'package:flutter_code_editor/flutter_code_editor.dart';
-import 'package:highlight/languages/dart.dart'; // CodeControllerの初期化に必要
+// ハイライト言語のインポートを修正
+import 'package:highlight/languages/python.dart';
+import 'package:highlight/languages/cpp.dart'; // clike.dart から cpp.dart に修正
+import 'package:highlight/languages/rust.dart';
+import 'package:highlight/languages/java.dart';
+import 'package:highlight/languages/dart.dart'; // デフォルト用
 import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:flutter_highlight/themes/github.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,6 +18,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/problem.dart'; // 追加
 import '../models/test_result.dart'; // 追加
 import '../services/atcoder_service.dart'; // 追加
+import 'dart:developer' as developer; // developerログのために追加
 
 class EditorScreen extends StatefulWidget {
   final String problemId; // 問題IDを追加
@@ -55,8 +61,9 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   void initState() {
     super.initState();
+    // CodeController を初期化する際に、選択されている言語のハイライトを設定
     _codeController = CodeController(
-      language: dart,
+      language: _getHighlightLanguage(_selectedLanguage), // 修正
       text: '// Loading code...',
     );
     _loadSavedCode();
@@ -110,11 +117,31 @@ class _EditorScreenState extends State<EditorScreen> {
     }
   }
 
+  // 言語名から highlight パッケージの言語オブジェクトを取得するヘルパー関数
+  dynamic _getHighlightLanguage(String language) {
+    switch (language) {
+      case 'Python':
+        return python;
+      case 'C++':
+        return cpp; // clike を cpp として使用
+      case 'Rust':
+        return rust;
+      case 'Java':
+        return java;
+      default:
+        return dart; // 不明な場合は dart または plaintext
+    }
+  }
+
   // 言語が変更されたときの処理
   void _onLanguageChanged(String? newLanguage) {
     if (newLanguage != null && newLanguage != _selectedLanguage) {
+      // コードを保存するかユーザーに確認するなどの処理を追加しても良い
       setState(() {
         _selectedLanguage = newLanguage;
+        // CodeController の言語も更新
+        _codeController.language = _getHighlightLanguage(_selectedLanguage);
+        developer.log('Language changed to: $_selectedLanguage, loading code...', name: 'EditorScreen');
         _loadSavedCode(); // 新しい言語に対応するコードを読み込む
       });
     }
@@ -275,23 +302,28 @@ public class Main {
     // _isLoadingCode は initState で true になっているので、ここでは setState しない
 
     try {
-      // ProblemProvider から contestId を取得するか、適切な方法で contestId を特定する
-      // ここでは仮に problemId から contestId を抽出する (例: 'abc349_a' -> 'abc349')
-      final parts = widget.problemId.split('_');
-      if (parts.isEmpty) {
-        print("Invalid problem ID format: ${widget.problemId}");
-        if (mounted) {
-          setState(() {
-            _isLoadingCode = false; // エラーでもローディング終了
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('無効な問題ID形式です: ${widget.problemId}')),
-          );
+      // 問題URLを決定する
+      // problemIdがすでに完全なURLの場合はそのまま使用
+      String url = widget.problemId;
+      if (!url.startsWith('http')) {
+        // URLでない場合は、従来の方法でURL構築を試みる
+        final parts = widget.problemId.split('_');
+        if (parts.isEmpty) {
+          print("Invalid problem ID format: ${widget.problemId}");
+          if (mounted) {
+            setState(() {
+              _isLoadingCode = false; // エラーでもローディング終了
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('無効な問題ID形式です: ${widget.problemId}')),
+            );
+          }
+          return;
         }
-        return;
+        final contestId = parts[0];
+        url = 'https://atcoder.jp/contests/$contestId/tasks/${widget.problemId}';
       }
-      final contestId = parts[0];
-      final url = 'https://atcoder.jp/contests/$contestId/tasks/${widget.problemId}';
+
       print("Fetching problem data from: $url"); // デバッグ用ログ
       final problem = await _atcoderService.fetchProblem(url);
       print("Problem data fetched: ${problem.title}"); // デバッグ用ログ
@@ -322,9 +354,14 @@ public class Main {
        // ★★★ デバッグログ追加 ★★★
     }
   }
-
   // Wandbox APIを使用して単一のテストケースを実行する内部関数
   Future<TestResult> _runSingleTest(TestResult testCase, String code, String wandboxLanguage, Function(VoidCallback) setDialogState) async {
+    // 詳細なデバッグログを追加
+    print("★★★ Running test case ${testCase.index} ★★★");
+    print("Language: $wandboxLanguage");
+    print("Input length: ${testCase.input.length} chars");
+    print("Code length: ${code.length} chars");
+
     // ダイアログの状態を更新
     setDialogState(() {
       testCase.status = JudgeStatus.running;
@@ -332,18 +369,21 @@ public class Main {
 
     final url = Uri.parse('https://wandbox.org/api/compile.json');
     try {
+      print("Sending request to Wandbox API...");
+      final requestBody = {
+        'code': code,
+        'compiler': wandboxLanguage,
+        'stdin': testCase.input,
+        'save': false,
+        // 'compiler-option-raw': '-O2\n-Wall', // 必要ならコンパイラオプション
+        // 'runtime-option-raw': '', // 必要なら実行時オプション
+      };
+      
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json; charset=UTF-8'},
-        body: jsonEncode({
-          'code': code,
-          'compiler': wandboxLanguage,
-          'stdin': testCase.input,
-          'save': false,
-          // 'compiler-option-raw': '-O2\n-Wall', // 必要ならコンパイラオプション
-          // 'runtime-option-raw': '', // 必要なら実行時オプション
-        }),
-      ).timeout(const Duration(seconds: 15)); // 15秒タイムアウト
+        body: jsonEncode(requestBody),
+      ).timeout(const Duration(seconds: 30)); // タイムアウト時間を30秒に延長
 
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
@@ -394,50 +434,114 @@ public class Main {
 
   // 複数のテストケースを実行する関数
   Future<void> _runTests() async {
-    if (_isTesting || _currentProblem == null || _currentProblem!.samples.isEmpty) {
+    // --- 開始時のチェック ---
+    developer.log('★★★ Test Button Pressed! ★★★', name: 'EditorScreen'); // ログ追加
+    if (_isTesting) {
+      developer.log('Already testing, returning.', name: 'EditorScreen');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(
-          _isTesting ? 'テスト実行中です' : (_currentProblem == null ? '問題データがありません' : 'テストケースが見つかりません')
-        )),
+        const SnackBar(content: Text('テスト実行中です')),
       );
       return;
     }
+    // 問題データとサンプルケースの存在確認
+    if (_currentProblem == null || _currentProblem!.samples.isEmpty) {
+       developer.log('Problem data or samples missing.', name: 'EditorScreen');
+       ScaffoldMessenger.of(context).showSnackBar(
+         SnackBar(content: Text(_currentProblem == null ? '問題データがありません' : 'テストケースが見つかりません')),
+       );
+       return;
+    }
+    developer.log('Checks passed, starting test process.', name: 'EditorScreen');
 
-    // 外側のStateを更新してボタンを無効化
+    // --- 状態更新と準備 ---
+    // 外側のStateを更新してボタンを無効化 & テスト結果リスト初期化
     setState(() {
       _isTesting = true;
+      _testResults = _currentProblem!.samples.map((sample) => TestResult(
+        index: sample.index,
+        input: sample.input,
+        expectedOutput: sample.output,
+        // 初期状態は pending
+      )).toList();
     });
+    developer.log('Outer state updated: _isTesting=true, _testResults initialized with ${_testResults.length} cases.', name: 'EditorScreen');
 
-    _testResults = _currentProblem!.samples.map((sample) => TestResult(
-      index: sample.index,
-      input: sample.input,
-      expectedOutput: sample.output,
-    )).toList();
 
     final code = _codeController.text;
     final wandboxLanguage = _getWandboxLanguageName(_selectedLanguage);
+    developer.log('Code length: ${code.length}, Wandbox language: $wandboxLanguage', name: 'EditorScreen');
 
-    // テスト結果表示用のダイアログを表示し、そのダイアログの setState を取得
-    Function(VoidCallback)? setDialogStateProxy;
-    await showDialog(
+
+    // --- ダイアログ表示と非同期テスト実行 ---
+    bool testsStarted = false; // 非同期処理の重複実行を防ぐフラグ
+
+    // ダイアログを表示 (await しない)
+    showDialog(
       context: context,
       barrierDismissible: false, // 実行中は閉じさせない
       builder: (BuildContext context) {
+        // ダイアログ内の状態を管理
         return StatefulBuilder(
           key: _testResultsDialogKey, // Keyを渡す
           builder: (context, setDialogState) {
-            // 外側の _runTests 関数にダイアログの setState を渡す
-            setDialogStateProxy = setDialogState;
 
+            // --- 非同期テスト実行トリガー ---
+            // StatefulBuilder の初回ビルド後 or 状態更新後に非同期処理を開始
+            if (!testsStarted) {
+              testsStarted = true;
+              developer.log('Dialog built, scheduling test execution loop.', name: 'EditorScreen');
+              // Future.microtask を使い、現在のビルドサイクルの直後に実行
+              Future.microtask(() async {
+                developer.log('★★★ Starting test execution loop (async) ★★★', name: 'EditorScreen');
+                for (int i = 0; i < _testResults.length; i++) {
+                  // ダイアログがまだ表示されているか確認
+                  if (_testResultsDialogKey.currentContext == null) {
+                     developer.log("★★★ Dialog closed during test execution, stopping loop. ★★★", name: 'EditorScreen');
+                     break; // ダイアログが閉じていたらループ中断
+                  }
+                  developer.log("★★★ Preparing to run test case ${i + 1} (async) ★★★", name: 'EditorScreen');
+                  // 個々のテストを実行し、ダイアログの setState を渡して更新させる
+                  final result = await _runSingleTest(_testResults[i], code, wandboxLanguage, setDialogState);
+
+                  // エラーが発生したら以降のテストを中断 (CE, RE, IE)
+                  if (result.status == JudgeStatus.ce || result.status == JudgeStatus.re || result.status == JudgeStatus.ie) {
+                    developer.log("Stopping tests due to error in case ${result.index}: ${result.statusLabel}", name: 'EditorScreen');
+                    // オプション: エラー発生時に残りのテストを Pending のままにするか、Skip などにするか
+                    // for (int j = i + 1; j < _testResults.length; j++) {
+                    //   setDialogState(() => _testResults[j].status = JudgeStatus.sk); // 例: Skip
+                    // }
+                    break; // ループ中断
+                  }
+                }
+                developer.log("★★★ Finished test execution loop (async) ★★★", name: 'EditorScreen');
+
+                // --- テスト完了後の状態更新 ---
+                // メイン画面の State がまだ有効か確認
+                if (mounted) {
+                  developer.log('Main screen mounted, updating _isTesting to false.', name: 'EditorScreen');
+                  setState(() {
+                    _isTesting = false; // メイン画面の状態更新 (ボタン有効化など)
+                  });
+                }
+                 // ダイアログがまだ表示されていれば、ダイアログの状態も更新 (閉じるボタン有効化のため)
+                if (_testResultsDialogKey.currentContext != null) {
+                   developer.log('Dialog mounted, calling setDialogState to update close button.', name: 'EditorScreen');
+                   setDialogState(() {}); // ダイアログの状態を更新
+                }
+              });
+            }
+
+            // --- ダイアログUIの構築 ---
             return AlertDialog(
               title: Text('テスト実行結果 (${_currentProblem?.title ?? ""})'),
               content: SizedBox(
-                width: double.maxFinite,
+                width: double.maxFinite, // 横幅を最大に
                 child: ListView.builder(
-                  shrinkWrap: true,
+                  shrinkWrap: true, // 内容に合わせて高さを調整
                   itemCount: _testResults.length,
                   itemBuilder: (context, index) {
                     final result = _testResults[index];
+                    // 各テストケースの結果を表示する ListTile
                     return ListTile(
                       leading: CircleAvatar(
                         radius: 15,
@@ -445,19 +549,19 @@ public class Main {
                         child: result.status == JudgeStatus.running || result.status == JudgeStatus.pending
                             ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                             : Text(
-                                result.index.toString(),
+                                result.index.toString(), // ケース番号
                                 style: const TextStyle(color: Colors.white, fontSize: 12),
                               ),
                       ),
-                      title: Text('ケース ${result.index}'),
-                      subtitle: Text(result.statusLabel),
+                      title: Text('ケース ${result.index}'), // タイトル
+                      subtitle: Text(result.statusLabel), // サブタイトル (AC, WA, TLE...)
                       trailing: result.status != JudgeStatus.running && result.status != JudgeStatus.pending
-                          ? const Icon(Icons.chevron_right)
-                          : null,
+                          ? const Icon(Icons.chevron_right) // 完了後は詳細表示アイコン
+                          : null, // 実行中はなし
                       onTap: result.status == JudgeStatus.running || result.status == JudgeStatus.pending
                           ? null // 実行中・待機中はタップ無効
                           : () {
-                              // 詳細表示
+                              // タップで詳細表示ダイアログを開く
                               _showResultDetailDialog(result);
                             },
                     );
@@ -465,42 +569,25 @@ public class Main {
                 ),
               ),
               actions: <Widget>[
-                // 実行中は閉じるボタンを無効化
+                // 閉じるボタン
                 TextButton(
-                  onPressed: _isTesting ? null : () {
-                    Navigator.of(context).pop();
-                  },
                   child: const Text('閉じる'),
+                  // メイン画面の _isTesting 状態を見て有効/無効を切り替え
+                  onPressed: _isTesting ? null : () {
+                    developer.log('Close button pressed.', name: 'EditorScreen');
+                    Navigator.of(context).pop(); // ダイアログを閉じる
+                  },
                 ),
               ],
             );
           },
         );
       },
-    );
+    ); // showDialog の呼び出し終了
 
-    // ダイアログが表示された後、テストを実行
-    if (setDialogStateProxy != null) {
-      for (int i = 0; i < _testResults.length; i++) {
-        final result = await _runSingleTest(_testResults[i], code, wandboxLanguage, setDialogStateProxy!);
-        // コンパイルエラーやREが出たら以降のテストを中断する場合
-        if (result.status == JudgeStatus.ce || result.status == JudgeStatus.re || result.status == JudgeStatus.ie) {
-           print("Stopping tests due to error in case ${result.index}: ${result.statusLabel}");
-           break;
-        }
-      }
-    }
-
-    // 全テスト終了後、外側のStateとダイアログのStateを更新
-    if (mounted) {
-      setState(() {
-        _isTesting = false;
-      });
-      // ダイアログがまだ表示されていれば更新
-      if (_testResultsDialogKey.currentContext != null) {
-         setDialogStateProxy?.call(() {});
-      }
-    }
+    developer.log('_runTests function finished (dialog shown, async tests scheduled).', name: 'EditorScreen');
+    // この関数自体は showDialog を呼び出した直後に終了する
+    // 実際のテスト実行と完了後の処理は Future.microtask 内で行われる
   }
 
   // テスト結果詳細ダイアログ
@@ -558,7 +645,7 @@ public class Main {
                  width: double.infinity,
                  constraints: const BoxConstraints(maxHeight: 150), // 高さに制限
                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                    color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(4),
                  ),
                  child: SingleChildScrollView( // 内容が長い場合にスクロール可能に
