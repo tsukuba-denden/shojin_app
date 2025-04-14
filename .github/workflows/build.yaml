@@ -22,11 +22,11 @@ jobs:
         uses: actions/checkout@v4 # 最新バージョンを確認してください
 
       # Step 2: Java Development Kit (JDK) をセットアップ (Androidビルドに必要)
-      - name: Set up JDK 17
+      - name: Set up JDK 24
         uses: actions/setup-java@v4 # 最新バージョンを確認してください
         with:
           distribution: 'temurin' # または他のディストリビューション
-          java-version: '17'    # プロジェクトに必要なJavaバージョンを指定
+          java-version: '24'    # プロジェクトに必要なJavaバージョンを指定
 
       # Step 3: Flutter SDK をセットアップ
       # (オプション) プロジェクトルートに .flutter-version ファイルがあればそのバージョンが使われます
