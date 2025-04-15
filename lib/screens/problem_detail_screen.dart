@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:developer' as developer;
-// import 'package:latext/latext.dart'; // latext パッケージは削除
 import '../models/problem.dart';
 import '../services/atcoder_service.dart';
 
 class ProblemDetailScreen extends StatefulWidget {
-  final String? initialUrl;
-  final Function(String) onProblemChanged; // コールバック関数を追加
+  final String? initialUrl; // Keep for potential direct URL loading
+  final String? problemIdToLoad; // New: ID passed from MainScreen via ProblemsScreen
+  final Function(String) onProblemChanged;
 
   const ProblemDetailScreen({
     super.key,
     this.initialUrl,
-    required this.onProblemChanged, // コンストラクタで必須にする
+    this.problemIdToLoad, // Add to constructor
+    required this.onProblemChanged,
   });
 
   @override
@@ -23,19 +24,63 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
   final _urlController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   final _atCoderService = AtCoderService();
-  
+
   Problem? _problem;
   bool _isLoading = false;
   String? _errorMessage;
+  String? _lastLoadedProblemId; // Track the last ID loaded via problemIdToLoad
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialUrl != null) {
+    developer.log('ProblemDetailScreen initState: initialUrl=${widget.initialUrl}, problemIdToLoad=${widget.problemIdToLoad}', name: 'ProblemDetailScreen');
+    if (widget.problemIdToLoad != null && widget.problemIdToLoad != 'default_problem') {
+       _loadProblemFromId(widget.problemIdToLoad!);
+    } else if (widget.initialUrl != null) {
       _urlController.text = widget.initialUrl!;
-      _fetchProblem();
+      _fetchProblem(); // Fetch based on initial URL
     }
   }
+
+  @override
+  void didUpdateWidget(ProblemDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    developer.log('ProblemDetailScreen didUpdateWidget: new problemIdToLoad=${widget.problemIdToLoad}, old problemIdToLoad=${oldWidget.problemIdToLoad}, lastLoaded=$_lastLoadedProblemId', name: 'ProblemDetailScreen');
+    // Check if problemIdToLoad changed, is not null, not default, and different from the last one loaded this way
+    if (widget.problemIdToLoad != null &&
+        widget.problemIdToLoad != 'default_problem' &&
+        widget.problemIdToLoad != _lastLoadedProblemId) {
+       developer.log('Triggering load from problemIdToLoad: ${widget.problemIdToLoad}', name: 'ProblemDetailScreen');
+      _loadProblemFromId(widget.problemIdToLoad!);
+    }
+  }
+
+  // New method to construct URL and fetch based on problemId
+  void _loadProblemFromId(String problemId) {
+    // Construct the URL (e.g., abc388_a -> https://atcoder.jp/contests/abc388/tasks/abc388_a)
+    final parts = problemId.split('_');
+    if (parts.length < 2) {
+       developer.log('Invalid problemId format: $problemId', name: 'ProblemDetailScreen');
+       setState(() {
+         _errorMessage = '無効な問題ID形式です: $problemId';
+       });
+       return;
+    }
+    // Heuristic: Assume the part before the last underscore is the contest ID
+    // This might fail for IDs like 'arc100_a_example'. Needs robust parsing if IDs vary.
+    // Let's assume standard format like 'abcXXX_Y' or 'arcXXX_Y'
+    final contestId = parts.first; // Simpler assumption: first part is contest ID
+    final taskId = problemId; // The full ID is the task ID in the URL
+    final url = 'https://atcoder.jp/contests/$contestId/tasks/$taskId';
+
+    developer.log('Constructed URL from ID $problemId: $url', name: 'ProblemDetailScreen');
+
+    // Update the text field and trigger fetch
+    _urlController.text = url;
+    _lastLoadedProblemId = problemId; // Mark this ID as being loaded
+    _fetchProblem(); // Fetch using the updated URL in the controller
+  }
+
 
   @override
   void dispose() {
@@ -44,29 +89,52 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
   }
 
   Future<void> _fetchProblem() async {
-    if (!_formKey.currentState!.validate()) return;
+    // Validate using the controller's text, which is now set correctly
+    // Use a temporary form key or validate directly if needed without relying on user interaction
+    // For automatic fetch, let's bypass the form validation for simplicity,
+    // assuming the constructed URL is valid. Add validation if needed.
+    // if (!_formKey.currentState!.validate()) return; // Skip form validation for automatic fetch
+
+    final urlToFetch = _urlController.text;
+    if (!_atCoderService.isValidAtCoderUrl(urlToFetch)) {
+       developer.log('Invalid URL constructed or entered: $urlToFetch', name: 'ProblemDetailScreen');
+       setState(() {
+         _errorMessage = '無効なAtCoder URLです: $urlToFetch';
+         _isLoading = false; // Ensure loading indicator stops
+       });
+       return;
+    }
+
 
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      // Clear previous problem when starting fetch? Optional.
+      // _problem = null;
     });
 
+    developer.log('Fetching problem from URL: $urlToFetch', name: 'ProblemDetailScreen');
+
     try {
-      final problem = await _atCoderService.fetchProblem(_urlController.text);
+      final problem = await _atCoderService.fetchProblem(urlToFetch);
       setState(() {
         _problem = problem;
         _isLoading = false;
+        // Reset last loaded ID if fetch fails? Or keep it?
       });
-      // 問題取得成功時にコールバックを呼び出す
+      // Problem fetched successfully, call the callback to update EditorScreen
       if (_problem != null) {
-         developer.log('Problem fetched successfully: ${_problem!.url}', name: 'ProblemDetailScreen'); // id を url に変更
-         widget.onProblemChanged(_problem!.url); // id を url に変更
+         developer.log('Problem fetched successfully: ${_problem!.url}', name: 'ProblemDetailScreen');
+         // Pass the *original URL* that was successfully fetched back up
+         widget.onProblemChanged(_problem!.url);
       }
     } catch (e) {
       developer.log('Failed to fetch problem: $e', name: 'ProblemDetailScreen', error: e);
       setState(() {
-        _errorMessage = '問題の取得に失敗しました: $e';
+        _errorMessage = '問題の取得に失敗しました: $e\nURL: $urlToFetch'; // Include URL in error
         _isLoading = false;
+        // Reset last loaded ID on failure so retry is possible?
+        // _lastLoadedProblemId = null;
       });
     }
   }
@@ -75,22 +143,22 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
+      child: Column( // Consider using ListView for better scrolling if content overflows
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Form(
-            key: _formKey,
+            key: _formKey, // Keep form key for manual input validation
             child: Row(
               children: [
                 Expanded(
                   child: TextFormField(
-                    controller: _urlController,
+                    controller: _urlController, // Controller is updated automatically now
                     decoration: InputDecoration(
                       labelText: 'AtCoder 問題URL',
                       hintText: 'https://atcoder.jp/contests/コンテスト名/tasks/問題名',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (value) {
+                    validator: (value) { // Validator for manual input
                       if (value == null || value.isEmpty) {
                         return 'URLを入力してください';
                       }
@@ -103,7 +171,14 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : _fetchProblem,
+                  // Trigger manual fetch using the current text in the controller
+                  onPressed: _isLoading ? null : () {
+                      // Manually trigger fetch only if form is valid
+                      if (_formKey.currentState!.validate()) {
+                          _lastLoadedProblemId = null; // Reset auto-load tracking for manual fetch
+                         _fetchProblem();
+                      }
+                  },
                   child: _isLoading
                       ? const SizedBox(
                           width: 20,
@@ -182,38 +257,47 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                 ),
               ),
             ),
-          if (_problem != null) _buildProblemView(_problem!),
+          if (_isLoading)
+            const Expanded( // Use Expanded if inside Column
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_problem != null)
+             Expanded( // Use Expanded if inside Column
+               child: _buildProblemView(_problem!),
+             )
+          else if (!_isLoading && _errorMessage == null)
+             const Expanded(
+               child: Center(child: Text('問題URLを入力またはWebViewから選択してください。')),
+             ),
         ],
       ),
     );
   }
 
   Widget _buildProblemView(Problem problem) {
-    return Expanded(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 16),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    problem.title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  problem.title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const Divider(),
-                  _buildSection('問題文', problem.statement),
-                  _buildSection('制約', problem.constraints),
-                  _buildSection('入力', problem.inputFormat),
-                  _buildSection('出力', problem.outputFormat),
-                  ...problem.samples.map((sample) => _buildSampleIO(sample)),
-                ],
-              ),
+                ),
+                const Divider(),
+                _buildSection('問題文', problem.statement),
+                _buildSection('制約', problem.constraints),
+                _buildSection('入力', problem.inputFormat),
+                _buildSection('出力', problem.outputFormat),
+                ...problem.samples.map((sample) => _buildSampleIO(sample)),
+              ],
             ),
           ),
         ),
