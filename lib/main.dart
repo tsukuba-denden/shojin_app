@@ -149,26 +149,54 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  // 現在選択されている問題IDを保持する状態変数
-  String _currentProblemId = 'default_problem';
+  String _currentProblemId = 'default_problem'; // Keep this for EditorScreen
 
-  // 問題IDを更新するためのコールバック関数
-  void _updateProblemId(String newProblemId) {
-    setState(() {
-      _currentProblemId = newProblemId;
-    });
-    // デバッグ用にコンソールに出力
-    developer.log('問題IDが更新されました: $_currentProblemId', name: 'MainScreen');
+  // This callback is for ProblemDetailScreen -> EditorScreen update
+  void _updateProblemIdForEditor(String newProblemUrl) {
+     // Extract problemId from URL if needed, or adjust Problem model/service
+     // Assuming AtCoderService returns a Problem object with an id field like 'abc388_a'
+     // Or modify ProblemDetailScreen's onProblemChanged to pass the id directly
+     final uri = Uri.parse(newProblemUrl);
+     if (uri.host == 'atcoder.jp' && uri.pathSegments.length == 4 &&
+         uri.pathSegments[0] == 'contests' && uri.pathSegments[2] == 'tasks') {
+       final problemId = uri.pathSegments[3]; // e.g., abc388_a
+       setState(() {
+         _currentProblemId = problemId;
+       });
+       developer.log('Editor Problem ID updated via ProblemDetailScreen: $_currentProblemId', name: 'MainScreen');
+     } else {
+       developer.log('Could not extract problem ID from URL: $newProblemUrl', name: 'MainScreen');
+       // Handle cases where URL might not be a standard problem URL if necessary
+       // Maybe set _currentProblemId = 'default_problem' or some error state
+     }
   }
 
-  // _screensリストをbuildメソッド内で動的に生成するメソッド
-  List<Widget> _buildScreens() {
+  // This function handles navigation from HomeScreen (WebView)
+  void navigateToProblemTabWithId(String problemId) {
+    developer.log('navigateToProblemTabWithId called with problemId: $problemId', name: 'MainScreen');
+    setState(() {
+      _selectedIndex = 1; // Switch to Problems tab
+      // We don't directly set _currentProblemId here for ProblemDetailScreen,
+      // instead, we pass it down. We update _currentProblemId via _updateProblemIdForEditor
+      // when ProblemDetailScreen successfully fetches.
+    });
+     // Trigger update in ProblemsScreen/ProblemDetailScreen by passing the new ID
+     // This requires ProblemsScreen to handle the ID change.
+     // Let's modify _buildScreens to pass the ID intended for ProblemDetailScreen.
+  }
+
+
+  List<Widget> _buildScreens(String problemIdToLoad) { // Accept problemId
     return [
-      const HomeScreen(),
-      ProblemsScreen(onProblemChanged: _updateProblemId),
+      HomeScreen(navigateToProblem: navigateToProblemTabWithId), // Pass the correct function
+      // Pass the problemId from WebView and the callback for manual fetch
+      ProblemsScreen(
+          problemIdToLoad: problemIdToLoad, // Pass the ID from WebView click
+          onProblemChanged: _updateProblemIdForEditor // For manual fetch update
+      ),
       EditorScreen(
-        key: ValueKey(_currentProblemId), // 問題IDが変わったら再描画されるようにキーを設定
-        problemId: _currentProblemId,
+        key: ValueKey(_currentProblemId),
+        problemId: _currentProblemId, // Editor uses the ID updated by onProblemChanged
       ),
       const SettingsScreen(),
     ];
@@ -182,7 +210,43 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // _buildScreens() を呼び出して最新の画面リストを取得
+    // Determine the problemId to load based on current state or navigation trigger
+    // This logic needs refinement. How do we pass the ID from navigateToProblemTabWithId
+    // into the build method cleanly? Using a state variable specifically for this might work.
+
+    // Let's introduce a state variable for the ID triggered by WebView
+    String? _problemIdFromWebView;
+
+    // Modify navigateToProblemTabWithId to update this state variable
+    void navigateToProblemTabWithId(String problemId) {
+      developer.log('navigateToProblemTabWithId called with problemId: $problemId', name: 'MainScreen');
+      setState(() {
+        _selectedIndex = 1; // Switch to Problems tab
+        _problemIdFromWebView = problemId; // Store the ID to pass down
+      });
+    }
+
+    // Rebuild _buildScreens to use the state variable
+    List<Widget> _buildScreens() {
+      String? idToPass = _problemIdFromWebView;
+      _problemIdFromWebView = null; // Reset after passing down once
+
+      return [
+        HomeScreen(navigateToProblem: navigateToProblemTabWithId),
+        ProblemsScreen(
+            // Pass the ID only if it came from WebView this build cycle
+            problemIdToLoad: idToPass,
+            onProblemChanged: _updateProblemIdForEditor
+        ),
+        EditorScreen(
+          key: ValueKey(_currentProblemId),
+          problemId: _currentProblemId,
+        ),
+        const SettingsScreen(),
+      ];
+    }
+
+
     final screens = _buildScreens();
 
     return Scaffold(
@@ -218,36 +282,51 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-class HomeScreen extends StatefulWidget { // Change to StatefulWidget
-  const HomeScreen({super.key});
+// HomeScreenにコールバックを受け取るプロパティを追加
+class HomeScreen extends StatefulWidget {
+  final Function(String) navigateToProblem; // コールバック関数を受け取る
+
+  const HomeScreen({super.key, required this.navigateToProblem});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState(); // Create state
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> { // Create state class
-  late final WebViewController _controller; // Declare controller
+class _HomeScreenState extends State<HomeScreen> {
+  late final WebViewController _controller;
 
   @override
   void initState() {
     super.initState();
-    // Initialize the controller
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
       ..setNavigationDelegate(
         NavigationDelegate(
-          onProgress: (int progress) {
-            // Update loading bar.
-          },
+          onProgress: (int progress) {},
           onPageStarted: (String url) {},
           onPageFinished: (String url) {},
           onWebResourceError: (WebResourceError error) {},
           onNavigationRequest: (NavigationRequest request) {
-            // Allow navigation within the domain, prevent others if needed
+            final uri = Uri.parse(request.url);
+            developer.log('Navigating to: ${request.url}', name: 'HomeScreenWebView');
+
+            if (uri.host == 'atcoder.jp' && uri.pathSegments.length == 4 &&
+                uri.pathSegments[0] == 'contests' && uri.pathSegments[2] == 'tasks') {
+              final taskId = uri.pathSegments[3]; // Correctly extract taskId (e.g., abc388_a)
+              final problemId = taskId; // Use taskId as problemId
+
+              developer.log('AtCoder problem page detected: $problemId', name: 'HomeScreenWebView');
+              widget.navigateToProblem(problemId); // Pass the correct ID
+              return NavigationDecision.prevent;
+            }
+
             if (request.url.startsWith('https://atcoder-novisteps.vercel.app/')) {
+               developer.log('Allowing navigation within NoviSteps', name: 'HomeScreenWebView');
               return NavigationDecision.navigate;
             }
+
+            developer.log('Preventing navigation to external site: ${request.url}', name: 'HomeScreenWebView');
             return NavigationDecision.prevent;
           },
         ),
@@ -257,22 +336,28 @@ class _HomeScreenState extends State<HomeScreen> { // Create state class
 
   @override
   Widget build(BuildContext context) {
-    // Return the WebViewWidget
     return WebViewWidget(controller: _controller);
   }
 }
 
 // ProblemsScreen はコールバックを受け取るように修正が必要
 class ProblemsScreen extends StatelessWidget {
-  final Function(String) onProblemChanged; // コールバック関数を受け取る
+  final String? problemIdToLoad; // ID from WebView click
+  final Function(String) onProblemChanged; // Callback for manual fetch
 
-  const ProblemsScreen({super.key, required this.onProblemChanged});
+  const ProblemsScreen({
+    super.key,
+    this.problemIdToLoad,
+    required this.onProblemChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // ProblemDetailScreen にコールバックを渡す
-    // ProblemDetailScreen が onProblemChanged を受け取るように後で修正が必要
-    return ProblemDetailScreen(onProblemChanged: onProblemChanged);
+    // Pass both the ID to load and the callback
+    return ProblemDetailScreen(
+      problemIdToLoad: problemIdToLoad, // Pass the ID down
+      onProblemChanged: onProblemChanged, // Pass the callback down
+    );
   }
 }
   
