@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:webview_flutter/webview_flutter.dart'; // Import webview_flutter
 import 'screens/problem_detail_screen.dart';
 import 'screens/editor_screen.dart';
 import 'screens/settings_screen.dart';
@@ -185,13 +186,11 @@ class _MainScreenState extends State<MainScreen> {
     final screens = _buildScreens();
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-        title: const Text('Shojin App'),
-      ),
-      body: IndexedStack(
-        index: _selectedIndex, // 現在のタブのインデックスを指定
-        children: screens, // 動的に生成された画面リストを使用
+      body: SafeArea(
+        child: IndexedStack(
+          index: _selectedIndex,
+          children: screens,
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         onDestinationSelected: _onItemTapped,
@@ -219,35 +218,47 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget { // Change to StatefulWidget
   const HomeScreen({super.key});
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState(); // Create state
+}
+
+class _HomeScreenState extends State<HomeScreen> { // Create state class
+  late final WebViewController _controller; // Declare controller
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the controller
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (int progress) {
+            // Update loading bar.
+          },
+          onPageStarted: (String url) {},
+          onPageFinished: (String url) {},
+          onWebResourceError: (WebResourceError error) {},
+          onNavigationRequest: (NavigationRequest request) {
+            // Allow navigation within the domain, prevent others if needed
+            if (request.url.startsWith('https://atcoder-novisteps.vercel.app/')) {
+              return NavigationDecision.navigate;
+            }
+            return NavigationDecision.prevent;
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse('https://atcoder-novisteps.vercel.app/problems'));
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text(
-            'ホーム画面',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'AtCoderの練習アプリへようこそ',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    // Return the WebViewWidget
+    return WebViewWidget(controller: _controller);
   }
 }
 
