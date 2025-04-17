@@ -1,0 +1,21 @@
+version: 2
+registries:
+  private-registry:
+    type: git
+    url: https://github.com
+    username: yuubinnkyoku
+    password: ${{secrets.PERSONAL_TOKEN}}
+updates:
+  - package-ecosystem: "pub"
+    directory: "/"
+    # 毎日、日本時間の10時に更新をチェックする
+    schedule:
+      interval: "daily"
+      timezone: Asia/Tokyo
+      time: "06:00"
+    open-pull-requests-limit: 10
+    versioning-strategy: increase
+    reviewers:
+      - "yuubinnkyoku"
+    registries:
+      - private-registry
