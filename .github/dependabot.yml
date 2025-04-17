@@ -3,7 +3,7 @@ registries:
   private-registry:
     type: git
     url: https://github.com
-    username: yourname
+    username: yuubinnkyoku
     password: ${{secrets.PERSONAL_TOKEN}}
 updates:
   - package-ecosystem: "pub"
@@ -16,6 +16,6 @@ updates:
     open-pull-requests-limit: 10
     versioning-strategy: increase
     reviewers:
-      - "YourName"
+      - "yuubinnkyoku"
     registries:
       - private-registry
