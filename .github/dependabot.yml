@@ -12,7 +12,7 @@ updates:
     schedule:
       interval: "daily"
       timezone: Asia/Tokyo
-      time: "6:00"
+      time: "06:00"
     open-pull-requests-limit: 10
     versioning-strategy: increase
     reviewers:
