@@ -1,5 +1,5 @@
 # Shojin_App
-[![Build debug APK](https://github.com/tsukuba-denden/Shojin_App/actions/workflows/ci.yml/badge.svg)](https://github.com/tsukuba-denden/Shojin_App/actions/workflows/ci.yml)
+
 [![Latest release](https://img.shields.io/github/v/release/tsukuba-denden/Shojin_App?include_prereleases)](https://github.com/tsukuba-denden/Shojin_App/releases)
 [![License](https://img.shields.io/github/license/tsukuba-denden/Shojin_App)](https://github.com/tsukuba-denden/shojin_app/tree/main?tab=MIT-1-ov-file)
 [![Downloads](https://img.shields.io/github/downloads/tsukuba-denden/Shojin_App/total)](https://github.com/tsukuba-denden/Shojin_App/releases)
