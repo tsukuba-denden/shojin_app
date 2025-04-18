@@ -7,8 +7,7 @@ registries:
     password: ${{secrets.PERSONAL_TOKEN}}
 updates:
   - package-ecosystem: "pub"
-    directory: "/"
-    # 毎日、日本時間の10時に更新をチェックする
+    directory: "/'
     schedule:
       interval: "daily"
       timezone: Asia/Tokyo
