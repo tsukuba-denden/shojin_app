@@ -407,9 +407,10 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(4),
-           ),
-           // サンプル入力は通常のTextで表示 (LaTeXとして解釈させない)
-           child: Text(sample.input, style: const TextStyle(fontFamily: 'monospace')),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+          ),
+          // サンプル入力は通常のTextで表示 (LaTeXとして解釈させない)
+          child: Text(sample.input, style: const TextStyle(fontFamily: 'monospace')),
         ),
         const SizedBox(height: 8),
         Row(
@@ -440,9 +441,10 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(4),
-           ),
-           // サンプル出力は通常のTextで表示 (LaTeXとして解釈させない)
-           child: Text(sample.output, style: const TextStyle(fontFamily: 'monospace')),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+          ),
+          // サンプル出力は通常のTextで表示 (LaTeXとして解釈させない)
+          child: Text(sample.output, style: const TextStyle(fontFamily: 'monospace')),
         ),
       ],
     );
