@@ -4,3 +4,4 @@
     height="80">](https://github.com/tsukuba-denden/shojin_app/releases)
 
 AtCoderの精進をスマホでも。
+
