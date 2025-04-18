@@ -5,7 +5,7 @@
 
 AtCoderの精進をスマホでも。
 
-[![Latest release](https://img.shields.io/github/v/release/tsukuba-denden/Shojin_App?include_prereleases)](https://github.com/DD3Boh/OuterTune/releases)
-[![License](https://img.shields.io/github/license/DD3Boh/OuterTune)](https://www.gnu.org/licenses/gpl-3.0)
-[![Downloads](https://img.shields.io/github/downloads/DD3Boh/OuterTune/total)](https://github.com/DD3Boh/OuterTune/releases)
+[![Latest release](https://img.shields.io/github/v/release/tsukuba-denden/Shojin_App?include_prereleases)](https://github.com/tsukuba-denden/Shojin_App/releases)
+[![License](https://img.shields.io/github/license/tsukuba-denden/Shojin_App)](https://www.gnu.org/licenses/gpl-3.0)
+[![Downloads](https://img.shields.io/github/downloads/tsukuba-denden/Shojin_App/total)](https://github.com/tsukuba-denden/Shojin_App/releases)
 
