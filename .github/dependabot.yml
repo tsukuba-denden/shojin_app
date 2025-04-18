@@ -1,10 +1,5 @@
 version: 2
-registries:
-  private-registry:
-    type: git
-    url: https://github.com
-    username: yuubinnkyoku
-    password: ${{secrets.PERSONAL_TOKEN}}
+
 updates:
   - package-ecosystem: "pub"
     directory: "/'
@@ -16,5 +11,3 @@ updates:
     versioning-strategy: increase
     reviewers:
       - "yuubinnkyoku"
-    registries:
-      - private-registry
