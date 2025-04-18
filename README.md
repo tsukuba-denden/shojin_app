@@ -8,4 +8,7 @@
     alt="Get it on GitHub"
     height="80">](https://github.com/tsukuba-denden/shojin_app/releases)
 
+[<img src="assets/badge_obtinium.png" alt="Get it on Obtainium" height="40"
+>]
+
 AtCoderの精進をスマホでも。
