@@ -5,7 +5,7 @@ name: Android Build
 # ワークフローが実行されるトリガーを指定
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev ]
 
   pull_request:
     branches: [ main ]
