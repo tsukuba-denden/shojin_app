@@ -10,6 +10,7 @@ import 'providers/theme_provider.dart';
 import 'providers/template_provider.dart';
 import 'dart:developer' as developer; // developerログのために追加
 import 'package:flutter/services.dart'; // 触覚フィードバックのために追加
+import 'dart:ui';
 
 void main() async {
   // Flutter Engineの初期化を保証
@@ -239,33 +240,50 @@ class _MainScreenState extends State<MainScreen> {
     final screens = _buildScreens();
 
     return Scaffold(
+      extendBody: true, // Allow body to extend behind BottomNavigationBar for backdrop blur
       body: SafeArea(
+        bottom: false, // allow content under BottomNavigationBar for BackdropFilter
         child: IndexedStack(
           index: _selectedIndex,
           children: screens,
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        onDestinationSelected: _onItemTapped,
-        selectedIndex: _selectedIndex,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home),
-            label: 'ホーム',
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+          child: Container(
+            color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
+            child: Material(
+              color: Colors.transparent, // Let the translucent container show
+              child: NavigationBar(
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent, // Disable M3 surface tint
+                shadowColor: Colors.transparent,     // Remove shadow
+                elevation: 0,
+                onDestinationSelected: _onItemTapped,
+                selectedIndex: _selectedIndex,
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.home),
+                    label: 'ホーム',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.list_alt),
+                    label: '問題',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.code),
+                    label: 'エディタ',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.settings),
+                    label: '設定',
+                  ),
+                ],
+              ),
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.list_alt),
-            label: '問題',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.code),
-            label: 'エディタ',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings),
-            label: '設定',
-          ),
-        ],
+        ),
       ),
     );
   }
