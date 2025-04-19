@@ -9,6 +9,7 @@ import 'screens/settings_screen.dart';
 import 'providers/theme_provider.dart';
 import 'providers/template_provider.dart';
 import 'dart:developer' as developer; // developerログのために追加
+import 'package:flutter/services.dart'; // 触覚フィードバックのために追加
 
 void main() async {
   // Flutter Engineの初期化を保証
@@ -217,6 +218,8 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _onItemTapped(int index) {
+    // 触覚フィードバックを追加
+    HapticFeedback.lightImpact(); 
     // Check if mounted before calling setState
     if (mounted) {
       setState(() {
