@@ -3,6 +3,8 @@ import 'package:dynamic_color/dynamic_color.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart'; // Import webview_flutter
+import 'package:shared_preferences/shared_preferences.dart'; // For storing home sites
+import 'dart:convert'; // For JSON encoding/decoding
 import 'screens/problem_detail_screen.dart';
 import 'screens/editor_screen.dart';
 import 'screens/settings_screen.dart';
@@ -300,11 +302,22 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late final WebViewController _controller;
+  late WebViewController _controller;
+  late SharedPreferences _prefs;
+  List<Map<String, String>> _sites = [];
+  bool _isControllerReady = false;
 
   @override
   void initState() {
     super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    _prefs = await SharedPreferences.getInstance();
+    final sitesJson = _prefs.getStringList('homeSites') ?? [];
+    _sites = sitesJson.map((e) => Map<String, String>.from(jsonDecode(e))).toList();
+    // WebViewControllerの初期化
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
@@ -317,33 +330,97 @@ class _HomeScreenState extends State<HomeScreen> {
           onNavigationRequest: (NavigationRequest request) {
             final uri = Uri.parse(request.url);
             developer.log('Navigating to: ${request.url}', name: 'HomeScreenWebView');
-
             if (uri.host == 'atcoder.jp' && uri.pathSegments.length == 4 &&
                 uri.pathSegments[0] == 'contests' && uri.pathSegments[2] == 'tasks') {
-              final taskId = uri.pathSegments[3]; // Correctly extract taskId (e.g., abc388_a)
-              final problemId = taskId; // Use taskId as problemId
-
-              developer.log('AtCoder problem page detected: $problemId', name: 'HomeScreenWebView');
-              widget.navigateToProblem(problemId); // Pass the correct ID
+              widget.navigateToProblem(uri.pathSegments[3]);
               return NavigationDecision.prevent;
             }
-
             if (request.url.startsWith('https://atcoder-novisteps.vercel.app/')) {
-               developer.log('Allowing navigation within NoviSteps', name: 'HomeScreenWebView');
               return NavigationDecision.navigate;
             }
-
-            developer.log('Preventing navigation to external site: ${request.url}', name: 'HomeScreenWebView');
             return NavigationDecision.prevent;
           },
         ),
       )
-      ..loadRequest(Uri.parse('https://atcoder-novisteps.vercel.app/problems'));
+      ..loadRequest(Uri.parse(_sites.isNotEmpty ? _sites.first['url']! : 'https://atcoder-novisteps.vercel.app/problems'));
+    _isControllerReady = true;
+    setState(() {});
+  }
+
+  Future<void> _addSite() async {
+    final titleController = TextEditingController();
+    final urlController = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('サイトを追加'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'タイトル'),
+            ),
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(labelText: 'URL'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
+          TextButton(
+            onPressed: () async {
+              final title = titleController.text.trim();
+              final url = urlController.text.trim();
+              if (title.isNotEmpty && url.isNotEmpty) {
+                _sites.add({'title': title, 'url': url});
+                final list = _sites.map((e) => jsonEncode(e)).toList();
+                await _prefs.setStringList('homeSites', list);
+                setState(() {});
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('追加'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return WebViewWidget(controller: _controller);
+    return Column(
+      children: [
+        SizedBox(
+          height: 60,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              ..._sites.map((site) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                child: ElevatedButton(
+                  onPressed: () => _controller.loadRequest(Uri.parse(site['url']!)),
+                  child: Text(site['title']!),
+                ),
+              )),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                child: ElevatedButton(
+                  onPressed: _addSite,
+                  child: const Icon(Icons.add),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _isControllerReady
+              ? WebViewWidget(controller: _controller)
+              : const Center(child: CircularProgressIndicator()),
+        ),
+      ],
+    );
   }
 }
 
