@@ -571,12 +571,11 @@ public class Main {
               actions: <Widget>[
                 // 閉じるボタン
                 TextButton(
-                  child: const Text('閉じる'),
-                  // メイン画面の _isTesting 状態を見て有効/無効を切り替え
                   onPressed: _isTesting ? null : () {
                     developer.log('Close button pressed.', name: 'EditorScreen');
                     Navigator.of(context).pop(); // ダイアログを閉じる
                   },
+                  child: const Text('閉じる'),
                 ),
               ],
             );
@@ -645,7 +644,7 @@ public class Main {
                  width: double.infinity,
                  constraints: const BoxConstraints(maxHeight: 150), // 高さに制限
                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(4),
                  ),
                  child: SingleChildScrollView( // 内容が長い場合にスクロール可能に
