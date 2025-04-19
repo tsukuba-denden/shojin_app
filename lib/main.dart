@@ -306,6 +306,9 @@ class _HomeScreenState extends State<HomeScreen> {
   late SharedPreferences _prefs;
   List<Map<String, String>> _sites = [];
   bool _isControllerReady = false;
+  final String _noviStepsUrl = 'https://atcoder-novisteps.vercel.app/problems';
+  final String _noviStepsTitle = 'NoviSteps';
+
 
   @override
   void initState() {
@@ -317,7 +320,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _prefs = await SharedPreferences.getInstance();
     final sitesJson = _prefs.getStringList('homeSites') ?? [];
     _sites = sitesJson.map((e) => Map<String, String>.from(jsonDecode(e))).toList();
-    // WebViewControllerの初期化
+    // WebViewControllerの初期化 - 常にNoviStepsを最初にロード
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
@@ -335,58 +338,164 @@ class _HomeScreenState extends State<HomeScreen> {
               widget.navigateToProblem(uri.pathSegments[3]);
               return NavigationDecision.prevent;
             }
-            if (request.url.startsWith('https://atcoder-novisteps.vercel.app/')) {
+            // NoviSteps内またはユーザーが追加したサイトへのナビゲーションを許可
+            if (request.url.startsWith('https://atcoder-novisteps.vercel.app/') ||
+                _sites.any((site) => request.url.startsWith(site['url']!))) {
+               developer.log('Allowing navigation within allowed sites', name: 'HomeScreenWebView');
               return NavigationDecision.navigate;
             }
+            developer.log('Preventing navigation to external site: ${request.url}', name: 'HomeScreenWebView');
             return NavigationDecision.prevent;
           },
         ),
       )
-      ..loadRequest(Uri.parse(_sites.isNotEmpty ? _sites.first['url']! : 'https://atcoder-novisteps.vercel.app/problems'));
+      ..loadRequest(Uri.parse(_noviStepsUrl)); // 常にNoviStepsをロード
     _isControllerReady = true;
-    setState(() {});
+    if (mounted) { // Check if mounted before calling setState
+      setState(() {});
+    }
   }
 
   Future<void> _addSite() async {
     final titleController = TextEditingController();
     final urlController = TextEditingController();
+    String? urlErrorText; // Variable to hold the error message
+
     await showDialog(
       context: context,
+      // Use StatefulBuilder to manage state within the dialog
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('サイトを追加'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: 'タイトル'),
+                ),
+                TextField(
+                  controller: urlController,
+                  decoration: InputDecoration(
+                    labelText: 'URL',
+                    errorText: urlErrorText, // Display error message here
+                  ),
+                  keyboardType: TextInputType.url,
+                  onChanged: (_) {
+                    // Clear error when user types
+                    if (urlErrorText != null) {
+                      setStateDialog(() {
+                        urlErrorText = null;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
+              TextButton(
+                onPressed: () async {
+                  final title = titleController.text.trim();
+                  final url = urlController.text.trim();
+                  bool isValid = true; // Flag to track validation status
+
+                  // Reset error before validation
+                  setStateDialog(() {
+                     urlErrorText = null;
+                  });
+
+                  if (title.isEmpty || url.isEmpty) {
+                     // Show message if title or URL is empty (optional, or handle via TextField validation)
+                     ScaffoldMessenger.of(context).showSnackBar(
+                       const SnackBar(content: Text('タイトルとURLを入力してください。')),
+                     );
+                     isValid = false;
+                     // Optionally set error text for empty fields too
+                     // if (url.isEmpty) {
+                     //   setStateDialog(() {
+                     //     urlErrorText = 'URLを入力してください';
+                     //   });
+                     // }
+                     // return; // Or just prevent closing
+                  } else {
+                    // Avoid adding NoviSteps again if the user tries
+                    if (title == _noviStepsTitle && url == _noviStepsUrl) {
+                       ScaffoldMessenger.of(context).showSnackBar(
+                         const SnackBar(content: Text('NoviStepsは既に追加されています。')),
+                       );
+                       isValid = false;
+                       // Don't close dialog immediately, let user correct
+                       // Navigator.pop(context); // Remove this
+                       // return;
+                    }
+
+                    // Validate URL format only if not empty
+                    if (isValid) {
+                       final uri = Uri.tryParse(url);
+                       if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+                         setStateDialog(() {
+                           urlErrorText = '有効なURLを入力してください (例: https://example.com)';
+                         });
+                         isValid = false;
+                         // return; // Don't close dialog on error
+                       }
+                    }
+                  }
+
+
+                  // Proceed only if validation passed
+                  if (isValid) {
+                    _sites.add({'title': title, 'url': url});
+                    final list = _sites.map((e) => jsonEncode(e)).toList();
+                    await _prefs.setStringList('homeSites', list);
+                    if (mounted) { // Check if mounted before calling setState for the main screen
+                      setState(() {}); // Update the main screen's list
+                    }
+                    Navigator.pop(context); // Close the dialog only on success
+                  }
+                },
+                child: const Text('追加'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
+  // サイトを削除する関数
+  Future<void> _removeSite(int index) async {
+    // Show confirmation dialog
+    bool? confirm = await showDialog<bool>(
+      context: context,
       builder: (context) => AlertDialog(
-        title: const Text('サイトを追加'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(labelText: 'タイトル'),
-            ),
-            TextField(
-              controller: urlController,
-              decoration: const InputDecoration(labelText: 'URL'),
-            ),
-          ],
-        ),
+        title: const Text('サイトを削除'),
+        content: Text('\'${_sites[index]['title']}\' を削除しますか？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
           TextButton(
-            onPressed: () async {
-              final title = titleController.text.trim();
-              final url = urlController.text.trim();
-              if (title.isNotEmpty && url.isNotEmpty) {
-                _sites.add({'title': title, 'url': url});
-                final list = _sites.map((e) => jsonEncode(e)).toList();
-                await _prefs.setStringList('homeSites', list);
-                setState(() {});
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('追加'),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('削除'),
           ),
         ],
       ),
     );
+
+    if (confirm == true) {
+      _sites.removeAt(index);
+      final list = _sites.map((e) => jsonEncode(e)).toList();
+      await _prefs.setStringList('homeSites', list);
+      if (mounted) { // Check if mounted before calling setState
+        setState(() {});
+      }
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -395,15 +504,31 @@ class _HomeScreenState extends State<HomeScreen> {
         SizedBox(
           height: 60,
           child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 8), // Add padding to the ListView
             scrollDirection: Axis.horizontal,
             children: [
-              ..._sites.map((site) => Padding(
+              // Always show NoviSteps button first
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 child: ElevatedButton(
-                  onPressed: () => _controller.loadRequest(Uri.parse(site['url']!)),
-                  child: Text(site['title']!),
+                  onPressed: () => _controller.loadRequest(Uri.parse(_noviStepsUrl)),
+                  child: Text(_noviStepsTitle),
                 ),
-              )),
+              ),
+              // Show user-added sites
+              ..._sites.asMap().entries.map((entry) {
+                 int index = entry.key;
+                 Map<String, String> site = entry.value;
+                 return Padding(
+                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                   child: ElevatedButton(
+                     onPressed: () => _controller.loadRequest(Uri.parse(site['url']!)),
+                     onLongPress: () => _removeSite(index), // 長押しで削除
+                     child: Text(site['title']!),
+                   ),
+                 );
+              }),
+              // Add site button
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 child: ElevatedButton(
