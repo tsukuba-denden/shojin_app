@@ -2,17 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:webview_flutter/webview_flutter.dart'; // Import webview_flutter
-import 'package:shared_preferences/shared_preferences.dart'; // For storing home sites
-import 'dart:convert'; // For JSON encoding/decoding
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'screens/problem_detail_screen.dart';
 import 'screens/editor_screen.dart';
 import 'screens/settings_screen.dart';
 import 'providers/theme_provider.dart';
 import 'providers/template_provider.dart';
-import 'dart:developer' as developer; // developerログのために追加
-import 'package:flutter/services.dart'; // 触覚フィードバックのために追加
+import 'dart:developer' as developer;
+import 'package:flutter/services.dart';
 import 'dart:ui';
+
+// Add these imports
+import 'package:http/http.dart' as http;
+import 'package:favicon/favicon.dart';
+import 'package:palette_generator/palette_generator.dart';
+
 
 void main() async {
   // Flutter Engineの初期化を保証
@@ -301,14 +307,31 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+// Helper function to determine text color based on background
+Color _getTextColorForBackground(Color backgroundColor) {
+  return ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.dark
+      ? Colors.white
+      : Colors.black;
+}
+
 class _HomeScreenState extends State<HomeScreen> {
   late WebViewController _controller;
   late SharedPreferences _prefs;
-  List<Map<String, String>> _sites = [];
+  // Update site data structure to include optional faviconUrl and colorHex
+  List<Map<String, String?>> _sites = [];
   bool _isControllerReady = false;
   final String _noviStepsUrl = 'https://atcoder-novisteps.vercel.app/problems';
   final String _noviStepsTitle = 'NoviSteps';
+  // Add default/placeholder metadata for NoviSteps (can be fetched too if desired)
+  // Use raw GitHub URL for NoviSteps favicon
+  final String? _noviStepsFaviconUrl = 'https://raw.githubusercontent.com/AtCoder-NoviSteps/AtCoderNoviSteps/staging/static/favicon.png';
+  final String? _noviStepsColorHex = '#48955D'; // Default color for NoviSteps
 
+  // Map to cache PaletteGenerator futures to avoid redundant processing
+  final Map<String, Future<PaletteGenerator?>> _paletteFutures = {};
+
+  bool _loadFailed = false; // ページ読み込み失敗フラグ
+  String _currentUrl = '';   // 現在のURLを保持
 
   @override
   void initState() {
@@ -319,18 +342,23 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _initialize() async {
     _prefs = await SharedPreferences.getInstance();
     final sitesJson = _prefs.getStringList('homeSites') ?? [];
-    _sites = sitesJson.map((e) => Map<String, String>.from(jsonDecode(e))).toList();
-    // WebViewControllerの初期化 - 常にNoviStepsを最初にロード
+    // Load site data, including potentially null faviconUrl and colorHex
+    _sites = sitesJson.map((e) => Map<String, String?>.from(jsonDecode(e))).toList();
+
+    // Initialize WebViewController
+    _currentUrl = _noviStepsUrl;
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
       ..setNavigationDelegate(
         NavigationDelegate(
-          onProgress: (int progress) {},
-          onPageStarted: (String url) {},
-          onPageFinished: (String url) {},
-          onWebResourceError: (WebResourceError error) {},
-          onNavigationRequest: (NavigationRequest request) {
+         onPageFinished: (String url) { setState(() { _loadFailed = false; }); },
+          onWebResourceError: (WebResourceError error) {
+           setState(() { _loadFailed = true; });
+           developer.log('WebView load error: ${error.description}', name: 'HomeScreenWebView');
+          },
+         onNavigationRequest: (NavigationRequest request) {
+           _currentUrl = request.url; // クリック時のURLを記憶
             final uri = Uri.parse(request.url);
             developer.log('Navigating to: ${request.url}', name: 'HomeScreenWebView');
             if (uri.host == 'atcoder.jp' && uri.pathSegments.length == 4 &&
@@ -338,10 +366,12 @@ class _HomeScreenState extends State<HomeScreen> {
               widget.navigateToProblem(uri.pathSegments[3]);
               return NavigationDecision.prevent;
             }
-            // NoviSteps内またはユーザーが追加したサイトへのナビゲーションを許可
-            if (request.url.startsWith('https://atcoder-novisteps.vercel.app/') ||
-                _sites.any((site) => request.url.startsWith(site['url']!))) {
-               developer.log('Allowing navigation within allowed sites', name: 'HomeScreenWebView');
+            // Allow navigation within NoviSteps or user-added sites
+            // Check against the base URL to allow navigation within the site
+            final requestBaseUrl = uri.origin; // e.g., https://example.com
+            if (request.url.startsWith(_noviStepsUrl) || // Allow NoviSteps itself
+                _sites.any((site) => site['url'] != null && requestBaseUrl == Uri.parse(site['url']!).origin)) {
+               developer.log('Allowing navigation within allowed sites: ${request.url}', name: 'HomeScreenWebView');
               return NavigationDecision.navigate;
             }
             developer.log('Preventing navigation to external site: ${request.url}', name: 'HomeScreenWebView');
@@ -349,21 +379,103 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         ),
       )
-      ..loadRequest(Uri.parse(_noviStepsUrl)); // 常にNoviStepsをロード
+      ..loadRequest(Uri.parse(_noviStepsUrl));
     _isControllerReady = true;
-    if (mounted) { // Check if mounted before calling setState
+    if (mounted) {
       setState(() {});
     }
+     // Optionally trigger background fetch for missing metadata for existing sites
+     _updateMissingMetadata();
   }
+
+  // Fetch metadata for sites that don't have it yet
+  Future<void> _updateMissingMetadata() async {
+    bool needsUpdate = false;
+    for (int i = 0; i < _sites.length; i++) {
+      if (_sites[i]['faviconUrl'] == null || _sites[i]['colorHex'] == null) {
+        final url = _sites[i]['url'];
+        if (url != null) {
+          try {
+            final metadata = await _fetchSiteMetadata(url);
+            _sites[i]['faviconUrl'] = metadata['faviconUrl'];
+            _sites[i]['colorHex'] = metadata['colorHex'];
+            needsUpdate = true;
+          } catch (e) {
+            developer.log('Error fetching metadata for ${url}: $e', name: 'HomeScreenMetadata');
+            // Keep existing null values or set defaults
+             _sites[i]['faviconUrl'] ??= null; // Keep null if already null
+             _sites[i]['colorHex'] ??= null;
+          }
+        }
+      }
+    }
+    if (needsUpdate && mounted) {
+      setState(() {});
+      // Save updated metadata back to SharedPreferences
+      final list = _sites.map((e) => jsonEncode(e)).toList();
+      await _prefs.setStringList('homeSites', list);
+    }
+  }
+
+
+  // Fetches favicon URL and dominant color
+  Future<Map<String, String?>> _fetchSiteMetadata(String url) async {
+    String? faviconUrl;
+    String? colorHex;
+    PaletteGenerator? paletteGenerator;
+
+    try {
+      // 1. Find Favicon URL
+      final icons = await FaviconFinder.getAll(url);
+      if (icons.isNotEmpty) {
+        // Prioritize larger icons or specific types if needed
+        faviconUrl = icons.first.url; // Take the first one for simplicity
+        developer.log('Favicon found for $url: $faviconUrl', name: 'HomeScreenMetadata');
+
+        // 2. Fetch Favicon Image and Generate Palette (if URL found)
+        if (faviconUrl != null) {
+           // Use cache key based on faviconUrl
+           final cacheKey = faviconUrl;
+           if (_paletteFutures.containsKey(cacheKey)) {
+             paletteGenerator = await _paletteFutures[cacheKey];
+           } else {
+             final future = PaletteGenerator.fromImageProvider(
+               NetworkImage(faviconUrl), // Use NetworkImage
+               maximumColorCount: 20, // Adjust as needed
+             ).catchError((e) {
+               developer.log('Error generating palette for $faviconUrl: $e', name: 'HomeScreenMetadata');
+               return null; // Return null on error
+             });
+             _paletteFutures[cacheKey] = future; // Store future in cache
+             paletteGenerator = await future;
+           }
+
+
+          if (paletteGenerator != null && paletteGenerator.dominantColor != null) {
+            colorHex = '#${paletteGenerator.dominantColor!.color.value.toRadixString(16).padLeft(8, '0')}'; // Format as #AARRGGBB
+            developer.log('Dominant color found for $faviconUrl: $colorHex', name: 'HomeScreenMetadata');
+          } else {
+             developer.log('Could not generate palette or find dominant color for $faviconUrl', name: 'HomeScreenMetadata');
+          }
+        }
+      } else {
+         developer.log('No favicon found for $url', name: 'HomeScreenMetadata');
+      }
+    } catch (e) {
+      developer.log('Error fetching metadata for $url: $e', name: 'HomeScreenMetadata');
+      // Handle errors gracefully, return nulls
+    }
+    return {'faviconUrl': faviconUrl, 'colorHex': colorHex};
+  }
+
 
   Future<void> _addSite() async {
     final titleController = TextEditingController();
     final urlController = TextEditingController();
-    String? urlErrorText; // Variable to hold the error message
+    String? urlErrorText;
 
     await showDialog(
       context: context,
-      // Use StatefulBuilder to manage state within the dialog
       builder: (context) => StatefulBuilder(
         builder: (context, setStateDialog) {
           return AlertDialog(
@@ -379,11 +491,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   controller: urlController,
                   decoration: InputDecoration(
                     labelText: 'URL',
-                    errorText: urlErrorText, // Display error message here
+                    errorText: urlErrorText,
                   ),
                   keyboardType: TextInputType.url,
                   onChanged: (_) {
-                    // Clear error when user types
                     if (urlErrorText != null) {
                       setStateDialog(() {
                         urlErrorText = null;
@@ -399,61 +510,67 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () async {
                   final title = titleController.text.trim();
                   final url = urlController.text.trim();
-                  bool isValid = true; // Flag to track validation status
+                  bool isValid = true;
 
-                  // Reset error before validation
-                  setStateDialog(() {
-                     urlErrorText = null;
-                  });
+                  setStateDialog(() { urlErrorText = null; });
 
                   if (title.isEmpty || url.isEmpty) {
-                     // Show message if title or URL is empty (optional, or handle via TextField validation)
-                     ScaffoldMessenger.of(context).showSnackBar(
-                       const SnackBar(content: Text('タイトルとURLを入力してください。')),
-                     );
-                     isValid = false;
-                     // Optionally set error text for empty fields too
-                     // if (url.isEmpty) {
-                     //   setStateDialog(() {
-                     //     urlErrorText = 'URLを入力してください';
-                     //   });
-                     // }
-                     // return; // Or just prevent closing
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('タイトルとURLを入力してください。')),
+                    );
+                    isValid = false;
                   } else {
-                    // Avoid adding NoviSteps again if the user tries
                     if (title == _noviStepsTitle && url == _noviStepsUrl) {
-                       ScaffoldMessenger.of(context).showSnackBar(
-                         const SnackBar(content: Text('NoviStepsは既に追加されています。')),
-                       );
-                       isValid = false;
-                       // Don't close dialog immediately, let user correct
-                       // Navigator.pop(context); // Remove this
-                       // return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('NoviStepsは既に追加されています。')),
+                      );
+                      isValid = false;
                     }
 
-                    // Validate URL format only if not empty
                     if (isValid) {
-                       final uri = Uri.tryParse(url);
-                       if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
-                         setStateDialog(() {
-                           urlErrorText = '有効なURLを入力してください (例: https://example.com)';
-                         });
-                         isValid = false;
-                         // return; // Don't close dialog on error
-                       }
+                      final uri = Uri.tryParse(url);
+                      if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+                        setStateDialog(() {
+                          urlErrorText = '有効なURLを入力してください (例: https://example.com)';
+                        });
+                        isValid = false;
+                      }
                     }
                   }
 
-
-                  // Proceed only if validation passed
                   if (isValid) {
-                    _sites.add({'title': title, 'url': url});
-                    final list = _sites.map((e) => jsonEncode(e)).toList();
-                    await _prefs.setStringList('homeSites', list);
-                    if (mounted) { // Check if mounted before calling setState for the main screen
-                      setState(() {}); // Update the main screen's list
+                    // Show loading indicator while fetching metadata
+                    showDialog(
+                       context: context,
+                       barrierDismissible: false,
+                       builder: (context) => const Center(child: CircularProgressIndicator()),
+                    );
+
+                    try {
+                       final metadata = await _fetchSiteMetadata(url);
+                       Navigator.pop(context); // Dismiss loading indicator
+
+                       // Add site with metadata
+                       _sites.add({
+                         'title': title,
+                         'url': url,
+                         'faviconUrl': metadata['faviconUrl'],
+                         'colorHex': metadata['colorHex'],
+                       });
+                       final list = _sites.map((e) => jsonEncode(e)).toList();
+                       await _prefs.setStringList('homeSites', list);
+                       if (mounted) {
+                         setState(() {}); // Update main screen list
+                       }
+                       Navigator.pop(context); // Close add dialog
+                    } catch (e) {
+                       Navigator.pop(context); // Dismiss loading indicator
+                       developer.log('Error adding site $url: $e', name: 'HomeScreenAddSite');
+                       ScaffoldMessenger.of(context).showSnackBar(
+                         SnackBar(content: Text('サイトメタデータの取得に失敗しました: $e')),
+                       );
+                       // Optionally add site without metadata or keep dialog open
                     }
-                    Navigator.pop(context); // Close the dialog only on success
                   }
                 },
                 child: const Text('追加'),
@@ -465,9 +582,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // サイトを削除する関数
   Future<void> _removeSite(int index) async {
-    // Show confirmation dialog
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -487,13 +602,85 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (confirm == true) {
+      // Remove associated palette future from cache if it exists
+      final faviconUrl = _sites[index]['faviconUrl'];
+      if (faviconUrl != null) {
+         _paletteFutures.remove(faviconUrl);
+      }
+
       _sites.removeAt(index);
       final list = _sites.map((e) => jsonEncode(e)).toList();
       await _prefs.setStringList('homeSites', list);
-      if (mounted) { // Check if mounted before calling setState
+      if (mounted) {
         setState(() {});
       }
     }
+  }
+
+  // Helper widget to build individual site buttons
+  Widget _buildSiteButton({
+    required String title,
+    required String url,
+    String? faviconUrl,
+    String? colorHex,
+    VoidCallback? onLongPress,
+  }) {
+    Color? backgroundColor;
+    Color textColor = Theme.of(context).colorScheme.onPrimary; // Default text color
+
+    if (colorHex != null) {
+      try {
+        backgroundColor = Color(int.parse(colorHex.replaceFirst('#', '0x')));
+        textColor = _getTextColorForBackground(backgroundColor);
+      } catch (e) {
+        developer.log('Error parsing color hex $colorHex: $e', name: 'HomeScreenButton');
+        backgroundColor = null; // Use default button color on parse error
+        textColor = Theme.of(context).colorScheme.onPrimary;
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      child: ElevatedButton(
+        onPressed: () => _controller.loadRequest(Uri.parse(url)),
+        onLongPress: onLongPress,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: backgroundColor, // Apply fetched color
+          foregroundColor: textColor, // Apply calculated text color
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // Softer corners
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (faviconUrl != null)
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: textColor, width: 1.5),
+                ),
+                child: ClipOval(
+                  child: Image.network(
+                    faviconUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.public, size: 20),
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2));
+                    },
+                  ),
+                ),
+              )
+            else
+              const Icon(Icons.public, size: 20),
+            const SizedBox(width: 8),
+            Text(title),
+          ],
+        ),
+      ),
+    );
   }
 
 
@@ -502,37 +689,45 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       children: [
         SizedBox(
-          height: 60,
+          height: 60, // Adjust height if needed for icons
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 8), // Add padding to the ListView
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             scrollDirection: Axis.horizontal,
             children: [
-              // Always show NoviSteps button first
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                child: ElevatedButton(
-                  onPressed: () => _controller.loadRequest(Uri.parse(_noviStepsUrl)),
-                  child: Text(_noviStepsTitle),
-                ),
+              // NoviSteps Button (using helper)
+              _buildSiteButton(
+                title: _noviStepsTitle,
+                url: _noviStepsUrl,
+                faviconUrl: _noviStepsFaviconUrl,
+                colorHex: _noviStepsColorHex,
               ),
-              // Show user-added sites
+              // User-added sites (using helper)
               ..._sites.asMap().entries.map((entry) {
                  int index = entry.key;
-                 Map<String, String> site = entry.value;
-                 return Padding(
-                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                   child: ElevatedButton(
-                     onPressed: () => _controller.loadRequest(Uri.parse(site['url']!)),
-                     onLongPress: () => _removeSite(index), // 長押しで削除
-                     child: Text(site['title']!),
-                   ),
-                 );
+                 Map<String, String?> site = entry.value;
+                 // Ensure required fields are not null before building
+                 if (site['title'] != null && site['url'] != null) {
+                    return _buildSiteButton(
+                      title: site['title']!,
+                      url: site['url']!,
+                      faviconUrl: site['faviconUrl'],
+                      colorHex: site['colorHex'],
+                      onLongPress: () => _removeSite(index),
+                    );
+                 } else {
+                    // Handle cases where essential data might be missing (shouldn't happen with validation)
+                    return const SizedBox.shrink(); // Or some error indicator
+                 }
               }),
-              // Add site button
+              // Add site button (remains the same)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 child: ElevatedButton(
                   onPressed: _addSite,
+                  style: ElevatedButton.styleFrom( // Consistent styling
+                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
                   child: const Icon(Icons.add),
                 ),
               ),
@@ -541,7 +736,24 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         Expanded(
           child: _isControllerReady
-              ? WebViewWidget(controller: _controller)
+              ? (_loadFailed
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('ページを読み込めませんでした', style: TextStyle(color: Colors.red)),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() { _loadFailed = false; });
+                              _controller.loadRequest(Uri.parse(_currentUrl));
+                            },
+                            child: const Text('再試行'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : WebViewWidget(controller: _controller))
               : const Center(child: CircularProgressIndicator()),
         ),
       ],
