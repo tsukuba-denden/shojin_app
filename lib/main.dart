@@ -71,15 +71,24 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // テーマプロバイダーの状態を監視
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        // ダイナミックカラーが利用できる場合はそれを使用し、利用できない場合はデフォルトのカラースキームを使用
-        ColorScheme lightColorScheme = lightDynamic ?? _defaultLightColorScheme;
-        // ピュアブラックモードが選択されている場合はピュアブラックカラースキームを使用
-        ColorScheme darkColorScheme = themeProvider.isPureBlack
-            ? _pureBlackColorScheme
-            : (darkDynamic ?? _defaultDarkColorScheme);
+        // Material Youを使用するかどうかでカラースキームを決定
+        ColorScheme lightColorScheme;
+        ColorScheme darkColorScheme;
+
+        if (themeProvider.useMaterialYou) {
+          lightColorScheme = lightDynamic ?? _defaultLightColorScheme;
+          darkColorScheme = themeProvider.isPureBlack
+              ? _pureBlackColorScheme
+              : (darkDynamic ?? _defaultDarkColorScheme);
+        } else {
+          lightColorScheme = _defaultLightColorScheme;
+          darkColorScheme = themeProvider.isPureBlack
+              ? _pureBlackColorScheme
+              : _defaultDarkColorScheme;
+        }
 
         // Noto Sans JPフォントをテキストテーマに適用
         final textTheme = TextTheme(
