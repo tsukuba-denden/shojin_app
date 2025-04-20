@@ -3,7 +3,8 @@
         android:label="shojin_app"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:enableOnBackInvokedCallback="true">
+        android:enableOnBackInvokedCallback="true"
+        android:usesCleartextTraffic="true"> <!-- この行を追加 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -324,6 +324,9 @@ class _HomeScreenState extends State<HomeScreen> {
   // Update site data structure to include optional faviconUrl and colorHex
   List<Map<String, String?>> _sites = [];
   bool _isControllerReady = false;
+  bool _loadFailed = false; // ページ読み込み失敗フラグ
+  String _currentUrl = '';   // 現在のURLを保持
+  bool _isLoadingWebView = false; // WebView読み込み中フラグを追加
 
   // Default sites
   final String _noviStepsUrl = 'https://atcoder-novisteps.vercel.app/problems';
@@ -339,9 +342,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Map to cache PaletteGenerator futures to avoid redundant processing
   final Map<String, Future<PaletteGenerator?>> _paletteFutures = {};
-
-  bool _loadFailed = false; // ページ読み込み失敗フラグ
-  String _currentUrl = '';   // 現在のURLを保持
 
   @override
   void initState() {
@@ -395,35 +395,76 @@ class _HomeScreenState extends State<HomeScreen> {
       ..setBackgroundColor(const Color(0x00000000))
       ..setNavigationDelegate(
         NavigationDelegate(
-         onPageFinished: (String url) { setState(() { _loadFailed = false; }); },
-          onWebResourceError: (WebResourceError error) {
-           setState(() { _loadFailed = true; });
+         onPageStarted: (String url) { // 読み込み開始
+           if (mounted) {
+             setState(() { _isLoadingWebView = true; _loadFailed = false; }); // 開始時にインジケーター表示、エラーフラグリセット
+           }
+         },
+         onPageFinished: (String url) { // 読み込み完了
+           if (mounted) {
+             setState(() { _isLoadingWebView = false; _loadFailed = false; });
+           }
+          },
+          onWebResourceError: (WebResourceError error) { // 読み込みエラー
+           if (mounted) {
+             setState(() { _isLoadingWebView = false; _loadFailed = true; }); // エラー時もインジケーター非表示
+           }
            developer.log('WebView load error: ${error.description}', name: 'HomeScreenWebView');
           },
          onNavigationRequest: (NavigationRequest request) {
            _currentUrl = request.url; // クリック時のURLを記憶
             final uri = Uri.parse(request.url);
             developer.log('Navigating to: ${request.url}', name: 'HomeScreenWebView');
+
+            // 1. AtCoder問題ページかチェック
             if (uri.host == 'atcoder.jp' && uri.pathSegments.length == 4 &&
                 uri.pathSegments[0] == 'contests' && uri.pathSegments[2] == 'tasks') {
-              // Check if the path looks like a problem page before navigating
-              // Example: /contests/abc300/tasks/abc300_a
-              // Avoid navigating for general contest pages etc.
               if (uri.pathSegments[3].contains('_')) { // Simple check for task ID format
                  widget.navigateToProblem(uri.pathSegments[3]);
-                 return NavigationDecision.prevent;
+                 if (mounted) {
+                   setState(() { _isLoadingWebView = false; });
+                 }
+                 return NavigationDecision.prevent; // WebView内では遷移しない
               }
             }
-            // Allow navigation within NoviSteps, AtCoder Problems, or user-added sites
+
+            // 2. 許可されたサイトかチェック (NoviSteps, AtCoder Problems, ユーザー追加サイト)
             final requestBaseUrl = uri.origin; // e.g., https://example.com
-            if (request.url.startsWith(_noviStepsUrl) ||
-                request.url.startsWith(_atcoderProblemsUrl) || // Allow AtCoder Problems
-                _sites.any((site) => site['url'] != null && requestBaseUrl == Uri.parse(site['url']!).origin)) {
+            bool isAllowedSite = request.url.startsWith(_noviStepsUrl) ||
+                               request.url.startsWith(_atcoderProblemsUrl) ||
+                               _sites.any((site) => site['url'] != null && requestBaseUrl == Uri.parse(site['url']!).origin);
+
+            if (isAllowedSite) {
                developer.log('Allowing navigation within allowed sites: ${request.url}', name: 'HomeScreenWebView');
-              return NavigationDecision.navigate;
+              return NavigationDecision.navigate; // WebView内で遷移を許可
             }
-            developer.log('Preventing navigation to external site: ${request.url}', name: 'HomeScreenWebView');
-            return NavigationDecision.prevent;
+
+            // 3. 許可されていないサイトの場合も WebView 内での遷移を許可する
+            developer.log('Allowing navigation to non-allowed site: ${request.url}', name: 'HomeScreenWebView');
+            // 以前はここで外部ブラウザ起動と prevent をしていたが、navigate に変更
+            return NavigationDecision.navigate;
+
+            /* --- 外部ブラウザで開く処理を削除 ---
+            developer.log('Preventing navigation to external site: ${request.url}. Opening in external browser.', name: 'HomeScreenWebView');
+            // Stop the loading indicator
+            if (mounted) {
+              setState(() { _isLoadingWebView = false; });
+            }
+
+            // Launch URL externally
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication); // 外部アプリで開く
+            } else {
+              developer.log('Could not launch $uri', name: 'HomeScreenWebView');
+              // Optionally show a snackbar or message to the user
+              if(mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${request.url} を開けませんでした。')),
+                );
+              }
+            }
+            return NavigationDecision.prevent; // WebView内での遷移は常に防ぐ
+            */
           },
         ),
       )
@@ -785,13 +826,18 @@ class _HomeScreenState extends State<HomeScreen> {
            // Only load if the URL is different from the current one
            if (_currentUrl != url) {
              _currentUrl = url; // Update current URL immediately
+             // ボタン押下時にもインジケーターを表示開始
+             if (mounted) {
+               setState(() { _isLoadingWebView = true; _loadFailed = false; });
+             }
              _controller.loadRequest(Uri.parse(url));
-             // Optionally reset load failed flag here if you want immediate feedback
-             // if (_loadFailed) {
-             //   setState(() { _loadFailed = false; });
-             // }
            } else {
              developer.log('Button pressed for already loaded URL: $url', name: 'HomeScreenButton');
+             // 同じURLでもリロードしたい場合は以下を実行
+             // if (mounted) {
+             //   setState(() { _isLoadingWebView = true; _loadFailed = false; });
+             // }
+             // _controller.reload();
            }
         },
         onLongPress: onLongPress,
@@ -906,27 +952,51 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         Expanded(
-          child: _isControllerReady
-              ? (_loadFailed
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('ページを読み込めませんでした', style: TextStyle(color: Colors.red)),
-                          const SizedBox(height: 8),
-                          ElevatedButton(
-                            onPressed: () {
-                              setState(() { _loadFailed = false; });
-                              // Retry loading the current URL
-                              _controller.loadRequest(Uri.parse(_currentUrl));
-                            },
-                            child: const Text('再試行'),
-                          ),
-                        ],
-                      ),
-                    )
-                  : WebViewWidget(controller: _controller))
-              : const Center(child: CircularProgressIndicator()),
+          child: Stack( // WebViewとインジケーターを重ねるためにStackを使用
+            children: [
+              if (_isControllerReady)
+                // WebView自体は常にStackの最背面に配置
+                WebViewWidget(controller: _controller)
+              else // WebView準備中のインジケーター
+                const Center(child: CircularProgressIndicator()),
+
+              // 読み込み失敗時の表示 (WebViewの上に表示)
+              if (_isControllerReady && _loadFailed)
+                Center(
+                  child: Container( // 背景を追加して見やすくする (任意)
+                     padding: const EdgeInsets.all(20),
+                     // Use surface container high for better contrast on various themes
+                     color: Theme.of(context).colorScheme.surfaceContainerHigh.withOpacity(0.9),
+                     child: Column(
+                       mainAxisAlignment: MainAxisAlignment.center,
+                       mainAxisSize: MainAxisSize.min, // Columnが必要な高さだけ取るように
+                       children: [
+                         Text('ページを読み込めませんでした', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                         const SizedBox(height: 16),
+                         ElevatedButton(
+                           onPressed: () {
+                             // 再試行時にもインジケーター表示
+                             if (mounted) {
+                               setState(() { _isLoadingWebView = true; _loadFailed = false; });
+                             }
+                             _controller.loadRequest(Uri.parse(_currentUrl));
+                           },
+                           child: const Text('再試行'),
+                         ),
+                       ],
+                     ),
+                  ),
+                ),
+
+              // WebView読み込み中のインジケーター (準備完了後、かつ失敗していない場合、WebViewの上に表示)
+              if (_isControllerReady && _isLoadingWebView && !_loadFailed)
+                // Add a semi-transparent background scrim to make the indicator more visible
+                Container(
+                  color: Theme.of(context).colorScheme.surface.withOpacity(0.3),
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+            ],
+          ),
         ),
       ],
     );
