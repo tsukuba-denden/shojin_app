@@ -260,7 +260,11 @@ class _MainScreenState extends State<MainScreen> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
           child: Container(
-            color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
+            // Adjust opacity from settings
+            color: Theme.of(context)
+                    .colorScheme
+                    .surface
+                    .withOpacity(Provider.of<ThemeProvider>(context).navBarOpacity),
             child: Material(
               color: Colors.transparent, // Let the translucent container show
               child: NavigationBar(
@@ -320,12 +324,18 @@ class _HomeScreenState extends State<HomeScreen> {
   // Update site data structure to include optional faviconUrl and colorHex
   List<Map<String, String?>> _sites = [];
   bool _isControllerReady = false;
+
+  // Default sites
   final String _noviStepsUrl = 'https://atcoder-novisteps.vercel.app/problems';
   final String _noviStepsTitle = 'NoviSteps';
-  // Add default/placeholder metadata for NoviSteps (can be fetched too if desired)
-  // Use raw GitHub URL for NoviSteps favicon
   final String? _noviStepsFaviconUrl = 'https://raw.githubusercontent.com/AtCoder-NoviSteps/AtCoderNoviSteps/staging/static/favicon.png';
   final String? _noviStepsColorHex = '#48955D'; // Default color for NoviSteps
+
+  final String _atcoderProblemsUrl = 'https://kenkoooo.com/atcoder/#/table/';
+  final String _atcoderProblemsTitle = 'Problems';
+  final String? _atcoderProblemsFaviconUrl = 'https://github.com/kenkoooo/AtCoderProblems/raw/refs/heads/master/atcoder-problems-frontend/public/favicon.ico';
+  // AtCoder Problems doesn't have a readily available dominant color, so we'll leave it null for now or set a default
+  final String? _atcoderProblemsColorHex = null; // Or a default like '#333333'
 
   // Map to cache PaletteGenerator futures to avoid redundant processing
   final Map<String, Future<PaletteGenerator?>> _paletteFutures = {};
@@ -345,7 +355,40 @@ class _HomeScreenState extends State<HomeScreen> {
     // Load site data, including potentially null faviconUrl and colorHex
     _sites = sitesJson.map((e) => Map<String, String?>.from(jsonDecode(e))).toList();
 
-    // Initialize WebViewController
+    // Check if default sites are already present (by URL)
+    bool noviStepsExists = _sites.any((site) => site['url'] == _noviStepsUrl);
+    bool atcoderProblemsExists = _sites.any((site) => site['url'] == _atcoderProblemsUrl);
+
+    // Add default sites if they don't exist in saved preferences
+    // Note: This adds them to the runtime list, but doesn't save them back immediately.
+    // They will be saved if the user adds/removes/edits other sites.
+    // Or, we could explicitly save here if needed.
+    // if (!noviStepsExists) {
+    //   _sites.insert(0, { // Insert NoviSteps at the beginning if needed
+    //     'title': _noviStepsTitle,
+    //     'url': _noviStepsUrl,
+    //     'faviconUrl': _noviStepsFaviconUrl,
+    //     'colorHex': _noviStepsColorHex,
+    //   });
+    // }
+    // if (!atcoderProblemsExists) {
+    //    // Insert AtCoder Problems after NoviSteps if needed
+    //    int insertIndex = noviStepsExists ? 1 : 0; // Adjust index based on NoviSteps presence
+    //   _sites.insert(insertIndex, {
+    //     'title': _atcoderProblemsTitle,
+    //     'url': _atcoderProblemsUrl,
+    //     'faviconUrl': _atcoderProblemsFaviconUrl,
+    //     'colorHex': _atcoderProblemsColorHex,
+    //   });
+    // }
+    // Consider saving if defaults were added:
+    // if (!noviStepsExists || !atcoderProblemsExists) {
+    //    final list = _sites.map((e) => jsonEncode(e)).toList();
+    //    await _prefs.setStringList('homeSites', list);
+    // }
+
+
+    // Initialize WebViewController - Start with NoviSteps by default
     _currentUrl = _noviStepsUrl;
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -363,13 +406,18 @@ class _HomeScreenState extends State<HomeScreen> {
             developer.log('Navigating to: ${request.url}', name: 'HomeScreenWebView');
             if (uri.host == 'atcoder.jp' && uri.pathSegments.length == 4 &&
                 uri.pathSegments[0] == 'contests' && uri.pathSegments[2] == 'tasks') {
-              widget.navigateToProblem(uri.pathSegments[3]);
-              return NavigationDecision.prevent;
+              // Check if the path looks like a problem page before navigating
+              // Example: /contests/abc300/tasks/abc300_a
+              // Avoid navigating for general contest pages etc.
+              if (uri.pathSegments[3].contains('_')) { // Simple check for task ID format
+                 widget.navigateToProblem(uri.pathSegments[3]);
+                 return NavigationDecision.prevent;
+              }
             }
-            // Allow navigation within NoviSteps or user-added sites
-            // Check against the base URL to allow navigation within the site
+            // Allow navigation within NoviSteps, AtCoder Problems, or user-added sites
             final requestBaseUrl = uri.origin; // e.g., https://example.com
-            if (request.url.startsWith(_noviStepsUrl) || // Allow NoviSteps itself
+            if (request.url.startsWith(_noviStepsUrl) ||
+                request.url.startsWith(_atcoderProblemsUrl) || // Allow AtCoder Problems
                 _sites.any((site) => site['url'] != null && requestBaseUrl == Uri.parse(site['url']!).origin)) {
                developer.log('Allowing navigation within allowed sites: ${request.url}', name: 'HomeScreenWebView');
               return NavigationDecision.navigate;
@@ -617,6 +665,86 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // Edit existing site: long press invokes this
+  Future<void> _editSite(int index) async {
+    final site = _sites[index];
+    final titleController = TextEditingController(text: site['title']);
+    final urlController = TextEditingController(text: site['url']);
+    String? urlErrorText;
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('サイトを編集'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: 'タイトル'),
+                ),
+                TextField(
+                  controller: urlController,
+                  decoration: InputDecoration(
+                    labelText: 'URL',
+                    errorText: urlErrorText,
+                  ),
+                  keyboardType: TextInputType.url,
+                  onChanged: (_) {
+                    if (urlErrorText != null) setStateDialog(() => urlErrorText = null);
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  // Delete option
+                  Navigator.pop(context);
+                  await _removeSite(index);
+                },
+                child: const Text('削除', style: TextStyle(color: Colors.red)),
+              ),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
+              TextButton(
+                onPressed: () async {
+                  final newTitle = titleController.text.trim();
+                  final newUrl = urlController.text.trim();
+                  if (newTitle.isEmpty || newUrl.isEmpty) {
+                    setStateDialog(() {
+                      urlErrorText = 'タイトルとURLを入力してください。';
+                    });
+                    return;
+                  }
+                  final uri = Uri.tryParse(newUrl);
+                  if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+                    setStateDialog(() => urlErrorText = '有効なURLを入力してください。');
+                    return;
+                  }
+                  final oldUrl = site['url'];
+                  // Update data
+                  site['title'] = newTitle;
+                  if (newUrl != oldUrl) {
+                    site['url'] = newUrl;
+                    site['faviconUrl'] = null;
+                    site['colorHex'] = null;
+                  }
+                  final list = _sites.map((e) => jsonEncode(e)).toList();
+                  await _prefs.setStringList('homeSites', list);
+                  if (mounted) setState(() {});
+                  if (newUrl != oldUrl) _updateMissingMetadata();
+                  Navigator.pop(context);
+                },
+                child: const Text('更新'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   // Helper widget to build individual site buttons
   Widget _buildSiteButton({
     required String title,
@@ -700,23 +828,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 url: _noviStepsUrl,
                 faviconUrl: _noviStepsFaviconUrl,
                 colorHex: _noviStepsColorHex,
+                // No long press for default NoviSteps
+              ),
+              // AtCoder Problems Button (using helper)
+              _buildSiteButton(
+                title: _atcoderProblemsTitle,
+                url: _atcoderProblemsUrl,
+                faviconUrl: _atcoderProblemsFaviconUrl,
+                colorHex: _atcoderProblemsColorHex,
+                 // No long press for default AtCoder Problems
               ),
               // User-added sites (using helper)
               ..._sites.asMap().entries.map((entry) {
                  int index = entry.key;
                  Map<String, String?> site = entry.value;
-                 // Ensure required fields are not null before building
-                 if (site['title'] != null && site['url'] != null) {
+                 // Only show user-added sites here (filter out defaults if they were loaded from prefs)
+                 if (site['url'] != _noviStepsUrl && site['url'] != _atcoderProblemsUrl && site['title'] != null && site['url'] != null) {
                     return _buildSiteButton(
                       title: site['title']!,
                       url: site['url']!,
                       faviconUrl: site['faviconUrl'],
                       colorHex: site['colorHex'],
-                      onLongPress: () => _removeSite(index),
+                      onLongPress: () => _editSite(index), // Allow editing/deleting user sites
                     );
                  } else {
-                    // Handle cases where essential data might be missing (shouldn't happen with validation)
-                    return const SizedBox.shrink(); // Or some error indicator
+                    return const SizedBox.shrink(); // Hide default sites if they were in _sites
                  }
               }),
               // Add site button (remains the same)
@@ -746,6 +882,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ElevatedButton(
                             onPressed: () {
                               setState(() { _loadFailed = false; });
+                              // Retry loading the current URL
                               _controller.loadRequest(Uri.parse(_currentUrl));
                             },
                             child: const Text('再試行'),
