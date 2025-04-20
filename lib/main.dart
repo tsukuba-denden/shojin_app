@@ -335,7 +335,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final String _atcoderProblemsTitle = 'Problems';
   final String? _atcoderProblemsFaviconUrl = 'https://github.com/kenkoooo/AtCoderProblems/raw/refs/heads/master/atcoder-problems-frontend/public/favicon.ico';
   // AtCoder Problems doesn't have a readily available dominant color, so we'll leave it null for now or set a default
-  final String? _atcoderProblemsColorHex = null; // Or a default like '#333333'
+  final String? _atcoderProblemsColorHex = '#66C84D'; // Or a default like '#333333'
 
   // Map to cache PaletteGenerator futures to avoid redundant processing
   final Map<String, Future<PaletteGenerator?>> _paletteFutures = {};
@@ -754,29 +754,53 @@ class _HomeScreenState extends State<HomeScreen> {
     VoidCallback? onLongPress,
   }) {
     Color? backgroundColor;
-    Color textColor = Theme.of(context).colorScheme.onPrimary; // Default text color
+    Color textColor = Theme.of(context).colorScheme.onSurfaceVariant; // Default text color for buttons
 
     if (colorHex != null) {
       try {
-        backgroundColor = Color(int.parse(colorHex.replaceFirst('#', '0x')));
-        textColor = _getTextColorForBackground(backgroundColor);
+        // Handle potential alpha channel in hex color
+        String hex = colorHex.replaceFirst('#', '');
+        if (hex.length == 6) hex = 'FF$hex'; // Add full opacity if missing
+        if (hex.length == 8) {
+           backgroundColor = Color(int.parse('0x$hex'));
+           textColor = _getTextColorForBackground(backgroundColor);
+        } else {
+           throw FormatException("Invalid hex color format");
+        }
       } catch (e) {
         developer.log('Error parsing color hex $colorHex: $e', name: 'HomeScreenButton');
-        backgroundColor = null; // Use default button color on parse error
-        textColor = Theme.of(context).colorScheme.onPrimary;
+        backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest; // Use a theme color on error
+        textColor = Theme.of(context).colorScheme.onSurfaceVariant;
       }
+    } else {
+       // Use default theme colors if no colorHex provided
+       backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
+       textColor = Theme.of(context).colorScheme.onSurfaceVariant;
     }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: ElevatedButton(
-        onPressed: () => _controller.loadRequest(Uri.parse(url)),
+        onPressed: () {
+           // Only load if the URL is different from the current one
+           if (_currentUrl != url) {
+             _currentUrl = url; // Update current URL immediately
+             _controller.loadRequest(Uri.parse(url));
+             // Optionally reset load failed flag here if you want immediate feedback
+             // if (_loadFailed) {
+             //   setState(() { _loadFailed = false; });
+             // }
+           } else {
+             developer.log('Button pressed for already loaded URL: $url', name: 'HomeScreenButton');
+           }
+        },
         onLongPress: onLongPress,
         style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor, // Apply fetched color
-          foregroundColor: textColor, // Apply calculated text color
+          backgroundColor: backgroundColor, // Apply fetched or default color
+          foregroundColor: textColor, // Apply calculated or default text color
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // Softer corners
+          elevation: 1, // Subtle elevation
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -787,24 +811,35 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: 20,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: textColor, width: 0.5),
+                  // Add a border based on the text color for contrast
+                  border: Border.all(color: textColor.withOpacity(0.5), width: 1.0),
                 ),
                 child: ClipOval(
                   child: Image.network(
                     faviconUrl,
+                    width: 20,
+                    height: 20,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.public, size: 20),
+                    errorBuilder: (context, error, stackTrace) => Icon(Icons.public, size: 18, color: textColor.withOpacity(0.8)),
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
-                      return const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2));
+                      return SizedBox(
+                         width: 18, height: 18, // Slightly smaller for progress indicator
+                         child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                : null,
+                         )
+                      );
                     },
                   ),
                 ),
               )
             else
-              const Icon(Icons.public, size: 20),
+              Icon(Icons.public, size: 18, color: textColor.withOpacity(0.8)), // Default icon
             const SizedBox(width: 8),
-            Text(title),
+            Text(title, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: textColor)),
           ],
         ),
       ),
