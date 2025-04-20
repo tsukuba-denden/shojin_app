@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart'; // For haptic feedback
 import '../providers/theme_provider.dart';
 import '../providers/template_provider.dart';
 import 'template_edit_screen.dart';
@@ -10,7 +11,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: SingleChildScrollView(
@@ -55,12 +56,44 @@ class SettingsScreen extends StatelessWidget {
                       },
                       secondary: _getThemeIcon(mode),
                     )),
+                    // Material Youの有効/無効スイッチ
+                    SwitchListTile(
+                      title: const Text('Material You (ダイナミックカラー)'),
+                      subtitle: const Text('壁紙の色に基づいてテーマを生成'),
+                      value: themeProvider.useMaterialYou,
+                      onChanged: (value) {
+                        themeProvider.setUseMaterialYou(value);
+                      },
+                      secondary: const Icon(Icons.color_lens_outlined),
+                    ),
+                    const Divider(), // Add a divider
+                    // ナビゲーションバーの透明度設定
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0), // Add padding
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('ナビゲーションバーの透明度', style: TextStyle(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.secondary)),
+                          Slider(
+                            min: 0.0,
+                            max: 1.0,
+                            divisions: 20,
+                            label: themeProvider.navBarOpacity.toStringAsFixed(2),
+                            value: themeProvider.navBarOpacity,
+                            onChanged: (value) {
+                              HapticFeedback.lightImpact(); // Haptic feedback
+                              themeProvider.setNavBarOpacity(value);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            
+
             // テンプレート設定のアコーディオン
             Card(
               margin: const EdgeInsets.symmetric(vertical: 4.0),
@@ -89,7 +122,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            
+
             // アプリについてのアコーディオン
             Card(
               margin: const EdgeInsets.symmetric(vertical: 4.0),
@@ -126,16 +159,17 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
     );
   }
-  
+
   // 言語テンプレート一覧を構築
   Widget _buildTemplateList(BuildContext context) {
     final templateProvider = Provider.of<TemplateProvider>(context);
-    
+
     return Column(
       children: templateProvider.supportedLanguages.map((language) {
         return ListTile(
@@ -153,7 +187,7 @@ class SettingsScreen extends StatelessWidget {
       }).toList(),
     );
   }
-  
+
   // テーマモードに対応するアイコンを返す
   Widget _getThemeIcon(ThemeModeOption mode) {
     switch (mode) {

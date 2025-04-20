@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:webview_flutter/webview_flutter.dart'; // Import webview_flutter
 import 'screens/problem_detail_screen.dart';
 import 'screens/editor_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/home_screen_new.dart'; // Import new home screen
+import 'screens/browser_screen.dart'; // Import the new browser screen
 import 'providers/theme_provider.dart';
 import 'providers/template_provider.dart';
-import 'dart:developer' as developer; // developerログのために追加
+import 'dart:developer' as developer;
+import 'package:flutter/services.dart';
+import 'dart:ui';
 
 void main() async {
   // Flutter Engineの初期化を保証
@@ -68,15 +71,24 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // テーマプロバイダーの状態を監視
     final themeProvider = Provider.of<ThemeProvider>(context);
-    
+
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        // ダイナミックカラーが利用できる場合はそれを使用し、利用できない場合はデフォルトのカラースキームを使用
-        ColorScheme lightColorScheme = lightDynamic ?? _defaultLightColorScheme;
-        // ピュアブラックモードが選択されている場合はピュアブラックカラースキームを使用
-        ColorScheme darkColorScheme = themeProvider.isPureBlack
-            ? _pureBlackColorScheme
-            : (darkDynamic ?? _defaultDarkColorScheme);
+        // Material Youを使用するかどうかでカラースキームを決定
+        ColorScheme lightColorScheme;
+        ColorScheme darkColorScheme;
+
+        if (themeProvider.useMaterialYou) {
+          lightColorScheme = lightDynamic ?? _defaultLightColorScheme;
+          darkColorScheme = themeProvider.isPureBlack
+              ? _pureBlackColorScheme
+              : (darkDynamic ?? _defaultDarkColorScheme);
+        } else {
+          lightColorScheme = _defaultLightColorScheme;
+          darkColorScheme = themeProvider.isPureBlack
+              ? _pureBlackColorScheme
+              : _defaultDarkColorScheme;
+        }
 
         // Noto Sans JPフォントをテキストテーマに適用
         final textTheme = TextTheme(
@@ -149,9 +161,9 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 0;
-  String _currentProblemId = 'default_problem'; // For EditorScreen
-  String? _problemIdFromWebView; // State variable to hold ID from WebView click
+  int _selectedIndex = 0; // Default to new Home tab
+  String _currentProblemId = 'default_problem';
+  String? _problemIdFromWebView;
 
   // Callback for ProblemDetailScreen -> EditorScreen update
   void _updateProblemIdForEditor(String newProblemUrl) {
@@ -174,10 +186,9 @@ class _MainScreenState extends State<MainScreen> {
   // Handles navigation from HomeScreen (WebView) - Now a class method
   void _navigateToProblemTabWithId(String problemId) {
     developer.log('_navigateToProblemTabWithId called with problemId: $problemId', name: 'MainScreen');
-    // Check if mounted before calling setState
     if (mounted) {
       setState(() {
-        _selectedIndex = 1; // Switch to Problems tab
+        _selectedIndex = 2; // Index of Problems tab
         _problemIdFromWebView = problemId; // Store the ID in the state variable
       });
     }
@@ -203,29 +214,27 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     return [
-      HomeScreen(navigateToProblem: _navigateToProblemTabWithId), // Pass the class method
-      ProblemsScreen(
-          problemIdToLoad: idToPass, // Pass the ID from state
+      const NewHomeScreen(), // Index 0
+      BrowserScreen(navigateToProblem: _navigateToProblemTabWithId), // Index 1 - Use imported screen
+      ProblemsScreen( // Index 2
+          problemIdToLoad: idToPass,
           onProblemChanged: _updateProblemIdForEditor
       ),
-      EditorScreen(
+      EditorScreen( // Index 3
         key: ValueKey(_currentProblemId),
         problemId: _currentProblemId,
       ),
-      const SettingsScreen(),
+      const SettingsScreen(), // Index 4
     ];
   }
 
   void _onItemTapped(int index) {
+    // 触覚フィードバックを追加
+    HapticFeedback.lightImpact(); 
     // Check if mounted before calling setState
     if (mounted) {
       setState(() {
         _selectedIndex = index;
-        // Optional: Clear the pending problem ID if user manually switches tabs
-        // if (_problemIdFromWebView != null) {
-        //   _problemIdFromWebView = null;
-        //   developer.log('Reset _problemIdFromWebView due to manual tab switch', name: 'MainScreen');
-        // }
       });
     }
   }
@@ -236,93 +245,65 @@ class _MainScreenState extends State<MainScreen> {
     final screens = _buildScreens();
 
     return Scaffold(
+      extendBody: true, // Allow body to extend behind BottomNavigationBar for backdrop blur
       body: SafeArea(
+        bottom: false, // allow content under BottomNavigationBar for BackdropFilter
         child: IndexedStack(
           index: _selectedIndex,
           children: screens,
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        onDestinationSelected: _onItemTapped,
-        selectedIndex: _selectedIndex,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home),
-            label: 'ホーム',
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+          child: Container(
+            // Adjust opacity from settings
+            color: Theme.of(context)
+                    .colorScheme
+                    .surface
+                    .withOpacity(Provider.of<ThemeProvider>(context).navBarOpacity),
+            child: Material(
+              color: Colors.transparent, // Let the translucent container show
+              child: NavigationBar(
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent, // Disable M3 surface tint
+                shadowColor: Colors.transparent,     // Remove shadow
+                elevation: 0,
+                onDestinationSelected: _onItemTapped,
+                selectedIndex: _selectedIndex,
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home),
+                    label: 'ホーム',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.public_outlined),
+                    selectedIcon: Icon(Icons.public),
+                    label: 'ブラウザ',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.list_alt_outlined),
+                    selectedIcon: Icon(Icons.list_alt),
+                    label: '問題',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.code_outlined),
+                    selectedIcon: Icon(Icons.code),
+                    label: 'エディタ',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.settings_outlined),
+                    selectedIcon: Icon(Icons.settings),
+                    label: '設定',
+                  ),
+                ],
+              ),
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.list_alt),
-            label: '問題',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.code),
-            label: 'エディタ',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings),
-            label: '設定',
-          ),
-        ],
+        ),
       ),
     );
-  }
-}
-
-// HomeScreenにコールバックを受け取るプロパティを追加
-class HomeScreen extends StatefulWidget {
-  final Function(String) navigateToProblem; // コールバック関数を受け取る
-
-  const HomeScreen({super.key, required this.navigateToProblem});
-
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen> {
-  late final WebViewController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0x00000000))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (int progress) {},
-          onPageStarted: (String url) {},
-          onPageFinished: (String url) {},
-          onWebResourceError: (WebResourceError error) {},
-          onNavigationRequest: (NavigationRequest request) {
-            final uri = Uri.parse(request.url);
-            developer.log('Navigating to: ${request.url}', name: 'HomeScreenWebView');
-
-            if (uri.host == 'atcoder.jp' && uri.pathSegments.length == 4 &&
-                uri.pathSegments[0] == 'contests' && uri.pathSegments[2] == 'tasks') {
-              final taskId = uri.pathSegments[3]; // Correctly extract taskId (e.g., abc388_a)
-              final problemId = taskId; // Use taskId as problemId
-
-              developer.log('AtCoder problem page detected: $problemId', name: 'HomeScreenWebView');
-              widget.navigateToProblem(problemId); // Pass the correct ID
-              return NavigationDecision.prevent;
-            }
-
-            if (request.url.startsWith('https://atcoder-novisteps.vercel.app/')) {
-               developer.log('Allowing navigation within NoviSteps', name: 'HomeScreenWebView');
-              return NavigationDecision.navigate;
-            }
-
-            developer.log('Preventing navigation to external site: ${request.url}', name: 'HomeScreenWebView');
-            return NavigationDecision.prevent;
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse('https://atcoder-novisteps.vercel.app/problems'));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return WebViewWidget(controller: _controller);
   }
 }
 
@@ -348,17 +329,3 @@ class ProblemsScreen extends StatelessWidget {
     );
   }
 }
-  
-  // テーマモードに対応するアイコンを返す
-  Widget _getThemeIcon(ThemeModeOption mode) {
-    switch (mode) {
-      case ThemeModeOption.system:
-        return const Icon(Icons.settings_suggest);
-      case ThemeModeOption.light:
-        return const Icon(Icons.light_mode);
-      case ThemeModeOption.dark:
-        return const Icon(Icons.dark_mode);
-      case ThemeModeOption.pureBlack:
-        return const Icon(Icons.nights_stay);
-    }
-  }
