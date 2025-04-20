@@ -659,7 +659,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: 20,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: textColor, width: 1.5),
+                  border: Border.all(color: textColor, width: 0.5),
                 ),
                 child: ClipOval(
                   child: Image.network(
