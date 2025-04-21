@@ -81,7 +81,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.event.inputs.release == 'true'
         with:
-          tag_name: github.event.inputs.version
+          tag_name: ${{github.event.inputs.version}}
           draft: false
           prerelease: false
           files: build/app/outputs/flutter-apk/app-*-release.apk
