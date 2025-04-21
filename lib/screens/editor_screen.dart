@@ -2,6 +2,7 @@ import 'dart:async'; // TimeoutExceptionのために追加
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Clipboardのために追加
+import 'package:share_plus/share_plus.dart'; // コード共有用
 import 'package:flutter_code_editor/flutter_code_editor.dart';
 // ハイライト言語のインポートを修正
 import 'package:highlight/languages/python.dart';
@@ -13,7 +14,6 @@ import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:flutter_highlight/themes/github.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http; // HTTPリクエスト用
-import 'package:provider/provider.dart'; // Providerのために追加 (もし使うなら)
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/problem.dart'; // 追加
 import '../models/test_result.dart'; // 追加
@@ -672,8 +672,7 @@ public class Main {
       case JudgeStatus.ce:
       case JudgeStatus.ie: return Colors.red.shade600;
       case JudgeStatus.running: return Colors.blue.shade600;
-      case JudgeStatus.pending:
-      default: return Colors.grey.shade600;
+      case JudgeStatus.pending: return Colors.grey.shade600;
     }
   }
 
@@ -766,6 +765,24 @@ public class Main {
                          _output = '';
                          _error = '';
                       });
+                    },
+                  ),
+                  IconButton( // 共有ボタン
+                    icon: const Icon(Icons.share),
+                    tooltip: 'コード共有',
+                    onPressed: () {
+                      final code = _codeController.text;
+                      if (code.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('共有するコードがありません')),
+                        );
+                        return;
+                      }
+                      String textToShare = code;
+                      if (_currentProblem != null) {
+                        textToShare = '${_currentProblem!.title} ($_selectedLanguage)\n\n$code';
+                      }
+                      Share.share(textToShare);
                     },
                   ),
                 ],
