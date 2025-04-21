@@ -22,6 +22,11 @@ on:
         type: boolean
         required: true
         default: false
+      version:
+        description: 'Version'
+        type: string
+        required: true
+        default: false
 
 jobs:
   build:
@@ -65,7 +70,7 @@ jobs:
       # Step 7: ビルドされたAPKを成果物としてアップロード
       # --split-per-abi を使用した場合、複数のAPKが生成されるためワイルドカードを使用
       - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4 # 最新バージョンを確認してください
+        uses: actions/upload-artifact@v4
         with:
           name: release-apk # 成果物の名前
           path: build/app/outputs/flutter-apk/app-*-release.apk
@@ -75,7 +80,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.event.inputs.release == 'true'
         with:
-          tag_name: 0.0
+          tag_name: github.event.inputs.version
           draft: false
           prerelease: false
           files: build/app/outputs/flutter-apk/app-*-release.apk
