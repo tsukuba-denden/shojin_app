@@ -8,10 +8,11 @@ on:
     branches: [ main, dev ]
     paths:
       - '.github/workflows/build.yml'
-      - 'app/**'
-      - 'gradle/**'
-      - '*.gradle'
-      - '*.properties'
+      - 'android/**'
+      - 'test/**'
+      - 'ios/**'
+      - '*.yaml'
+      - '*.lock'
       - 'lib/**'
 
   pull_request:
