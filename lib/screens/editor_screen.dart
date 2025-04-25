@@ -19,6 +19,7 @@ import '../models/problem.dart'; // 追加
 import '../models/test_result.dart'; // 追加
 import '../services/atcoder_service.dart'; // 追加
 import 'dart:developer' as developer; // developerログのために追加
+import 'submit_screen.dart'; // 追加: 提出画面を表示するWebViewスクリーン
 
 class EditorScreen extends StatefulWidget {
   final String problemId; // 問題IDを追加
@@ -740,8 +741,17 @@ public class Main {
                     icon: const Icon(Icons.cloud_upload),
                     tooltip: '提出',
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('提出機能は準備中です')),
+                      final parts = widget.problemId.split('_');
+                      final contestId = parts.isNotEmpty ? parts[0] : widget.problemId;
+                      final url = 'https://atcoder.jp/contests/$contestId/submit?taskScreenName=${widget.problemId}';
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SubmitScreen(
+                            url: url,
+                            initialCode: _codeController.text,
+                          ),
+                        ),
                       );
                     },
                   ),
