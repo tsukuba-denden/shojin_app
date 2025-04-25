@@ -780,9 +780,14 @@ public class Main {
                       }
                       String textToShare = code;
                       if (_currentProblem != null) {
+                        // textToShare に問題のタイトルと言語を追加
                         textToShare = '${_currentProblem!.title} ($_selectedLanguage)\n\n$code';
                       }
-                      Share.share(textToShare);
+                      // SharePlus.instance.share を使用するように変更
+                      // 共有するテキストを ShareParams の text パラメータに渡す
+                      SharePlus.instance.share(
+                        ShareParams(text: textToShare),
+                      );
                     },
                   ),
                 ],
