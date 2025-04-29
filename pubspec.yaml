@@ -26,7 +26,7 @@ dependencies:
   
   # 設定の保存に必要
   shared_preferences: ^2.5.3
-  provider: ^6.1.1
+  provider: ^6.1.5
   flutter_html: ^3.0.0
   webview_flutter: ^4.11.0
   favicon: ^1.1.0 # ファビコン取得用 (バージョンは最新を確認してください)
