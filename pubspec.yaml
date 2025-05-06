@@ -16,7 +16,7 @@ dependencies:
   google_fonts: ^6.1.0
   
   # AtCoder問題のスクレイピングに必要なパッケージ
-  http: ^1.2.1 # 画像データ取得用 (バージョンは最新を確認してください)
+  http: ^1.4.0 # 画像データ取得用 (バージョンは最新を確認してください)
   html: ^0.15.6  
   flutter_markdown_plus: ^1.0.3 # flutter_markdown から移行 (バージョン修正)
   flutter_code_editor: ^0.3.1
