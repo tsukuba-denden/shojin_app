@@ -15,11 +15,11 @@ import 'package:flutter_highlight/themes/github.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http; // HTTPリクエスト用
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/problem.dart'; // 追加
-import '../models/test_result.dart'; // 追加
-import '../services/atcoder_service.dart'; // 追加
+import '../models/problem.dart';
+import '../models/test_result.dart';
+import '../services/atcoder_service.dart';
 import 'dart:developer' as developer; // developerログのために追加
-import 'submit_screen.dart'; // 追加: 提出画面を表示するWebViewスクリーン
+import 'submit_screen.dart'; // 提出画面を表示するWebViewスクリーン
 
 class EditorScreen extends StatefulWidget {
   final String problemId; // 問題IDを追加
@@ -750,6 +750,7 @@ public class Main {
                           builder: (_) => SubmitScreen(
                             url: url,
                             initialCode: _codeController.text,
+                            initialLanguage: _selectedLanguage,
                           ),
                         ),
                       );
