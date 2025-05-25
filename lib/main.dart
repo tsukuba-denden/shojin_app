@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -11,7 +12,8 @@ import 'providers/theme_provider.dart';
 import 'providers/template_provider.dart';
 import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
-import 'dart:ui';
+import 'package:flutter_localizations/flutter_localizations.dart'; // 追加
+import 'l10n/app_localizations.dart'; // 追加 (生成されるファイル)
 
 void main() async {
   // Flutter Engineの初期化を保証
@@ -108,7 +110,14 @@ class MyApp extends StatelessWidget {
           labelMedium: GoogleFonts.notoSansJp(fontSize: 12, fontWeight: FontWeight.w500),
           labelSmall: GoogleFonts.notoSansJp(fontSize: 11, fontWeight: FontWeight.w500),
         );        return MaterialApp(
-          title: 'Shojin App',
+          title: 'Shojin App',          localizationsDelegates: [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: AppLocalizations.supportedLocales,
+          onGenerateTitle: (BuildContext context) => AppLocalizations.of(context)!.appTitle, // 修正
           theme: ThemeData(
             colorScheme: lightColorScheme,
             useMaterial3: true,
