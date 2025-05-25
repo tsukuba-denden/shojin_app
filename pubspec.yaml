@@ -29,6 +29,7 @@ dependencies:
   
   # 設定の保存に必要
   shared_preferences: ^2.5.3
+  path_provider: ^2.0.0
   provider: ^6.1.5
   flutter_html: ^3.0.0
   webview_flutter: ^4.13.0
