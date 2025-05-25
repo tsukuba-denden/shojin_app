@@ -121,7 +121,7 @@ class MyApp extends StatelessWidget {
                 elevation: 2,
               ),
             ),
-            cardTheme: const CardTheme(
+            cardTheme: const CardThemeData(
               elevation: 2,
               margin: EdgeInsets.all(8),
             ),
@@ -136,7 +136,7 @@ class MyApp extends StatelessWidget {
               elevation: 2,
               backgroundColor: themeProvider.isPureBlack ? Colors.black : null,
             ),
-            cardTheme: CardTheme(
+            cardTheme: CardThemeData(
               elevation: 2,
               margin: const EdgeInsets.all(8),
               color: themeProvider.isPureBlack ? const Color(0xFF121212) : null,

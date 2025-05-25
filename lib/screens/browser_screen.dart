@@ -36,13 +36,13 @@ class _BrowserScreenState extends State<BrowserScreen> {
   // Default sites
   final String _noviStepsUrl = 'https://atcoder-novisteps.vercel.app/problems';
   final String _noviStepsTitle = 'NoviSteps';
-  final String? _noviStepsFaviconUrl = 'https://raw.githubusercontent.com/AtCoder-NoviSteps/AtCoderNoviSteps/staging/static/favicon.png';
-  final String? _noviStepsColorHex = '#48955D';
+  final String _noviStepsFaviconUrl = 'https://raw.githubusercontent.com/AtCoder-NoviSteps/AtCoderNoviSteps/staging/static/favicon.png';
+  final String _noviStepsColorHex = '#48955D';
 
   final String _atcoderProblemsUrl = 'https://kenkoooo.com/atcoder/#/table/';
   final String _atcoderProblemsTitle = 'Problems';
-  final String? _atcoderProblemsFaviconUrl = 'https://github.com/kenkoooo/AtCoderProblems/raw/refs/heads/master/atcoder-problems-frontend/public/favicon.ico';
-  final String? _atcoderProblemsColorHex = '#66C84D';
+  final String _atcoderProblemsFaviconUrl = 'https://github.com/kenkoooo/AtCoderProblems/raw/refs/heads/master/atcoder-problems-frontend/public/favicon.ico';
+  final String _atcoderProblemsColorHex = '#66C84D';
 
   final Map<String, Future<PaletteGenerator?>> _paletteFutures = {};
 
@@ -134,9 +134,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
             _sites[i]['colorHex'] = metadata['colorHex'];
             needsUpdate = true;
           } catch (e) {
-            developer.log('Error fetching metadata for ${url}: $e', name: 'BrowserScreenMetadata');
-             _sites[i]['faviconUrl'] ??= null;
-             _sites[i]['colorHex'] ??= null;
+            developer.log('Error fetching metadata for $url: $e', name: 'BrowserScreenMetadata');
           }
         }
       }
@@ -159,30 +157,28 @@ class _BrowserScreenState extends State<BrowserScreen> {
         faviconUrl = icons.first.url;
         developer.log('Favicon found for $url: $faviconUrl', name: 'BrowserScreenMetadata');
 
-        if (faviconUrl != null) {
-          final cacheKey = faviconUrl;
-          if (_paletteFutures.containsKey(cacheKey)) {
-            paletteGenerator = await _paletteFutures[cacheKey];
-          } else {
-            final future = PaletteGenerator.fromImageProvider(
-              NetworkImage(faviconUrl),
-              maximumColorCount: 20,
-            ).catchError((e) {
-              developer.log('Error generating palette for $faviconUrl: $e', name: 'BrowserScreenMetadata');
-              return null;
-            });
-            _paletteFutures[cacheKey] = future;
-            paletteGenerator = await future;
-          }
-
-          if (paletteGenerator != null && paletteGenerator.dominantColor != null) {
-            colorHex = '#${paletteGenerator.dominantColor!.color.value.toRadixString(16).padLeft(8, '0')}';
-            developer.log('Dominant color found for $faviconUrl: $colorHex', name: 'BrowserScreenMetadata');
-          } else {
-             developer.log('Could not generate palette or find dominant color for $faviconUrl', name: 'BrowserScreenMetadata');
-          }
+        final cacheKey = faviconUrl;
+        if (_paletteFutures.containsKey(cacheKey)) {
+          paletteGenerator = await _paletteFutures[cacheKey];
+        } else {
+          final future = PaletteGenerator.fromImageProvider(
+            NetworkImage(faviconUrl),
+            maximumColorCount: 20,
+          ).catchError((e) {
+            developer.log('Error generating palette for $faviconUrl: $e', name: 'BrowserScreenMetadata');
+            return null;
+          });
+          _paletteFutures[cacheKey] = future;
+          paletteGenerator = await future;
         }
-      } else {
+
+        if (paletteGenerator != null && paletteGenerator.dominantColor != null) {
+          colorHex = '#${paletteGenerator.dominantColor!.color.value.toRadixString(16).padLeft(8, '0')}';
+          developer.log('Dominant color found for $faviconUrl: $colorHex', name: 'BrowserScreenMetadata');
+        } else {
+           developer.log('Could not generate palette or find dominant color for $faviconUrl', name: 'BrowserScreenMetadata');
+        }
+            } else {
          developer.log('No favicon found for $url', name: 'BrowserScreenMetadata');
       }
     } catch (e) {

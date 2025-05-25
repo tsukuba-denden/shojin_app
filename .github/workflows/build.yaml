@@ -5,7 +5,8 @@ name: Android Build
 # ワークフローが実行されるトリガーを指定
 on:
   push:
-    branches: [ main, dev ]
+    branches:
+      - '**'
     paths:
       - '.github/workflows/build.yml'
       - 'android/**'
