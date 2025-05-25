@@ -10,6 +10,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations: # 追加
+    sdk: flutter         # 追加
+  intl: ^0.20.2          # 追加 (バージョンは適宜調整してください)
 
   cupertino_icons: ^1.0.8
   dynamic_color: ^1.6.9
@@ -40,5 +43,5 @@ dev_dependencies:
   flutter_lints: ^5.0.0
 
 flutter:
-
+  generate: true # 追加
   uses-material-design: true
