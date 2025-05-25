@@ -7,7 +7,7 @@ class SubmitScreen extends StatefulWidget {
   final String url;
   final String initialCode;
   final String initialLanguage;
-  const SubmitScreen({Key? key, required this.url, required this.initialCode, required this.initialLanguage}) : super(key: key);
+  const SubmitScreen({super.key, required this.url, required this.initialCode, required this.initialLanguage});
 
   @override
   State<SubmitScreen> createState() => _SubmitScreenState();
@@ -22,7 +22,7 @@ class _SubmitScreenState extends State<SubmitScreen> {
     // JavaScript チャンネル追加（デバッグ用）
     _controller = WebViewController()
       ..addJavaScriptChannel('Debug', onMessageReceived: (message) {
-        log('JS> ' + message.message, name: 'SubmitScreen');
+        log('JS> ${message.message}', name: 'SubmitScreen');
       })
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
