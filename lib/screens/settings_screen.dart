@@ -358,7 +358,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 12),
 
-            // 更新設定のアコーディオン (New Card)
+            // 更新設定のアコーディオン
             Card(
               margin: const EdgeInsets.symmetric(vertical: 4.0),
               shape: RoundedRectangleBorder(
@@ -369,7 +369,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   dividerColor: Colors.transparent,
                 ),
                 child: ExpansionTile(
-                  initiallyExpanded: true, // Default to expanded
+                  initiallyExpanded: true,
                   title: Text(
                     '更新設定',
                     style: TextStyle(
@@ -378,15 +378,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   leading: const Icon(Icons.system_update_alt),
-                  childrenPadding: const EdgeInsets.only(bottom: 8, left: 0, right: 0), // Adjusted padding
+                  childrenPadding: const EdgeInsets.only(bottom: 8, left: 16, right: 16), // Adjusted padding
                   children: [
-                    SwitchListTile(
-                      title: const Text('アプリ起動時に自動で更新を確認'),
-                      value: _autoUpdateCheckEnabled,
-                      onChanged: (bool value) {
-                        _setAutoUpdatePreference(value);
-                      },
-                      secondary: const Icon(Icons.sync_outlined),
+                    Column( // Wrap in Column for multiple children
+                      children: [
+                        SwitchListTile(
+                          title: const Text('アプリ起動時に自動で更新を確認'),
+                          value: _autoUpdateCheckEnabled,
+                          onChanged: (bool value) {
+                            _setAutoUpdatePreference(value);
+                          },
+                          secondary: const Icon(Icons.sync_outlined),
+                        ),
+                        const SizedBox(height: 16), // Spacing
+                        // Moved UI Elements for manual update check
+                        ElevatedButton(
+                          onPressed: (_isLoadingUpdate || _isDownloading) ? null : _checkForUpdates,
+                          child: const Text('アップデートを手動で確認'), // Changed text for clarity
+                        ),
+                        if (_isLoadingUpdate)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        if (_isDownloading)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Column(
+                              children: [
+                                LinearProgressIndicator(value: _downloadProgress < 0 ? null : _downloadProgress),
+                                const SizedBox(height: 4),
+                                Text('ダウンロード中: ${(_downloadProgress * 100).toStringAsFixed(0)}%'),
+                              ],
+                            ),
+                          ),
+                        if (_updateCheckResult.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: Text(_updateCheckResult, textAlign: TextAlign.center),
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -419,41 +450,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     ListTile(
                       title: const Text('バージョン'),
-                      subtitle: Text(_currentVersion), // Updated
+                      subtitle: Text(_currentVersion),
                       leading: const Icon(Icons.tag),
                     ),
-                     Padding( // Added Padding for the button and indicators
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Column(
-                        children: [
-                          ElevatedButton(
-                            onPressed: (_isLoadingUpdate || _isDownloading) ? null : _checkForUpdates,
-                            child: const Text('アップデートを確認'),
-                          ),
-                          if (_isLoadingUpdate)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 8.0),
-                              child: CircularProgressIndicator(),
-                            ),
-                          if (_isDownloading)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Column(
-                                children: [
-                                  LinearProgressIndicator(value: _downloadProgress < 0 ? null : _downloadProgress), // Handle indeterminate
-                                  const SizedBox(height: 4),
-                                  Text('ダウンロード中: ${(_downloadProgress * 100).toStringAsFixed(0)}%'),
-                                ],
-                              ),
-                            ),
-                          if (_updateCheckResult.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(_updateCheckResult),
-                            ),
-                        ],
-                      ),
-                    ),
+                    // Manual update check UI was here, now moved
                     ListTile(
                       title: const Text('開発者'),
                       subtitle: const Text('筑波大学附属中学校 電子電脳技術研究会'),
