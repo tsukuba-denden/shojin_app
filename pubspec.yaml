@@ -34,7 +34,7 @@ dependencies:
   flutter_highlight: ^0.7.0
   
   # 設定の保存に必要
-  shared_preferences: ^2.2.3
+  shared_preferences: ^2.5.3
   provider: ^6.1.5
   # flutter_html: 3.0.0-beta.2 # Temporarily commented out
   webview_flutter: ^4.7.0
