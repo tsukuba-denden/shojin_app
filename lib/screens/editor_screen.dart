@@ -14,7 +14,9 @@ import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:flutter_highlight/themes/github.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http; // HTTPリクエスト用
-import 'package:shared_preferences/shared_preferences.dart';
+// import 'package:shared_preferences/shared_preferences.dart'; // SharedPreferences を削除
+import 'dart:io'; // File I/O
+import 'package:path_provider/path_provider.dart'; // path_provider
 import '../models/problem.dart';
 import '../models/test_result.dart';
 import '../services/atcoder_service.dart';
@@ -71,6 +73,19 @@ class _EditorScreenState extends State<EditorScreen> {
     _loadProblemData(); // 問題データを読み込む
   }
 
+  // ファイル名/ディレクトリ名に使えない文字を置換するヘルパー関数
+  String _sanitizeFileName(String name) {
+    // Windowsで使えない文字: < > : " / \ | ? *
+    // Linux/macOSで使えない文字: / (NULL文字もだが、通常入力されない)
+    // ここでは一般的なものをアンダースコアに置換
+    String sanitized = name.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    // 長すぎるファイル名を避ける (オプション)
+    // if (sanitized.length > 50) {
+    //   sanitized = sanitized.substring(0, 50);
+    // }
+    return sanitized;
+  }
+
   @override
   void dispose() {
     _codeController.dispose();
@@ -78,40 +93,107 @@ class _EditorScreenState extends State<EditorScreen> {
     super.dispose();
   }
 
-  // 保存されたコードを読み込む関数
+  // 保存されたコードを読み込む関数 (ファイルシステム版)
   Future<void> _loadSavedCode() async {
     setState(() {
       _isLoadingCode = true;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedCode = prefs.getString('code_${widget.problemId}_$_selectedLanguage');
-      // ★★★ ここで _codeController にアクセスする前に初期化されている必要がある ★★★
-      if (savedCode != null) {
-        _codeController.text = savedCode;
+      if (widget.problemId == 'default_problem' || _currentProblem == null || _currentProblem!.contestName.isEmpty || _currentProblem!.title.isEmpty) {
+        developer.log('Load: Default problem or missing problem data. Loading template.', name: 'EditorScreen');
+        _codeController.text = _getTemplateForLanguage(_selectedLanguage);
+        return;
+      }
+
+      final directory = await getApplicationDocumentsDirectory();
+      final extension = _getExtension(_selectedLanguage);
+      final contestNameSanitized = _sanitizeFileName(_currentProblem!.contestName);
+      final problemTitleSanitized = _sanitizeFileName(_currentProblem!.title);
+      final path = '${directory.path}/$contestNameSanitized/$problemTitleSanitized/main$extension';
+      final file = File(path);
+
+      developer.log('Load: Attempting to load code from: $path', name: 'EditorScreen');
+
+      if (await file.exists()) {
+        _codeController.text = await file.readAsString();
+        developer.log('Load: Code loaded successfully from $path', name: 'EditorScreen');
       } else {
+        developer.log('Load: File not found. Loading template.', name: 'EditorScreen');
         _codeController.text = _getTemplateForLanguage(_selectedLanguage);
       }
     } catch (e) {
-      print("コードの読み込みに失敗しました: $e");
-      // エラー時もテンプレートを設定
+      developer.log("Load: Failed to load code: $e", name: 'EditorScreen');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('コードの読み込みに失敗しました: $e')),
+      );
       _codeController.text = _getTemplateForLanguage(_selectedLanguage);
     } finally {
-      setState(() {
-        _isLoadingCode = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingCode = false;
+        });
+      }
     }
   }
 
-  // 現在のコードを保存する関数
+  // 言語名からファイル拡張子を取得するヘルパー関数
+  String _getExtension(String language) {
+    switch (language) {
+      case 'Python':
+        return '.py';
+      case 'C++':
+        return '.cpp';
+      case 'Java':
+        return '.java';
+      case 'Rust':
+        return '.rs';
+      default:
+        return '.txt'; // 不明な場合は .txt
+    }
+  }
+
+  // 現在のコードを保存する関数 (ファイルシステム版)
   Future<void> _saveCode() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('code_${widget.problemId}_$_selectedLanguage', _codeController.text);
+    if (widget.problemId == 'default_problem') {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$_selectedLanguage のコードを保存しました')),
+        const SnackBar(content: Text('デフォルト問題のコードは保存できません')),
+      );
+      return;
+    }
+
+    if (_currentProblem == null || _currentProblem!.contestName.isEmpty || _currentProblem!.title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('保存不可: コンテストまたは問題データがありません')),
+      );
+      return;
+    }
+
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final extension = _getExtension(_selectedLanguage);
+      final contestNameSanitized = _sanitizeFileName(_currentProblem!.contestName);
+      final problemTitleSanitized = _sanitizeFileName(_currentProblem!.title);
+      // ディレクトリパスを修正
+      final dirPath = '${directory.path}/$contestNameSanitized/$problemTitleSanitized';
+      final filePath = '$dirPath/main$extension';
+      
+      final file = File(filePath);
+
+      developer.log('Save: Attempting to save code to: $filePath', name: 'EditorScreen');
+
+      // ディレクトリを作成
+      await Directory(dirPath).create(recursive: true);
+      developer.log('Save: Directory created/ensured: $dirPath', name: 'EditorScreen');
+
+      // ファイルに書き込み
+      await file.writeAsString(_codeController.text);
+      developer.log('Save: Code saved successfully to $filePath', name: 'EditorScreen');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('コードを $filePath に保存しました')),
       );
     } catch (e) {
+      developer.log("Save: Failed to save code: $e", name: 'EditorScreen');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('コードの保存に失敗しました: $e')),
       );
@@ -260,61 +342,63 @@ public class Main {
     }
   }
 
-  // 現在のコードを復元する関数
+  // 現在のコードを復元する関数 (ファイルシステム版)
   Future<void> _restoreCode() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedCode = prefs.getString('code_${widget.problemId}_$_selectedLanguage');
-      if (savedCode != null) {
-        setState(() {
-          _codeController.text = savedCode;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$_selectedLanguage のコードを復元しました')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存されたコードが見つかりません')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('コードの復元に失敗しました: $e')),
-      );
-    }
+    // _loadSavedCode を呼び出すだけ
+    await _loadSavedCode();
+    // _loadSavedCode内でメッセージが表示されるので、ここでは不要な場合もある
+    // 必要であれば、成功した旨のメッセージを出す
+    // ただし、_loadSavedCodeがテンプレートをロードした場合も「復元した」と出るのは紛らわしいので注意
+    // ここでは、_loadSavedCode が適切なメッセージを出すことを期待する
+    // もしファイルが存在して読み込めた場合に特化したメッセージが必要なら、_loadSavedCodeからbool値を返すなど工夫が必要
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$_selectedLanguage のコードの読み込みを試みました')),
+    );
   }
 
   // 問題データを読み込む関数
   Future<void> _loadProblemData() async {
     // problemId が 'default_problem' の場合は何もしない
     if (widget.problemId == 'default_problem') {
-      print("Default problem ID detected, skipping problem data load.");
-      // 必要なら _isLoadingCode を false にする
-      if (mounted) {
-        setState(() {
-          _isLoadingCode = false; // コード読み込みも完了扱いにする
-        });
+      developer.log("Default problem ID detected, skipping problem data load.", name: 'EditorScreen');
+      // _loadSavedCodeがテンプレートをロードし、_isLoadingCodeをfalseにする
+      // ここで _loadSavedCode を呼ぶと二重になるので、initStateの呼び出しに任せる
+      // ただし、_loadProblemData が _loadSavedCode より先に完了するケースを考慮すると、
+      // やはりここで _isLoadingCode を適切に管理する必要がある。
+      // _loadSavedCode が完了するまで _isLoadingCode は true のままかもしれないので、
+      // _loadProblemData 側で _isLoadingCode を false にするのは _loadSavedCode 側と協調させる必要がある。
+      // 現状、_loadSavedCode の finally で _isLoadingCode = false にしているので、
+      // default_problem の場合は _loadSavedCode が呼ばれた時点で template がロードされ、isLoadingCode が false になる。
+      // そのため、ここでは特別な isLoadingCode の操作は不要かもしれない。
+      // 念のため、もし _loadSavedCode がまだ呼ばれていない場合を考慮し、
+      // _currentProblem が null のままなら _isLoadingCode は false にする。
+      if (mounted && _currentProblem == null) { // _currentProblem が設定されないことを確認
+         setState(() {
+           _isLoadingCode = false;
+         });
       }
       return;
     }
-    // すでに読み込み済み、または読み込み中なら何もしない (isLoadingCode を流用)
-    if (_currentProblem != null || !_isLoadingCode) return;
 
-    // _isLoadingCode は initState で true になっているので、ここでは setState しない
+    // すでに読み込み済み、または _isLoadingCode が false (つまりロード処理が完了) なら何もしない
+    // ただし、_loadProblemData は _currentProblem を設定するので、_currentProblem が null の場合のみ実行する
+    if (_currentProblem != null) {
+        developer.log("Problem data already loaded or loading process handled by _loadSavedCode.", name: 'EditorScreen');
+        return;
+    }
+    
+    // _isLoadingCode は initState または _loadSavedCode で管理されているので、ここでは直接 true にしない。
+    // _loadSavedCode が先に完了した場合、_isLoadingCode は false になっている可能性がある。
+    // _loadProblemData は _currentProblem の設定が主目的。
 
     try {
-      // 問題URLを決定する
-      // problemIdがすでに完全なURLの場合はそのまま使用
       String url = widget.problemId;
       if (!url.startsWith('http')) {
-        // URLでない場合は、従来の方法でURL構築を試みる
         final parts = widget.problemId.split('_');
         if (parts.isEmpty) {
-          print("Invalid problem ID format: ${widget.problemId}");
+          developer.log("Invalid problem ID format: ${widget.problemId}", name: 'EditorScreen');
           if (mounted) {
-            setState(() {
-              _isLoadingCode = false; // エラーでもローディング終了
-            });
+            // setState(() { _isLoadingCode = false; }); // _loadSavedCodeに任せる
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('無効な問題ID形式です: ${widget.problemId}')),
             );
@@ -325,34 +409,33 @@ public class Main {
         url = 'https://atcoder.jp/contests/$contestId/tasks/${widget.problemId}';
       }
 
-      print("Fetching problem data from: $url"); // デバッグ用ログ
+      developer.log("Fetching problem data from: $url", name: 'EditorScreen');
       final problem = await _atcoderService.fetchProblem(url);
-      print("Problem data fetched: ${problem.title}"); // デバッグ用ログ
+      developer.log("Problem data fetched: ${problem.title}, Contest: ${problem.contestName}", name: 'EditorScreen');
       if (mounted) {
         setState(() {
           _currentProblem = problem;
-          // ★★★ デバッグログ追加 ★★★
-          print("Problem loaded: ${_currentProblem?.title}");
-          print("Samples found: ${_currentProblem?.samples.length ?? 0}");
-          // ★★★ デバッグログ追加 ★★★
+          developer.log("Problem loaded: ${_currentProblem?.title}, Samples: ${_currentProblem?.samples.length ?? 0}", name: 'EditorScreen');
         });
+        // 問題データがロードされた後に、再度コードをロードする（ファイルパスが確定するため）
+        // ただし、これが _loadSavedCode の初回呼び出しと競合しないように注意
+        // initState -> _loadSavedCode (problem null -> template) -> _loadProblemData (problem set) -> _loadSavedCode (problem not null -> file)
+        // この流れなら、_loadProblemData の後に _loadSavedCode を呼ぶのが正しい
+        await _loadSavedCode();
       }
     } catch (e) {
-      print("Failed to load problem data for testing: $e"); // 既存ログ
+      developer.log("Failed to load problem data for testing: $e", name: 'EditorScreen');
       if (mounted) {
-        // ★★★ デバッグログ追加 ★★★
-        print("Error loading problem data. _currentProblem is null.");
-        // ★★★ デバッグログ追加 ★★★
+        // setState(() { _isLoadingCode = false; }); // _loadSavedCodeに任せる
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('テストケースの読み込みに失敗しました: $e')),
         );
       }
     } finally {
-       // _loadSavedCode と両方終わったことを確認するために
-       // _loadSavedCode 側で isLoadingCode を false にする
-       // ★★★ デバッグログ追加 ★★★
-       print("_loadProblemData finished. isLoadingCode: $_isLoadingCode");
-       // ★★★ デバッグログ追加 ★★★
+      // _isLoadingCode の管理は主に _loadSavedCode に移譲したので、ここでの直接操作は慎重に。
+      // _loadProblemData が完了しても、_loadSavedCode (ファイルからの読み込み) がまだの場合がある。
+      // _loadSavedCode の finally で _isLoadingCode = false になるので、ここでは不要。
+      developer.log("_loadProblemData finished. Current problem: ${_currentProblem?.title}", name: 'EditorScreen');
     }
   }
   // Wandbox APIを使用して単一のテストケースを実行する内部関数

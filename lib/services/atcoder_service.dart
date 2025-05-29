@@ -17,8 +17,47 @@ class AtCoderService {
         final titleElement = document.querySelector('.h2');
         final title = titleElement?.text.trim() ?? 'タイトルが見つかりません';
         
+        // コンテストIDの抽出
+        final urlParts = url.split('/');
+        String contestId = 'unknown_contest';
+        if (urlParts.length >= 5 && urlParts[2] == 'atcoder.jp' && urlParts[3] == 'contests') {
+          contestId = urlParts[4];
+        }
+        developer.log("抽出されたコンテストID: $contestId");
+
+        // コンテスト名を取得
+        String contestName = 'Unknown Contest';
+        if (contestId != 'unknown_contest') {
+          try {
+            final contestUrl = 'https://atcoder.jp/contests/$contestId';
+            final contestResponse = await http.get(Uri.parse(contestUrl));
+            if (contestResponse.statusCode == 200) {
+              final contestDocument = parser.parse(contestResponse.body);
+              // AtCoderのコンテストページでは、コンテスト名は <a class="navbar-brand"> にあることが多い
+              final contestNameElement = contestDocument.querySelector('a.navbar-brand');
+              if (contestNameElement != null) {
+                contestName = contestNameElement.text.trim();
+                developer.log("コンテスト名を発見: $contestName");
+              } else {
+                // 代替としてh1タグを探す
+                final h1Element = contestDocument.querySelector('h1');
+                if (h1Element != null) {
+                  contestName = h1Element.text.trim();
+                  developer.log("コンテスト名をh1タグから発見: $contestName");
+                } else {
+                  developer.log("コンテスト名要素 (a.navbar-brand or h1) が見つかりませんでした。");
+                }
+              }
+            } else {
+              developer.log("コンテストページの取得に失敗: ${contestResponse.statusCode}");
+            }
+          } catch (e) {
+            developer.log("コンテスト名の取得中にエラー: $e");
+          }
+        }
+        
         // デバッグ: HTMLの構造を調査
-        developer.log("HTML構造の分析を開始...");
+        developer.log("問題ページHTML構造の分析を開始...");
         _analyzeHtmlStructure(document);
         
         // 問題文、制約、入出力形式を取得
@@ -74,6 +113,7 @@ class AtCoderService {
         
         return Problem(
           title: title,
+          contestName: contestName, // contestNameを追加
           statement: statement,
           constraints: constraints,
           inputFormat: inputFormat,
