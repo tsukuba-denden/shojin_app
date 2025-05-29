@@ -153,7 +153,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                 Expanded(
                   child: TextFormField(
                     controller: _urlController, // Controller is updated automatically now
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'AtCoder 問題URL',
                       hintText: 'https://atcoder.jp/contests/コンテスト名/tasks/問題名',
                       border: OutlineInputBorder(),
@@ -203,7 +203,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                       Row(
                         children: [
                           Icon(Icons.error_outline, color: Colors.red[700]),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
                             'エラーが発生しました',
                             style: TextStyle(
@@ -212,7 +212,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                               color: Colors.red[700],
                             ),
                           ),
-                          Spacer(),
+                          const Spacer(),
                           IconButton(
                             icon: Icon(Icons.copy, color: Colors.red[700]),
                             tooltip: 'エラーメッセージをコピー',
@@ -228,9 +228,9 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Container(
-                        padding: EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.red[100],
                           borderRadius: BorderRadius.circular(4),
@@ -244,7 +244,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                           ),
                         ),
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Text(
                         'URLが正しいことを確認し、もう一度お試しください。',
                         style: TextStyle(

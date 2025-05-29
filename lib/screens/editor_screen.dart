@@ -274,7 +274,7 @@ public class Main {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存されたコードが見つかりません')),
+          const SnackBar(content: Text('保存されたコードが見つかりません')),
         );
       }
     } catch (e) {
@@ -826,7 +826,7 @@ public class Main {
                     child: CodeField(
                       controller: _codeController,
                       textStyle: GoogleFonts.sourceCodePro(),
-                      gutterStyle: GutterStyle(
+                      gutterStyle: const GutterStyle(
                         width: 32,
                         textAlign: TextAlign.right,
                       ),
@@ -854,10 +854,10 @@ public class Main {
                   child: TextField(
                     controller: _stdinController,
                     maxLines: 3,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: '標準入力 (stdin)',
                       hintText: 'プログラムへの入力をここに入力します',
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(),
                       isDense: true,
                     ),
                     style: GoogleFonts.sourceCodePro(fontSize: 13),
@@ -944,7 +944,7 @@ public class Main {
 
                       // --- Placeholder Text ---
                       if (_output.isEmpty && _error.isEmpty && !_isRunning)
-                         Text(
+                         const Text(
                            '実行ボタンを押すと、ここに結果が表示されます。',
                            style: TextStyle(color: Colors.grey),
                          ),

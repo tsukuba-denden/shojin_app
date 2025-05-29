@@ -56,7 +56,7 @@ const _defaultDarkColorScheme = ColorScheme.dark(
 );
 
 // ピュアブラックモードのカラースキーム
-final _pureBlackColorScheme = ColorScheme.dark(
+const _pureBlackColorScheme = ColorScheme.dark(
   primary: Colors.blue,
   onPrimary: Colors.white,
   secondary: Colors.blueAccent,
@@ -110,7 +110,7 @@ class MyApp extends StatelessWidget {
           labelMedium: GoogleFonts.notoSansJp(fontSize: 12, fontWeight: FontWeight.w500),
           labelSmall: GoogleFonts.notoSansJp(fontSize: 11, fontWeight: FontWeight.w500),
         );        return MaterialApp(
-          title: 'Shojin App',          localizationsDelegates: [
+          title: 'Shojin App',          localizationsDelegates: const [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
