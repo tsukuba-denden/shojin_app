@@ -101,7 +101,7 @@ void main() {
       // and we'll mock its response.
 
       final client = mockClient(mockApiResponse, 200);
-      final originalClient = http.Client; // Store original if needed, not strictly for this test though
+      const originalClient = http.Client; // Store original if needed, not strictly for this test though
       http.Client clientFactory() => client; // Factory for http calls if UpdateService uses one
 
       // If UpdateService creates its own client internally, this test becomes harder.
@@ -200,8 +200,9 @@ void main() {
       // Let's assume we are testing the selection logic conceptually.
       
       List<String> patterns;
-      if (os == 'android') patterns = ['.apk'];
-      else if (os == 'windows') patterns = ['.exe', '.msi', '.zip'];
+      if (os == 'android') {
+        patterns = ['.apk'];
+      } else if (os == 'windows') patterns = ['.exe', '.msi', '.zip'];
       else if (os == 'macos') patterns = ['.dmg', '.zip'];
       else if (os == 'linux') patterns = ['.AppImage', '.deb', '.tar.gz', '.zip']; // Added .zip as fallback
       else patterns = [];

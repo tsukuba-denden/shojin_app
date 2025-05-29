@@ -421,7 +421,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
            backgroundColor = Color(int.parse('0x$hex'));
            textColor = _getTextColorForBackground(backgroundColor);
         } else {
-           throw FormatException("Invalid hex color format");
+           throw const FormatException("Invalid hex color format");
         }
       } catch (e) {
         developer.log('Error parsing color hex $colorHex: $e', name: 'BrowserScreenButton');

@@ -454,10 +454,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       leading: const Icon(Icons.tag),
                     ),
                     // Manual update check UI was here, now moved
-                    ListTile(
-                      title: const Text('開発者'),
-                      subtitle: const Text('筑波大学附属中学校 電子電脳技術研究会'),
-                      leading: const Icon(Icons.code),
+                    const ListTile(
+                      title: Text('開発者'),
+                      subtitle: Text('筑波大学附属中学校 電子電脳技術研究会'),
+                      leading: Icon(Icons.code),
                     ),
                   ],
                 ),
