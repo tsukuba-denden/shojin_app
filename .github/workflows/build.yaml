@@ -28,7 +28,7 @@ on:
         description: 'Version'
         type: string
         required: true
-        default: false
+        default: 'v0.0.0-Beta'
 
 jobs:
   build:
