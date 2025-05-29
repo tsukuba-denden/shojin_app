@@ -18,7 +18,7 @@ dependencies:
   pub_semver: ^2.1.4
   url_launcher: ^6.3.0
   permission_handler: ^11.3.1
-  archive: ^3.6.1
+  archive: ^4.0.7
 
   cupertino_icons: ^1.0.8
   dynamic_color: ^1.6.9
