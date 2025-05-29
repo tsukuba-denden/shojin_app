@@ -85,6 +85,7 @@ jobs:
           tag_name: ${{github.event.inputs.version}}
           draft: false
           prerelease: false
+          generate_release_notes: true
           files: build/app/outputs/flutter-apk/app-*-release.apk
 
       
