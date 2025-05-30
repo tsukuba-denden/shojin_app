@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:favicon/favicon.dart';
 import 'package:palette_generator/palette_generator.dart';
-import 'package:http/http.dart' as http; // For fetching favicon image
+// For fetching favicon image
 
 // Helper function to determine text color based on background
 Color _getTextColorForBackground(Color backgroundColor) {
