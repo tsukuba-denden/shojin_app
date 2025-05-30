@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:favicon/favicon.dart';
-import 'package:palette_generator/palette_generator.dart';
+import 'package:image_pixels/image_pixels.dart';
 // For fetching favicon image
 
 // Helper function to determine text color based on background
@@ -44,7 +44,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
   final String _atcoderProblemsFaviconUrl = 'https://github.com/kenkoooo/AtCoderProblems/raw/refs/heads/master/atcoder-problems-frontend/public/favicon.ico';
   final String _atcoderProblemsColorHex = '#66C84D';
 
-  final Map<String, Future<PaletteGenerator?>> _paletteFutures = {};
+  final Map<String, Future<Color?>> _imagePixelFutures = {}; // Changed type
 
   @override
   void initState() {
@@ -149,7 +149,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
   Future<Map<String, String?>> _fetchSiteMetadata(String url) async {
     String? faviconUrl;
     String? colorHex;
-    PaletteGenerator? paletteGenerator;
+    Color? dominantColor;
 
     try {
       final icons = await FaviconFinder.getAll(url);
@@ -158,27 +158,76 @@ class _BrowserScreenState extends State<BrowserScreen> {
         developer.log('Favicon found for $url: $faviconUrl', name: 'BrowserScreenMetadata');
 
         final cacheKey = faviconUrl;
-        if (_paletteFutures.containsKey(cacheKey)) {
-          paletteGenerator = await _paletteFutures[cacheKey];
+        if (_imagePixelFutures.containsKey(cacheKey)) {
+          dominantColor = await _imagePixelFutures[cacheKey];
         } else {
-          final future = PaletteGenerator.fromImageProvider(
-            NetworkImage(faviconUrl),
-            maximumColorCount: 20,
-          ).catchError((e) {
-            developer.log('Error generating palette for $faviconUrl: $e', name: 'BrowserScreenMetadata');
+          final future = ImagePixels.extractPixelsFromNetworkImage(faviconUrl).then((imgDetails) {
+            if (imgDetails == null || imgDetails.pixels == null || imgDetails.pixels!.isEmpty) {
+              developer.log('No pixel data for $faviconUrl', name: 'BrowserScreenMetadata');
+              return null;
+            }
+            // Dominant color extraction logic
+            Map<int, int> colorCounts = {};
+            int maxCount = 0;
+            Color? mostFrequentColor;
+
+            // Iterate over a sample of pixels (e.g., every 10th pixel) to improve performance
+            for (int i = 0; i < imgDetails.pixels!.length; i += 40) { // Sample pixels: R,G,B,A
+              if (i + 3 < imgDetails.pixels!.length) {
+                int r = imgDetails.pixels![i];
+                int g = imgDetails.pixels![i+1];
+                int b = imgDetails.pixels![i+2];
+                int a = imgDetails.pixels![i+3];
+                Color pixelColor = Color.fromARGB(a, r, g, b);
+
+                // Quantize color to group similar shades (optional, can be refined)
+                // For simplicity, we'll use the direct color value for now.
+                // A more advanced approach might involve grouping by HSL values or reducing bit depth.
+
+                // Filter out very light or very dark colors
+                if (a > 200 && (r > 30 || g > 30 || b > 30) && (r < 225 || g < 225 || b < 225)) {
+                   final colorValue = pixelColor.value;
+                   colorCounts[colorValue] = (colorCounts[colorValue] ?? 0) + 1;
+                   if (colorCounts[colorValue]! > maxCount) {
+                     maxCount = colorCounts[colorValue]!;
+                     mostFrequentColor = pixelColor;
+                   }
+                }
+              }
+            }
+            if (mostFrequentColor == null && imgDetails.pixels!.isNotEmpty) {
+              // Fallback: if no color met criteria, try average color (less ideal)
+              // Or, pick the first non-white/black pixel if available
+              for (int i = 0; i < imgDetails.pixels!.length; i += 4) {
+                 if (i + 3 < imgDetails.pixels!.length) {
+                    int r = imgDetails.pixels![i];
+                    int g = imgDetails.pixels![i+1];
+                    int b = imgDetails.pixels![i+2];
+                    int a = imgDetails.pixels![i+3];
+                    if (a > 200 && (r > 20 || g > 20 || b > 20) && (r < 235 || g < 235 || b < 235)) {
+                       mostFrequentColor = Color.fromARGB(a, r, g, b);
+                       break;
+                    }
+                 }
+              }
+            }
+            return mostFrequentColor;
+          }).catchError((e) {
+            developer.log('Error extracting pixels for $faviconUrl: $e', name: 'BrowserScreenMetadata');
             return null;
           });
-          _paletteFutures[cacheKey] = future;
-          paletteGenerator = await future;
+          _imagePixelFutures[cacheKey] = future;
+          dominantColor = await future;
         }
 
-        if (paletteGenerator != null && paletteGenerator.dominantColor != null) {
-          colorHex = '#${paletteGenerator.dominantColor!.color.value.toRadixString(16).padLeft(8, '0')}';
+        if (dominantColor != null) {
+          // Format: #AARRGGBB, then take substring if alpha is not needed or use directly
+          colorHex = '#${dominantColor.value.toRadixString(16).padLeft(8, '0')}';
           developer.log('Dominant color found for $faviconUrl: $colorHex', name: 'BrowserScreenMetadata');
         } else {
-           developer.log('Could not generate palette or find dominant color for $faviconUrl', name: 'BrowserScreenMetadata');
+           developer.log('Could not determine dominant color for $faviconUrl', name: 'BrowserScreenMetadata');
         }
-            } else {
+      } else {
          developer.log('No favicon found for $url', name: 'BrowserScreenMetadata');
       }
     } catch (e) {
@@ -317,7 +366,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
     if (confirm == true) {
       final faviconUrl = _sites[index]['faviconUrl'];
       if (faviconUrl != null) {
-         _paletteFutures.remove(faviconUrl);
+         _imagePixelFutures.remove(faviconUrl); // Cleared new cache
       }
       _sites.removeAt(index);
       final list = _sites.map((e) => jsonEncode(e)).toList();
