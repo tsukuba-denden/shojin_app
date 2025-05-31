@@ -1,4 +1,5 @@
 // filepath: d:\GitHub_tsukuba-denden\shojin_app\lib\screens\browser_screen.dart
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui; // Added for ui.Image and ui.ImageByteFormat
 import 'dart:developer' as developer;
@@ -159,13 +160,13 @@ class _BrowserScreenState extends State<BrowserScreen> {
 
         final cacheKey = faviconUrl;
         if (_imagePixelFutures.containsKey(cacheKey)) {
-          dominantColor = await _imagePixelFutures[cacheKey];
-        } else {
+          dominantColor = await _imagePixelFutures[cacheKey];        } else {
           final imageProvider = NetworkImage(faviconUrl);
           final completer = Completer<Color?>();
           final imageStream = imageProvider.resolve(const ImageConfiguration());
 
-          final listener = ImageStreamListener(
+          late ImageStreamListener listener;
+          listener = ImageStreamListener(
             (ImageInfo imageInfo, bool synchronousCall) async {
               try {
                 final ui.Image uiImage = imageInfo.image;
@@ -175,10 +176,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
                   developer.log('No pixel data (ByteData is null or empty) for $faviconUrl', name: 'BrowserScreenMetadata');
                   completer.complete(null);
                   return;
-                }
-
-                final pixels = byteData.buffer.asUint8List();
-                final imageWidth = uiImage.width;
+                }                final pixels = byteData.buffer.asUint8List();
+                // final imageWidth = uiImage.width;
                 // final imageHeight = uiImage.height; // Not strictly needed for current logic but good to have
 
                 Map<int, int> colorCounts = {};
