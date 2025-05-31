@@ -38,7 +38,6 @@ dependencies:
   # flutter_html: 3.0.0-beta.2 # Temporarily commented out
   webview_flutter: ^4.7.0
   favicon: ^1.1.0 # ファビコン取得用 (バージョンは最新を確認してください)
-  palette_generator: ^0.3.3+3 # 色抽出用 (バージョンは最新を確認してください)
   share_plus: ^11.0.0
   open_file: ^3.5.10
   intl: ^0.20.2
