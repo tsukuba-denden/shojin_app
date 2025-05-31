@@ -1,11 +1,12 @@
 // filepath: d:\GitHub_tsukuba-denden\shojin_app\lib\screens\browser_screen.dart
+import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui; // Added for ui.Image and ui.ImageByteFormat
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:favicon/favicon.dart';
-import 'package:palette_generator/palette_generator.dart';
 // For fetching favicon image
 
 // Helper function to determine text color based on background
@@ -44,7 +45,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
   final String _atcoderProblemsFaviconUrl = 'https://github.com/kenkoooo/AtCoderProblems/raw/refs/heads/master/atcoder-problems-frontend/public/favicon.ico';
   final String _atcoderProblemsColorHex = '#66C84D';
 
-  final Map<String, Future<PaletteGenerator?>> _paletteFutures = {};
+  final Map<String, Future<Color?>> _imagePixelFutures = {}; // Changed type
 
   @override
   void initState() {
@@ -149,7 +150,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
   Future<Map<String, String?>> _fetchSiteMetadata(String url) async {
     String? faviconUrl;
     String? colorHex;
-    PaletteGenerator? paletteGenerator;
+    Color? dominantColor;
 
     try {
       final icons = await FaviconFinder.getAll(url);
@@ -158,27 +159,95 @@ class _BrowserScreenState extends State<BrowserScreen> {
         developer.log('Favicon found for $url: $faviconUrl', name: 'BrowserScreenMetadata');
 
         final cacheKey = faviconUrl;
-        if (_paletteFutures.containsKey(cacheKey)) {
-          paletteGenerator = await _paletteFutures[cacheKey];
-        } else {
-          final future = PaletteGenerator.fromImageProvider(
-            NetworkImage(faviconUrl),
-            maximumColorCount: 20,
-          ).catchError((e) {
-            developer.log('Error generating palette for $faviconUrl: $e', name: 'BrowserScreenMetadata');
-            return null;
-          });
-          _paletteFutures[cacheKey] = future;
-          paletteGenerator = await future;
+        if (_imagePixelFutures.containsKey(cacheKey)) {
+          dominantColor = await _imagePixelFutures[cacheKey];        } else {
+          final imageProvider = NetworkImage(faviconUrl);
+          final completer = Completer<Color?>();
+          final imageStream = imageProvider.resolve(const ImageConfiguration());
+
+          late ImageStreamListener listener;
+          listener = ImageStreamListener(
+            (ImageInfo imageInfo, bool synchronousCall) async {
+              try {
+                final ui.Image uiImage = imageInfo.image;
+                final byteData = await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
+
+                if (byteData == null || byteData.lengthInBytes == 0) {
+                  developer.log('No pixel data (ByteData is null or empty) for $faviconUrl', name: 'BrowserScreenMetadata');
+                  completer.complete(null);
+                  return;
+                }                final pixels = byteData.buffer.asUint8List();
+                // final imageWidth = uiImage.width;
+                // final imageHeight = uiImage.height; // Not strictly needed for current logic but good to have
+
+                Map<int, int> colorCounts = {};
+                int maxCount = 0;
+                Color? mostFrequentColor;
+
+                // Iterate over a sample of pixels
+                // Each pixel is 4 bytes (R,G,B,A)
+                // Sample pixels: step by 4 * N to jump N pixels
+                for (int i = 0; i < pixels.length; i += 4 * 10) { // Sample every 10th pixel
+                  if (i + 3 < pixels.length) {
+                    // ByteData is RGBA
+                    int r = pixels[i];
+                    int g = pixels[i+1];
+                    int b = pixels[i+2];
+                    int a = pixels[i+3];
+                    Color pixelColor = Color.fromARGB(a, r, g, b);
+
+                    if (a > 200 && (r > 30 || g > 30 || b > 30) && (r < 225 || g < 225 || b < 225)) {
+                       final colorValue = pixelColor.value;
+                       colorCounts[colorValue] = (colorCounts[colorValue] ?? 0) + 1;
+                       if (colorCounts[colorValue]! > maxCount) {
+                         maxCount = colorCounts[colorValue]!;
+                         mostFrequentColor = pixelColor;
+                       }
+                    }
+                  }
+                }
+
+                if (mostFrequentColor == null && pixels.isNotEmpty) {
+                  for (int i = 0; i < pixels.length; i += 4) {
+                     if (i + 3 < pixels.length) {
+                        int r = pixels[i];
+                        int g = pixels[i+1];
+                        int b = pixels[i+2];
+                        int a = pixels[i+3];
+                        if (a > 200 && (r > 20 || g > 20 || b > 20) && (r < 235 || g < 235 || b < 235)) {
+                           mostFrequentColor = Color.fromARGB(a, r, g, b);
+                           break;
+                        }
+                     }
+                  }
+                }
+                completer.complete(mostFrequentColor);
+              } catch (e) {
+                developer.log('Error processing image for $faviconUrl: $e', name: 'BrowserScreenMetadata');
+                completer.complete(null);
+              } finally {
+                imageStream.removeListener(listener); // Corrected to remove the specific listener
+              }
+            },
+            onError: (dynamic exception, StackTrace? stackTrace) {
+              developer.log('Error loading image for $faviconUrl: $exception', name: 'BrowserScreenMetadata');
+              completer.complete(null);
+              imageStream.removeListener(listener); // Corrected to remove the specific listener
+            },
+          );
+          imageStream.addListener(listener);
+          _imagePixelFutures[cacheKey] = completer.future;
+          dominantColor = await completer.future;
         }
 
-        if (paletteGenerator != null && paletteGenerator.dominantColor != null) {
-          colorHex = '#${paletteGenerator.dominantColor!.color.value.toRadixString(16).padLeft(8, '0')}';
+        if (dominantColor != null) {
+          // Format: #AARRGGBB, then take substring if alpha is not needed or use directly
+          colorHex = '#${dominantColor.value.toRadixString(16).padLeft(8, '0')}';
           developer.log('Dominant color found for $faviconUrl: $colorHex', name: 'BrowserScreenMetadata');
         } else {
-           developer.log('Could not generate palette or find dominant color for $faviconUrl', name: 'BrowserScreenMetadata');
+           developer.log('Could not determine dominant color for $faviconUrl', name: 'BrowserScreenMetadata');
         }
-            } else {
+      } else {
          developer.log('No favicon found for $url', name: 'BrowserScreenMetadata');
       }
     } catch (e) {
@@ -317,7 +386,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
     if (confirm == true) {
       final faviconUrl = _sites[index]['faviconUrl'];
       if (faviconUrl != null) {
-         _paletteFutures.remove(faviconUrl);
+         _imagePixelFutures.remove(faviconUrl); // Cleared new cache
       }
       _sites.removeAt(index);
       final list = _sites.map((e) => jsonEncode(e)).toList();
