@@ -1,11 +1,11 @@
 // filepath: d:\GitHub_tsukuba-denden\shojin_app\lib\screens\browser_screen.dart
 import 'dart:convert';
+import 'dart:ui' as ui; // Added for ui.Image and ui.ImageByteFormat
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:favicon/favicon.dart';
-import 'package:image_pixels/image_pixels.dart';
 // For fetching favicon image
 
 // Helper function to determine text color based on background
@@ -161,63 +161,84 @@ class _BrowserScreenState extends State<BrowserScreen> {
         if (_imagePixelFutures.containsKey(cacheKey)) {
           dominantColor = await _imagePixelFutures[cacheKey];
         } else {
-          final future = ImagePixels.extractPixelsFromNetworkImage(faviconUrl).then((imgDetails) {
-            if (imgDetails == null || imgDetails.pixels == null || imgDetails.pixels!.isEmpty) {
-              developer.log('No pixel data for $faviconUrl', name: 'BrowserScreenMetadata');
-              return null;
-            }
-            // Dominant color extraction logic
-            Map<int, int> colorCounts = {};
-            int maxCount = 0;
-            Color? mostFrequentColor;
+          final imageProvider = NetworkImage(faviconUrl);
+          final completer = Completer<Color?>();
+          final imageStream = imageProvider.resolve(const ImageConfiguration());
 
-            // Iterate over a sample of pixels (e.g., every 10th pixel) to improve performance
-            for (int i = 0; i < imgDetails.pixels!.length; i += 40) { // Sample pixels: R,G,B,A
-              if (i + 3 < imgDetails.pixels!.length) {
-                int r = imgDetails.pixels![i];
-                int g = imgDetails.pixels![i+1];
-                int b = imgDetails.pixels![i+2];
-                int a = imgDetails.pixels![i+3];
-                Color pixelColor = Color.fromARGB(a, r, g, b);
+          final listener = ImageStreamListener(
+            (ImageInfo imageInfo, bool synchronousCall) async {
+              try {
+                final ui.Image uiImage = imageInfo.image;
+                final byteData = await uiImage.toByteData(format: ui.ImageByteFormat.rawRgba);
 
-                // Quantize color to group similar shades (optional, can be refined)
-                // For simplicity, we'll use the direct color value for now.
-                // A more advanced approach might involve grouping by HSL values or reducing bit depth.
-
-                // Filter out very light or very dark colors
-                if (a > 200 && (r > 30 || g > 30 || b > 30) && (r < 225 || g < 225 || b < 225)) {
-                   final colorValue = pixelColor.value;
-                   colorCounts[colorValue] = (colorCounts[colorValue] ?? 0) + 1;
-                   if (colorCounts[colorValue]! > maxCount) {
-                     maxCount = colorCounts[colorValue]!;
-                     mostFrequentColor = pixelColor;
-                   }
+                if (byteData == null || byteData.lengthInBytes == 0) {
+                  developer.log('No pixel data (ByteData is null or empty) for $faviconUrl', name: 'BrowserScreenMetadata');
+                  completer.complete(null);
+                  return;
                 }
-              }
-            }
-            if (mostFrequentColor == null && imgDetails.pixels!.isNotEmpty) {
-              // Fallback: if no color met criteria, try average color (less ideal)
-              // Or, pick the first non-white/black pixel if available
-              for (int i = 0; i < imgDetails.pixels!.length; i += 4) {
-                 if (i + 3 < imgDetails.pixels!.length) {
-                    int r = imgDetails.pixels![i];
-                    int g = imgDetails.pixels![i+1];
-                    int b = imgDetails.pixels![i+2];
-                    int a = imgDetails.pixels![i+3];
-                    if (a > 200 && (r > 20 || g > 20 || b > 20) && (r < 235 || g < 235 || b < 235)) {
-                       mostFrequentColor = Color.fromARGB(a, r, g, b);
-                       break;
+
+                final pixels = byteData.buffer.asUint8List();
+                final imageWidth = uiImage.width;
+                // final imageHeight = uiImage.height; // Not strictly needed for current logic but good to have
+
+                Map<int, int> colorCounts = {};
+                int maxCount = 0;
+                Color? mostFrequentColor;
+
+                // Iterate over a sample of pixels
+                // Each pixel is 4 bytes (R,G,B,A)
+                // Sample pixels: step by 4 * N to jump N pixels
+                for (int i = 0; i < pixels.length; i += 4 * 10) { // Sample every 10th pixel
+                  if (i + 3 < pixels.length) {
+                    // ByteData is RGBA
+                    int r = pixels[i];
+                    int g = pixels[i+1];
+                    int b = pixels[i+2];
+                    int a = pixels[i+3];
+                    Color pixelColor = Color.fromARGB(a, r, g, b);
+
+                    if (a > 200 && (r > 30 || g > 30 || b > 30) && (r < 225 || g < 225 || b < 225)) {
+                       final colorValue = pixelColor.value;
+                       colorCounts[colorValue] = (colorCounts[colorValue] ?? 0) + 1;
+                       if (colorCounts[colorValue]! > maxCount) {
+                         maxCount = colorCounts[colorValue]!;
+                         mostFrequentColor = pixelColor;
+                       }
                     }
-                 }
+                  }
+                }
+
+                if (mostFrequentColor == null && pixels.isNotEmpty) {
+                  for (int i = 0; i < pixels.length; i += 4) {
+                     if (i + 3 < pixels.length) {
+                        int r = pixels[i];
+                        int g = pixels[i+1];
+                        int b = pixels[i+2];
+                        int a = pixels[i+3];
+                        if (a > 200 && (r > 20 || g > 20 || b > 20) && (r < 235 || g < 235 || b < 235)) {
+                           mostFrequentColor = Color.fromARGB(a, r, g, b);
+                           break;
+                        }
+                     }
+                  }
+                }
+                completer.complete(mostFrequentColor);
+              } catch (e) {
+                developer.log('Error processing image for $faviconUrl: $e', name: 'BrowserScreenMetadata');
+                completer.complete(null);
+              } finally {
+                imageStream.removeListener(listener); // Corrected to remove the specific listener
               }
-            }
-            return mostFrequentColor;
-          }).catchError((e) {
-            developer.log('Error extracting pixels for $faviconUrl: $e', name: 'BrowserScreenMetadata');
-            return null;
-          });
-          _imagePixelFutures[cacheKey] = future;
-          dominantColor = await future;
+            },
+            onError: (dynamic exception, StackTrace? stackTrace) {
+              developer.log('Error loading image for $faviconUrl: $exception', name: 'BrowserScreenMetadata');
+              completer.complete(null);
+              imageStream.removeListener(listener); // Corrected to remove the specific listener
+            },
+          );
+          imageStream.addListener(listener);
+          _imagePixelFutures[cacheKey] = completer.future;
+          dominantColor = await completer.future;
         }
 
         if (dominantColor != null) {
