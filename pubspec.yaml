@@ -46,7 +46,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.14.2
+  flutter_launcher_icons: ^0.14.3
 
   flutter_lints: ^6.0.0
 
@@ -77,5 +77,5 @@ flutter_launcher_icons:
 
   adaptive_icon_foreground: "assets/icon/adaptive_foreground.png"
   adaptive_icon_background: "#261147"
-  adaptive_icon_foreground_inset: 16
+  adaptive_icon_foreground_inset: 32
   adaptive_icon_monochrome: "assets/icon/adaptive_icon_monochrome.png"
