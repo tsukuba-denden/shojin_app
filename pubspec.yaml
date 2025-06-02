@@ -5,7 +5,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.4.0
+  sdk: ^3.8.1
 
 dependencies:
   flutter:
@@ -22,10 +22,11 @@ dependencies:
   cupertino_icons: ^1.0.8
   dynamic_color: ^1.6.9
   google_fonts: ^6.1.0
+  
   # AtCoder問題のスクレイピングに必要なパッケージ
   http: ^1.4.0 # 画像データ取得用 (バージョンは最新を確認してください)
   html: ^0.15.6  
-  flutter_markdown_plus: ^1.0.3 # flutter_markdownから移行
+  flutter_markdown: ^0.7.1
   flutter_code_editor: ^0.3.1
   code_text_field: ^1.1.0
   highlight: ^0.7.0
@@ -36,7 +37,7 @@ dependencies:
   provider: ^6.1.5
   # flutter_html: 3.0.0-beta.2 # Temporarily commented out
   webview_flutter: ^4.7.0
-  favicon: ^1.1.0 # ファビコン取得用 (バージョンは最新を確認してください)
+  favicon: ^1.1.0
   share_plus: ^11.0.0
   open_file: ^3.5.10
   intl: ^0.20.2
@@ -45,11 +46,12 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.3
 
   flutter_lints: ^6.0.0
 
 dependency_overrides:
-  intl: ^0.20.2  # 強制的に最新バージョンを使用
+  intl: ^0.20.2
   async: ^2.13.0
   meta: ^1.17.0
   vector_math: ^2.2.0
@@ -60,8 +62,19 @@ dependency_overrides:
   leak_tracker: ^11.0.1
   leak_tracker_flutter_testing: ^3.0.10
   leak_tracker_testing: ^3.0.2
-  lints: ^6.0.0  # 最新バージョンを強制
+  lints: ^6.0.0
 
 flutter:
-  generate: true # 追加
+  generate: true
   uses-material-design: true
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+
+  image_path: "assets/icon/app_icon.png"
+  remove_alpha_ios: true
+
+  adaptive_icon_foreground: "assets/icon/adaptive_foreground.png"
+  adaptive_icon_background: "#261147"
+  adaptive_icon_foreground_inset: 32
