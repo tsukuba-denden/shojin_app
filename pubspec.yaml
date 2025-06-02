@@ -46,7 +46,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: ^0.13.1
+  flutter_launcher_icons: ^0.14.2
 
   flutter_lints: ^6.0.0
 
@@ -65,16 +65,17 @@ dependency_overrides:
   lints: ^6.0.0
 
 flutter:
-  generate: true # 追加
+  generate: true
   uses-material-design: true
 
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path_android: "assets/icon/app_icon.png"
-  image_path_ios: "assets/icon/app_icon.png"
+
+  image_path: "assets/icon/app_icon.png"
   remove_alpha_ios: true
+
   adaptive_icon_foreground: "assets/icon/adaptive_foreground.png"
-  adaptive_icon_foreground_inset: 42
   adaptive_icon_background: "#261147"
+  adaptive_icon_foreground_inset: 16
   adaptive_icon_monochrome: "assets/icon/adaptive_icon_monochrome.png"
