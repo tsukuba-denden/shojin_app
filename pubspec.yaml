@@ -78,4 +78,3 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/icon/adaptive_foreground.png"
   adaptive_icon_background: "#261147"
   adaptive_icon_foreground_inset: 32
-  adaptive_icon_monochrome: "assets/icon/adaptive_icon_monochrome.png"
