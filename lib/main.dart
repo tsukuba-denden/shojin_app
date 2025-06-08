@@ -240,6 +240,7 @@ class _MainScreenState extends State<MainScreen> {
   void _onItemTapped(int index) {
     // 触覚フィードバックを追加
     HapticFeedback.lightImpact(); 
+    _hideKeyboard(context);
     // Check if mounted before calling setState
     if (mounted) {
       setState(() {
@@ -248,65 +249,79 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  /// Hides the keyboard by unfocussing the current (textform) element
+  /// 
+  /// 現在の（テキストフォーム）要素のフォーカスを外してキーボードを隠す
+  void _hideKeyboard(BuildContext context) {
+    FocusScope.of(context).unfocus();
+  }
+
   @override
   Widget build(BuildContext context) {
     // Now _buildScreens is a class method and uses the state variable _problemIdFromWebView
     final screens = _buildScreens();
 
-    return Scaffold(
-      extendBody: true, // Allow body to extend behind BottomNavigationBar for backdrop blur
-      body: SafeArea(
-        bottom: false, // allow content under BottomNavigationBar for BackdropFilter
-        child: IndexedStack(
-          index: _selectedIndex,
-          children: screens,
+    return GestureDetector(
+      onTap: () {
+        // Hide the keyboard on tap outside of the keyboard
+        // キーボードの外側のタップでキーボードを隠す
+        _hideKeyboard(context);
+      },
+      child: Scaffold(
+        extendBody: true, // Allow body to extend behind BottomNavigationBar for backdrop blur
+        body: SafeArea(
+          bottom: false, // allow content under BottomNavigationBar for BackdropFilter
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: screens,
+          ),
         ),
-      ),
-      bottomNavigationBar: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-          child: Container(
-            // Adjust opacity from settings
-            color: Theme.of(context)
-                    .colorScheme
-                    .surface
-                    .withOpacity(Provider.of<ThemeProvider>(context).navBarOpacity),
-            child: Material(
-              color: Colors.transparent, // Let the translucent container show
-              child: NavigationBar(
-                backgroundColor: Colors.transparent,
-                surfaceTintColor: Colors.transparent, // Disable M3 surface tint
-                shadowColor: Colors.transparent,     // Remove shadow
-                elevation: 0,
-                onDestinationSelected: _onItemTapped,
-                selectedIndex: _selectedIndex,
-                destinations: const [
-                  NavigationDestination(
-                    icon: Icon(Icons.home_outlined),
-                    selectedIcon: Icon(Icons.home),
-                    label: 'ホーム',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.public_outlined),
-                    selectedIcon: Icon(Icons.public),
-                    label: 'ブラウザ',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.list_alt_outlined),
-                    selectedIcon: Icon(Icons.list_alt),
-                    label: '問題',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.code_outlined),
-                    selectedIcon: Icon(Icons.code),
-                    label: 'エディタ',
-                  ),
-                  NavigationDestination(
-                    icon: Icon(Icons.settings_outlined),
-                    selectedIcon: Icon(Icons.settings),
-                    label: '設定',
-                  ),
-                ],
+        bottomNavigationBar: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+            child: Container(
+              // Adjust opacity from settings
+              color: Theme.of(context)
+                      .colorScheme
+                      .surface
+                      .withOpacity(Provider.of<ThemeProvider>(context).navBarOpacity),
+              child: Material(
+                color: Colors.transparent, // Let the translucent container show
+                child: NavigationBar(
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent, // Disable M3 surface tint
+                  shadowColor: Colors.transparent,     // Remove shadow
+                  elevation: 0,
+                  onDestinationSelected: _onItemTapped,
+                  selectedIndex: _selectedIndex,
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.home_outlined),
+                      selectedIcon: Icon(Icons.home),
+                      label: 'ホーム',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.public_outlined),
+                      selectedIcon: Icon(Icons.public),
+                      label: 'ブラウザ',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.list_alt_outlined),
+                      selectedIcon: Icon(Icons.list_alt),
+                      label: '問題',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.code_outlined),
+                      selectedIcon: Icon(Icons.code),
+                      label: 'エディタ',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.settings_outlined),
+                      selectedIcon: Icon(Icons.settings),
+                      label: '設定',
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
