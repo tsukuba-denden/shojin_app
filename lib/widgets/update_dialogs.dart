@@ -51,8 +51,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
     _progressSubscription?.cancel();
     _updateService.disposeProgressStream();
     super.dispose();
-  }
-  void _startDownload() async {
+  }  void _startDownload() async {
     setState(() {
       _isDownloading = true;
       _hasError = false;
@@ -62,7 +61,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
     try {
       // Use Platform.isAndroid instead of Theme.of(context).platform
       if (Platform.isAndroid) {
-        bool permissionGranted = await _updateService.requestStoragePermission();
+        bool permissionGranted = await _requestStoragePermissionWithDialog();
         if (!permissionGranted) {
           setState(() {
             _hasError = true;
@@ -161,16 +160,111 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
       }
     }
   }
-
   void _retryDownload() {
     _updateService.disposeProgressStream();
+    setState(() {
+      _hasError = false;
+      _isCompleted = false;
+      _currentProgress = null;
+    });
     _startDownload();
   }
-
   void _cancelDownload() {
     _updateService.disposeProgressStream();
     Navigator.of(context).pop();
     widget.onCancelled?.call();
+  }
+
+  // ストレージ権限の要求（ダイアログ付き）
+  Future<bool> _requestStoragePermissionWithDialog() async {
+    // まず現在の権限状態をチェック
+    bool hasPermission = await _updateService.requestStoragePermission();
+    
+    if (hasPermission) {
+      return true;
+    }
+
+    // 権限が無い場合、ユーザーに説明ダイアログを表示
+    if (!mounted) return false;
+    
+    bool? userWantsToGrant = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.folder_open, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('ストレージ権限が必要です'),
+            ],
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'アップデートファイルをダウンロードするために、ストレージへのアクセス権限が必要です。',
+                style: TextStyle(fontSize: 16),
+              ),
+              SizedBox(height: 16),
+              Text(
+                '• ファイルのダウンロードと保存\n• 一時的なファイルの作成',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('権限を許可'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (userWantsToGrant != true) {
+      return false;
+    }
+
+    // ユーザーが同意した場合、再度権限を要求
+    hasPermission = await _updateService.requestStoragePermission();
+    
+    if (!hasPermission && mounted) {
+      // まだ権限が取得できない場合、設定画面への案内を表示
+      await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.settings, color: Colors.blue),
+                SizedBox(width: 8),
+                Text('設定で権限を有効にしてください'),
+              ],
+            ),
+            content: const Text(
+              'ストレージ権限が拒否されました。\n\n'
+              'アプリの設定画面で手動で権限を有効にしてから、再度お試しください。\n\n'
+              '設定 > アプリ > Shojin App > 権限 > ストレージ',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    return hasPermission;
   }
 
   @override
