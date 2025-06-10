@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/enhanced_update_service.dart';
 import '../services/update_manager.dart';
@@ -28,12 +29,21 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
   bool _isDownloading = false;
   bool _isCompleted = false;
   bool _hasError = false;
+  bool _isInitialized = false; // 初期化フラグを追加
   String? _downloadedFilePath;
-
   @override
   void initState() {
     super.initState();
-    _startDownload();
+    // Theme.of(context)を使用する処理はdidChangeDependenciesに移動
+  }
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 初回実行時のみアップデートチェックを開始
+    if (!_isInitialized && !_isDownloading && !_isCompleted && !_hasError) {
+      _isInitialized = true;
+      _startDownload();
+    }
   }
 
   @override
@@ -42,7 +52,6 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
     _updateService.disposeProgressStream();
     super.dispose();
   }
-
   void _startDownload() async {
     setState(() {
       _isDownloading = true;
@@ -50,20 +59,34 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
     });
 
     // Check permissions for Android
-    if (Theme.of(context).platform == TargetPlatform.android) {
-      bool permissionGranted = await _updateService.requestStoragePermission();
-      if (!permissionGranted) {
-        setState(() {
-          _hasError = true;
-          _currentProgress = UpdateProgress(
-            progress: 0.0,
-            status: 'ストレージ権限が必要です',
-            errorMessage: 'Storage permission denied',
-          );
-          _isDownloading = false;
-        });
-        return;
+    try {
+      // Use Platform.isAndroid instead of Theme.of(context).platform
+      if (Platform.isAndroid) {
+        bool permissionGranted = await _updateService.requestStoragePermission();
+        if (!permissionGranted) {
+          setState(() {
+            _hasError = true;
+            _currentProgress = UpdateProgress(
+              progress: 0.0,
+              status: 'ストレージ権限が必要です',
+              errorMessage: 'Storage permission denied',
+            );
+            _isDownloading = false;
+          });
+          return;
+        }
       }
+    } catch (e) {
+      setState(() {
+        _hasError = true;
+        _currentProgress = UpdateProgress(
+          progress: 0.0,
+          status: '権限チェックエラー',
+          errorMessage: e.toString(),
+        );
+        _isDownloading = false;
+      });
+      return;
     }
 
     // Listen to progress stream
