@@ -15,6 +15,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // 追加
 import 'l10n/app_localizations.dart'; // 追加 (生成されるファイル)
+import 'services/auto_update_manager.dart'; // Add auto update manager
 
 void main() async {
   // Flutter Engineの初期化を保証
@@ -174,6 +175,28 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0; // Default to new Home tab
   String _currentProblemId = 'default_problem';
   String? _problemIdFromWebView;
+  UpdateLifecycleManager? _updateLifecycleManager;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Initialize auto update manager for startup update checks
+    _updateLifecycleManager = UpdateLifecycleManager(context);
+    _updateLifecycleManager!.startListening();
+    
+    // Schedule initial update check after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final autoUpdateManager = AutoUpdateManager();
+      autoUpdateManager.checkForUpdatesOnStartup(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    _updateLifecycleManager?.stopListening();
+    super.dispose();
+  }
 
   // Callback for ProblemDetailScreen -> EditorScreen update
   void _updateProblemIdForEditor(String newProblemUrl) {

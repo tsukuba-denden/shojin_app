@@ -1,14 +1,11 @@
-import 'dart:io'; // For Platform
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart'; // For haptic feedback
-import 'package:url_launcher/url_launcher.dart'; // For launching URLs
-import 'package:shared_preferences/shared_preferences.dart'; // Import SharedPreferences
 import '../providers/theme_provider.dart';
 import '../providers/template_provider.dart';
 import 'template_edit_screen.dart';
-import '../services/update_service.dart'; // Import UpdateService
-import '../services/update_manager.dart'; // Import UpdateManager
+import '../services/enhanced_update_service.dart'; // Use enhanced service
+import '../services/auto_update_manager.dart'; // Import auto update manager
 import '../services/about_info.dart'; // Import AboutInfo
 
 class SettingsScreen extends StatefulWidget {
@@ -22,12 +19,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _currentVersion = "読み込み中...";
   bool _isLoadingUpdate = false;
   String _updateCheckResult = "";
-  double _downloadProgress = 0.0;
-  bool _isDownloading = false;
-  final UpdateService _updateService = UpdateService();
-  final UpdateManager _updateManager = UpdateManager();
-  bool _autoUpdateCheckEnabled = true; // Added state variable
-  Map<String, dynamic>? _aboutInfo; // Add about info state
+  final EnhancedUpdateService _updateService = EnhancedUpdateService();
+  final AutoUpdateManager _autoUpdateManager = AutoUpdateManager();
+  bool _autoUpdateCheckEnabled = true;
+  Map<String, dynamic>? _aboutInfo;
 
   @override
   void initState() {
@@ -54,21 +49,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       print('Failed to load current version: $e');
     }
   }
-
   // Method to load auto update preference
   Future<void> _loadAutoUpdatePreference() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool enabled = await _autoUpdateManager.isAutoUpdateEnabled();
     if (mounted) {
       setState(() {
-        _autoUpdateCheckEnabled = prefs.getBool('autoUpdateCheckEnabled') ?? true;
+        _autoUpdateCheckEnabled = enabled;
       });
     }
   }
 
   // Method to save auto update preference
   Future<void> _setAutoUpdatePreference(bool value) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('autoUpdateCheckEnabled', value);
+    await _autoUpdateManager.setAutoUpdateEnabled(value);
     if (mounted) {
       setState(() {
         _autoUpdateCheckEnabled = value;
@@ -92,7 +85,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     }
   }
-
   Future<void> _checkForUpdates() async {
     if (!mounted) return;
     setState(() {
@@ -101,24 +93,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
 
     try {
-      AppUpdateInfo? releaseInfo = await _updateService.getLatestReleaseInfo("tsukuba-denden", "Shojin_App");
+      EnhancedAppUpdateInfo? releaseInfo = await _autoUpdateManager.checkForUpdatesManually();
       if (!mounted) return;
 
       if (releaseInfo != null) {
-        bool updateAvailable = _updateService.isUpdateAvailable(_currentVersion, releaseInfo.version);
-        if (updateAvailable) {
-          setState(() {
-            _updateCheckResult = "新しいバージョンがあります: ${releaseInfo.version}";
-          });
-          _showUpdateDialog(releaseInfo);
-        } else {
-          setState(() {
-            _updateCheckResult = "お使いのバージョンは最新です。";
-          });
-        }
+        setState(() {
+          _updateCheckResult = "新しいバージョンがあります: ${releaseInfo.version}";
+        });
+        _showUpdateDialog(releaseInfo);
       } else {
         setState(() {
-          _updateCheckResult = "更新情報の取得に失敗しました。";
+          _updateCheckResult = "お使いのバージョンは最新です。";
         });
       }
     } catch (e) {
@@ -135,127 +120,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         });
       }
     }
-  }
-
-  void _showUpdateDialog(AppUpdateInfo releaseInfo) {
+  }  void _showUpdateDialog(EnhancedAppUpdateInfo releaseInfo) {
     if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        // Ensure version string is not null and handle 'v' prefix for URL
-        String versionTag = releaseInfo.version;
-        if (!versionTag.startsWith('v')) {
-          versionTag = 'v$versionTag';
-        }
-        final String releaseUrl = "https://github.com/tsukuba-denden/Shojin_App/releases/tag/$versionTag";
-
-        return AlertDialog(
-          title: const Text("アップデート利用可能"),
-          content: SingleChildScrollView(
-            child: ListBody( // Use ListBody for better structure
-              children: <Widget>[
-                Text("バージョン: ${releaseInfo.version}"),
-                const SizedBox(height: 10),
-                Text(releaseInfo.releaseNotes ?? 'リリースノートはありません。'),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text("後で"),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text("GitHubで表示"),
-              onPressed: () async {
-                Navigator.of(context).pop();
-                try {
-                  if (await canLaunchUrl(Uri.parse(releaseUrl))) {
-                    await launchUrl(Uri.parse(releaseUrl), mode: LaunchMode.externalApplication);
-                  } else {
-                    throw 'Could not launch $releaseUrl';
-                  }
-                } catch (e) {
-                   if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('URLを開けませんでした: $e')));
-                }
-              },
-            ),
-            if (releaseInfo.downloadUrl != null) // Only show if download URL is available
-              ElevatedButton(
-                child: const Text("ダウンロードとインストール"),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _downloadAndApplyUpdate(releaseInfo);
-                },
-              ),
-          ],
-        );
-      },
-    );
+    _autoUpdateManager.showManualUpdateDialog(context, releaseInfo);
   }
-
-  Future<void> _downloadAndApplyUpdate(AppUpdateInfo releaseInfo) async {
-    if (!mounted) return;
-    setState(() {
-      _isDownloading = true;
-      _downloadProgress = 0.0;
-      _updateCheckResult = ""; // Clear previous results
-    });
-
-    if (Platform.isAndroid) {
-      bool permissionGranted = await _updateService.requestStoragePermission();
-      if (!mounted) return;
-      if (!permissionGranted) {
-        setState(() {
-          _updateCheckResult = "ストレージ権限が必要です。";
-          _isDownloading = false;
-        });
-        return;
-      }
-    }
-
-    try {
-      String? filePath = await _updateService.downloadUpdate(releaseInfo, (progress) {
-        if (mounted) {
-          setState(() {
-            _downloadProgress = progress;
-          });
-        }
-      });
-      if (!mounted) return;
-
-      if (filePath != null) {
-        setState(() {
-          _updateCheckResult = "ダウンロード完了: $filePath";
-        });
-        await _updateManager.applyUpdate(filePath, releaseInfo.assetName);
-        // Potentially add more user feedback after applyUpdate if needed
-        if (mounted) { // Check mounted again before showing SnackBar
-           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('インストールを開始します... アプリの指示に従ってください。')),
-           );
-        }
-      } else {
-        setState(() {
-          _updateCheckResult = "ダウンロードに失敗しました。";
-        });
-      }
-    } catch (e) {
-        if (mounted) {
-            setState(() {
-                _updateCheckResult = "アップデート処理中にエラー: $e";
-            });
-        }
-        print('Error during download/apply: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isDownloading = false;
-        });
-      }
-    }
-  }
-
 
   @override
   Widget build(BuildContext context) {
@@ -403,28 +271,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             _setAutoUpdatePreference(value);
                           },
                           secondary: const Icon(Icons.sync_outlined),
-                        ),
-                        const SizedBox(height: 16), // Spacing
+                        ),                        const SizedBox(height: 16), // Spacing
                         // Moved UI Elements for manual update check
                         ElevatedButton(
-                          onPressed: (_isLoadingUpdate || _isDownloading) ? null : _checkForUpdates,
+                          onPressed: _isLoadingUpdate ? null : _checkForUpdates,
                           child: const Text('アップデートを手動で確認'), // Changed text for clarity
                         ),
                         if (_isLoadingUpdate)
                           const Padding(
                             padding: EdgeInsets.only(top: 8.0),
                             child: CircularProgressIndicator(),
-                          ),
-                        if (_isDownloading)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: Column(
-                              children: [
-                                LinearProgressIndicator(value: _downloadProgress < 0 ? null : _downloadProgress),
-                                const SizedBox(height: 4),
-                                Text('ダウンロード中: ${(_downloadProgress * 100).toStringAsFixed(0)}%'),
-                              ],
-                            ),
                           ),
                         if (_updateCheckResult.isNotEmpty)
                           Padding(
