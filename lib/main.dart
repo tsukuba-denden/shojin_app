@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:animations/animations.dart';
 import 'screens/problem_detail_screen.dart';
 import 'screens/editor_screen.dart';
 import 'screens/settings_screen.dart';
@@ -202,7 +203,6 @@ class _MainScreenState extends State<MainScreen> {
       });
     }
   }
-
   // Builds the list of screens - Now a class method
   List<Widget> _buildScreens() {
     String? idToPass = _problemIdFromWebView;
@@ -223,17 +223,21 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     return [
-      const NewHomeScreen(), // Index 0
-      BrowserScreen(navigateToProblem: _navigateToProblemTabWithId), // Index 1 - Use imported screen
+      NewHomeScreen(key: const ValueKey('home')), // Index 0
+      BrowserScreen(
+        key: const ValueKey('browser'),
+        navigateToProblem: _navigateToProblemTabWithId,
+      ), // Index 1 - Use imported screen
       ProblemsScreen( // Index 2
+          key: const ValueKey('problems'),
           problemIdToLoad: idToPass,
           onProblemChanged: _updateProblemIdForEditor
       ),
       EditorScreen( // Index 3
-        key: ValueKey(_currentProblemId),
+        key: ValueKey('editor_$_currentProblemId'),
         problemId: _currentProblemId,
       ),
-      const SettingsScreen(), // Index 4
+      SettingsScreen(key: const ValueKey('settings')), // Index 4
     ];
   }
 
@@ -255,7 +259,6 @@ class _MainScreenState extends State<MainScreen> {
   void _hideKeyboard(BuildContext context) {
     FocusScope.of(context).unfocus();
   }
-
   @override
   Widget build(BuildContext context) {
     // Now _buildScreens is a class method and uses the state variable _problemIdFromWebView
@@ -266,14 +269,28 @@ class _MainScreenState extends State<MainScreen> {
         // Hide the keyboard on tap outside of the keyboard
         // キーボードの外側のタップでキーボードを隠す
         _hideKeyboard(context);
-      },
-      child: Scaffold(
+      },      child: Scaffold(
         extendBody: true, // Allow body to extend behind BottomNavigationBar for backdrop blur
         body: SafeArea(
           bottom: false, // allow content under BottomNavigationBar for BackdropFilter
-          child: IndexedStack(
-            index: _selectedIndex,
-            children: screens,
+          child: PageTransitionSwitcher(
+            duration: const Duration(milliseconds: 400),
+            transitionBuilder: (
+              Widget child,
+              Animation<double> animation,
+              Animation<double> secondaryAnimation,
+            ) {
+              return FadeThroughTransition(
+                animation: animation,
+                secondaryAnimation: secondaryAnimation,
+                fillColor: Theme.of(context).colorScheme.surface,
+                child: child,
+              );
+            },
+            child: KeyedSubtree(
+              key: ValueKey(_selectedIndex),
+              child: screens[_selectedIndex],
+            ),
           ),
         ),
         bottomNavigationBar: ClipRect(
