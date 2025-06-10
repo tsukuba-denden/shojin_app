@@ -9,6 +9,7 @@ import '../providers/template_provider.dart';
 import 'template_edit_screen.dart';
 import '../services/update_service.dart'; // Import UpdateService
 import '../services/update_manager.dart'; // Import UpdateManager
+import '../services/about_info.dart'; // Import AboutInfo
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -23,16 +24,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _updateCheckResult = "";
   double _downloadProgress = 0.0;
   bool _isDownloading = false;
-  AppUpdateInfo? _availableUpdateInfo;
   final UpdateService _updateService = UpdateService();
   final UpdateManager _updateManager = UpdateManager();
   bool _autoUpdateCheckEnabled = true; // Added state variable
+  Map<String, dynamic>? _aboutInfo; // Add about info state
 
   @override
   void initState() {
     super.initState();
     _loadCurrentVersion();
     _loadAutoUpdatePreference(); // Load preference
+    _loadAboutInfo(); // Load about info
   }
 
   Future<void> _loadCurrentVersion() async {
@@ -74,15 +76,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _loadAboutInfo() async {
+    try {
+      final info = await AboutInfo.getInfo();
+      if (mounted) {
+        setState(() {
+          _aboutInfo = info;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _aboutInfo = {'error': 'アプリ情報の取得に失敗しました'};
+        });
+      }
+    }
+  }
 
   Future<void> _checkForUpdates() async {
     if (!mounted) return;
     setState(() {
       _isLoadingUpdate = true;
       _updateCheckResult = "";
-      _availableUpdateInfo = null;
-      _isDownloading = false; // Reset download state
-      _downloadProgress = 0.0; // Reset progress
     });
 
     try {
@@ -93,7 +108,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         bool updateAvailable = _updateService.isUpdateAvailable(_currentVersion, releaseInfo.version);
         if (updateAvailable) {
           setState(() {
-            _availableUpdateInfo = releaseInfo;
             _updateCheckResult = "新しいバージョンがあります: ${releaseInfo.version}";
           });
           _showUpdateDialog(releaseInfo);
@@ -446,19 +460,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   leading: const Icon(Icons.info_outline),
-                  childrenPadding: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
-                  children: [
+                  childrenPadding: const EdgeInsets.only(bottom: 8, left: 16, right: 16),                  children: [
                     ListTile(
                       title: const Text('バージョン'),
                       subtitle: Text(_currentVersion),
                       leading: const Icon(Icons.tag),
                     ),
-                    // Manual update check UI was here, now moved
                     const ListTile(
                       title: Text('開発者'),
                       subtitle: Text('筑波大学附属中学校 電子電脳技術研究会'),
                       leading: Icon(Icons.code),
                     ),
+                    const Divider(),
+                    // アプリについての詳細情報
+                    if (_aboutInfo != null) ...[
+                      if (_aboutInfo!['error'] != null)
+                        ListTile(
+                          title: const Text('エラー'),
+                          subtitle: Text(_aboutInfo!['error']),
+                          leading: const Icon(Icons.error),
+                        )
+                      else ...[
+                        ListTile(
+                          title: const Text('アプリ名'),
+                          subtitle: Text(_aboutInfo!['appName'] ?? '不明'),
+                          leading: const Icon(Icons.apps),
+                        ),
+                        ListTile(
+                          title: const Text('パッケージ名'),
+                          subtitle: Text(_aboutInfo!['packageName'] ?? '不明'),
+                          leading: const Icon(Icons.inventory),
+                        ),
+                        ListTile(
+                          title: const Text('ビルド番号'),
+                          subtitle: Text(_aboutInfo!['buildNumber'] ?? '不明'),
+                          leading: const Icon(Icons.build),
+                        ),
+                        ListTile(
+                          title: const Text('プラットフォーム'),
+                          subtitle: Text(_aboutInfo!['platform'] ?? '不明'),
+                          leading: const Icon(Icons.computer),
+                        ),
+                        if (_aboutInfo!['model'] != null)
+                          ListTile(
+                            title: const Text('デバイスモデル'),
+                            subtitle: Text(_aboutInfo!['model']),
+                            leading: const Icon(Icons.phone_android),
+                          ),
+                        if (_aboutInfo!['androidVersion'] != null)
+                          ListTile(
+                            title: const Text('Androidバージョン'),
+                            subtitle: Text(_aboutInfo!['androidVersion']),
+                            leading: const Icon(Icons.android),
+                          ),
+                        if (_aboutInfo!['supportedArch'] != null)
+                          ListTile(
+                            title: const Text('サポートアーキテクチャ'),
+                            subtitle: Text((_aboutInfo!['supportedArch'] as List).join(', ')),
+                            leading: const Icon(Icons.architecture),
+                          ),
+                        ListTile(
+                          title: const Text('ビルドタイプ'),
+                          subtitle: Text(_aboutInfo!['flavor'] ?? '不明'),
+                          leading: const Icon(Icons.settings),
+                        ),
+                      ],
+                    ] else ...[
+                      const ListTile(
+                        title: Text('情報の読み込み中...'),
+                        leading: CircularProgressIndicator(),
+                      ),
+                    ],
                   ],
                 ),
               ),
