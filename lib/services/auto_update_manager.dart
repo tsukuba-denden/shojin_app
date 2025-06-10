@@ -60,16 +60,25 @@ class AutoUpdateManager {
     const checkInterval = Duration(hours: 24);
     return DateTime.now().difference(lastCheck) >= checkInterval;
   }
-  
-  // Perform startup update check
+    // Perform startup update check
   Future<void> checkForUpdatesOnStartup(BuildContext context, {
     String owner = 'tsukuba-denden',
     String repo = 'Shojin_App',
   }) async {
-    if (!await shouldCheckForUpdates()) return;
+    if (!await shouldCheckForUpdates()) {
+      debugPrint('=== スタートアップアップデートチェック ===');
+      debugPrint('チェックをスキップ（設定またはタイミング）');
+      debugPrint('=====================================');
+      return;
+    }
     
     try {
+      debugPrint('=== スタートアップアップデートチェック開始 ===');
+      debugPrint('Repository: $owner/$repo');
+      
       final currentVersion = await _updateService.getCurrentAppVersion();
+      debugPrint('スタートアップ - 現在のバージョン: "$currentVersion"');
+      
       final updateInfo = await _updateService.checkForUpdateOnStartup(
         currentVersion,
         owner,
@@ -81,12 +90,20 @@ class AutoUpdateManager {
       
       if (updateInfo != null && context.mounted) {
         final skippedVersion = await getSkippedVersion();
+        debugPrint('スタートアップ - 最新バージョン: "${updateInfo.version}"');
+        debugPrint('スタートアップ - スキップ済みバージョン: "$skippedVersion"');
         
         // Don't show update if user has skipped this version
         if (skippedVersion != updateInfo.version) {
+          debugPrint('スタートアップ - アップデート通知を表示');
           _showUpdateNotification(context, updateInfo);
+        } else {
+          debugPrint('スタートアップ - アップデートはスキップ済み');
         }
+      } else {
+        debugPrint('スタートアップ - アップデート不要またはコンテキスト無効');
       }
+      debugPrint('=========================================');
     } catch (e) {
       debugPrint('Auto update check failed: $e');
     }
@@ -171,23 +188,31 @@ class AutoUpdateManager {
       ),
     );
   }
-  
-  // Manual update check (for settings screen)
+    // Manual update check (for settings screen)
   Future<EnhancedAppUpdateInfo?> checkForUpdatesManually({
     String owner = 'tsukuba-denden',
     String repo = 'Shojin_App',
   }) async {
     try {
+      debugPrint('=== 手動アップデートチェック開始 ===');
+      debugPrint('Repository: $owner/$repo');
+      
       final currentVersion = await _updateService.getCurrentAppVersion();
+      debugPrint('手動チェック - 現在のバージョン: "$currentVersion"');
+      
       final updateInfo = await _updateService.getLatestReleaseInfo(owner, repo);
+      debugPrint('手動チェック - 取得した最新情報: ${updateInfo?.version}');
       
       // Update last check timestamp
       await setLastUpdateCheck(DateTime.now());
       
       if (updateInfo != null && _updateService.isUpdateAvailable(currentVersion, updateInfo.version)) {
+        debugPrint('手動チェック - アップデート利用可能');
         return updateInfo;
+      } else {
+        debugPrint('手動チェック - アップデート不要');
+        return null;
       }
-      return null;
     } catch (e) {
       debugPrint('Manual update check failed: $e');
       rethrow;

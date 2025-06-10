@@ -77,26 +77,51 @@ class EnhancedUpdateService {
     _progressController?.close();
     _progressController = null;
   }
-
   // Get current app version
   Future<String> getCurrentAppVersion() async {
     try {
       PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      return packageInfo.version;
+      String version = packageInfo.version;
+      debugPrint('=== 現在のアプリバージョン取得 ===');
+      debugPrint('PackageInfo.version: "$version"');
+      debugPrint('PackageInfo.buildNumber: "${packageInfo.buildNumber}"');
+      debugPrint('PackageInfo.appName: "${packageInfo.appName}"');
+      debugPrint('PackageInfo.packageName: "${packageInfo.packageName}"');
+      debugPrint('==============================');
+      return version;
     } catch (e) {
       debugPrint('Error getting app version: $e');
       return '0.0.0';
     }
   }
-
   // Check if update is available
   bool isUpdateAvailable(String currentVersionStr, String latestVersionStr) {
     try {
-      Version currentVersion = Version.parse(currentVersionStr.replaceAll('v', ''));
-      Version latestVersion = Version.parse(latestVersionStr.replaceAll('v', ''));
-      return latestVersion > currentVersion;
+      // Clean version strings by removing 'v' prefix
+      String cleanCurrentVersion = currentVersionStr.replaceAll('v', '');
+      String cleanLatestVersion = latestVersionStr.replaceAll('v', '');
+      
+      Version currentVersion = Version.parse(cleanCurrentVersion);
+      Version latestVersion = Version.parse(cleanLatestVersion);
+      
+      bool updateAvailable = latestVersion > currentVersion;
+      
+      // Debug output
+      debugPrint('=== バージョン比較デバッグ ===');
+      debugPrint('現在のバージョン（元）: "$currentVersionStr"');
+      debugPrint('現在のバージョン（処理後）: "$cleanCurrentVersion"');
+      debugPrint('最新バージョン（元）: "$latestVersionStr"');
+      debugPrint('最新バージョン（処理後）: "$cleanLatestVersion"');
+      debugPrint('パース後 - 現在: $currentVersion');
+      debugPrint('パース後 - 最新: $latestVersion');
+      debugPrint('アップデート利用可能: $updateAvailable');
+      debugPrint('===========================');
+      
+      return updateAvailable;
     } catch (e) {
       debugPrint('Error parsing version strings: $e');
+      debugPrint('Current version string: "$currentVersionStr"');
+      debugPrint('Latest version string: "$latestVersionStr"');
       return false;
     }
   }
@@ -106,9 +131,7 @@ class EnhancedUpdateService {
     final url = Uri.parse('https://api.github.com/repos/$owner/$repo/releases/latest');
     
     try {
-      final response = await http.get(url, headers: {'Accept': 'application/vnd.github.v3+json'});
-
-      if (response.statusCode == 200) {
+      final response = await http.get(url, headers: {'Accept': 'application/vnd.github.v3+json'});      if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         DateTime? releaseDateTime;
 
@@ -129,14 +152,26 @@ class EnhancedUpdateService {
           }
         }
 
+        String rawTagName = jsonResponse['tag_name'] ?? '0.0.0';
+        String cleanVersion = rawTagName.replaceAll('v', '');
+        
+        debugPrint('=== GitHub API レスポンス ===');
+        debugPrint('tag_name（元）: "$rawTagName"');
+        debugPrint('version（処理後）: "$cleanVersion"');
+        debugPrint('published_at: "${jsonResponse['published_at']}"');
+        debugPrint('assets count: ${jsonResponse['assets']?.length ?? 0}');
+        debugPrint('download URL: $assetDownloadUrl');
+        debugPrint('asset name: $foundAssetName');
+        debugPrint('==========================');
+
         return EnhancedAppUpdateInfo(
-          version: jsonResponse['tag_name']?.replaceAll('v', '') ?? '0.0.0',
+          version: cleanVersion,
           releaseNotes: jsonResponse['body'],
           releaseDate: releaseDateTime,
           downloadUrl: assetDownloadUrl,
           assetName: foundAssetName,
           fileSize: fileSize,
-          releaseTag: jsonResponse['tag_name'],
+          releaseTag: rawTagName,
         );
       } else {
         if (!silent) {
