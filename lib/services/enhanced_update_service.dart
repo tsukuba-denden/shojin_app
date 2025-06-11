@@ -340,4 +340,14 @@ class EnhancedUpdateService {
   Future<Map<String, dynamic>> getCacheStats() async {
     return await _cachedDownloadService.getCacheStats();
   }
+
+  // APKインストール用の一時ファイル処理
+  Future<String?> prepareForInstallation(String cachedFilePath, String fileName) async {
+    return await _cachedDownloadService.copyToInstallableLocation(cachedFilePath, fileName);
+  }
+
+  // インストール後のクリーンアップ
+  Future<void> cleanupAfterInstallation() async {
+    await _cachedDownloadService.cleanupInstallFiles();
+  }
 }

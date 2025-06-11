@@ -237,6 +237,67 @@ class CachedDownloadService {
     }
   }
 
+  /// APKインストール用に一時的に外部ストレージにコピー
+  /// Android 7.0+ (API 24+) でのFileUriExposedExceptionを回避
+  Future<String?> copyToInstallableLocation(String cachedFilePath, String fileName) async {
+    try {
+      if (!Platform.isAndroid) {
+        // Android以外はキャッシュファイルをそのまま返す
+        return cachedFilePath;
+      }
+
+      // Android では /storage/emulated/0/Android/data/[package_name]/files/ に一時コピー
+      // この場所は権限不要でアクセス可能
+      final Directory? externalDir = await getExternalStorageDirectory();
+      
+      if (externalDir == null) {
+        developer.log('External storage directory not available', name: 'CachedDownloadService');
+        throw Exception('外部ストレージディレクトリが利用できません');
+      }
+
+      final Directory tempInstallDir = Directory('${externalDir.path}/temp_install');
+      if (!await tempInstallDir.exists()) {
+        await tempInstallDir.create(recursive: true);
+      }
+
+      final File cachedFile = File(cachedFilePath);
+      final File installFile = File('${tempInstallDir.path}/$fileName');
+      
+      // 既存のファイルがあれば削除
+      if (await installFile.exists()) {
+        await installFile.delete();
+      }
+      
+      // キャッシュファイルをコピー
+      await cachedFile.copy(installFile.path);
+      
+      developer.log('File copied for installation: ${installFile.path}', name: 'CachedDownloadService');
+      return installFile.path;
+      
+    } catch (e) {
+      developer.log('Error copying file to installable location: $e', name: 'CachedDownloadService');
+      throw e;
+    }
+  }
+
+  /// インストール後の一時ファイルをクリーンアップ
+  Future<void> cleanupInstallFiles() async {
+    try {
+      if (!Platform.isAndroid) return;
+      
+      final Directory? externalDir = await getExternalStorageDirectory();
+      if (externalDir == null) return;
+      
+      final Directory tempInstallDir = Directory('${externalDir.path}/temp_install');
+      if (await tempInstallDir.exists()) {
+        await tempInstallDir.delete(recursive: true);
+        developer.log('Install temp files cleaned up', name: 'CachedDownloadService');
+      }
+    } catch (e) {
+      developer.log('Error cleaning up install files: $e', name: 'CachedDownloadService');
+    }
+  }
+
   /// キャッシュクリア機能
   Future<void> clearCache() async {
     await _cacheManager.clearAllCache();

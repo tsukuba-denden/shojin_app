@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/enhanced_update_service.dart';
 import '../services/update_manager.dart';
 
@@ -96,20 +97,60 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
     // Start download
     try {
       _downloadedFilePath = await _updateService.downloadUpdateWithProgress(widget.updateInfo);
-      
-      if (_downloadedFilePath != null && mounted) {
-        // Auto-install after download completion
-        await Future.delayed(const Duration(milliseconds: 500));
-        await _updateManager.applyUpdate(_downloadedFilePath!, widget.updateInfo.assetName);
+        if (_downloadedFilePath != null && mounted) {
+        // インストール前にファイルを適切な場所に準備
+        setState(() {
+          _currentProgress = UpdateProgress(
+            progress: 1.0,
+            status: 'インストール準備中...',
+            isCompleted: false,
+          );
+        });
         
-        if (mounted) {
-          setState(() {
-            _currentProgress = UpdateProgress(
-              progress: 1.0,
-              status: 'インストールを開始しました',
-              isCompleted: true,
-            );
-          });
+        try {
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          // APKインストール用にファイルを準備
+          final String fileName = widget.updateInfo.assetName ?? 'update.apk';
+          final String? installFilePath = await _updateService.prepareForInstallation(
+            _downloadedFilePath!, 
+            fileName
+          );
+          
+          if (installFilePath != null) {
+            debugPrint('Installing from prepared path: $installFilePath');
+            await _updateManager.applyUpdate(installFilePath, widget.updateInfo.assetName);
+            
+            // インストール後のクリーンアップ
+            await _updateService.cleanupAfterInstallation();
+            
+            if (mounted) {
+              setState(() {
+                _currentProgress = UpdateProgress(
+                  progress: 1.0,
+                  status: 'インストールを開始しました',
+                  isCompleted: true,
+                );
+              });
+            }
+          } else {
+            throw Exception('インストール用ファイルの準備に失敗しました');
+          }        } catch (e) {
+          debugPrint('Installation preparation error: $e');
+          if (mounted) {
+            setState(() {
+              _hasError = true;
+              _currentProgress = UpdateProgress(
+                progress: 1.0,
+                status: 'インストール準備エラー',
+                errorMessage: e.toString(),
+              );
+            });
+            
+            // 手動インストールガイダンスを表示
+            _showManualInstallDialog(e.toString());
+          }
+          return; // エラー時は早期リターン
         }
         
         // Close dialog after successful installation
@@ -147,6 +188,139 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
     Navigator.of(context).pop();
     widget.onCancelled?.call();
   }
+
+  // 手動インストールガイダンスダイアログを表示
+  void _showManualInstallDialog(String errorMessage) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue),
+              SizedBox(width: 8),
+              Text('手動インストールが必要です'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'アップデートファイルのダウンロードは完了しましたが、自動インストールが実行できませんでした。',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '手動インストール手順:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '1. ファイルマネージャーアプリを開く\n'
+                        '2. 以下のフォルダーに移動:\n'
+                        '   Android → data → com.example.shojin_app → files → temp_install\n'
+                        '3. app-arm64-v8a-release.apk をタップ\n'
+                        '4. 「インストール」をタップ',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '権限設定が必要な場合:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '設定 → アプリ → Shojin App → 詳細設定 → 不明なアプリのインストール → 許可',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (errorMessage.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'エラー詳細:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 80),
+                    child: SingleChildScrollView(
+                      child: Text(
+                        errorMessage,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // ガイダンスダイアログを閉じる
+                Navigator.of(context).pop(); // アップデートダイアログも閉じる
+                widget.onCancelled?.call();
+              },
+              child: const Text('閉じる'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // ガイダンスダイアログを閉じる
+                // ファイルマネージャーを開く試み
+                try {
+                  final Uri directoryUri = Uri.parse('content://com.android.externalstorage.documents/document/primary:Android%2Fdata%2Fcom.example.shojin_app%2Ffiles%2Ftemp_install');
+                  await launchUrl(directoryUri, mode: LaunchMode.externalApplication);
+                } catch (e) {
+                  debugPrint('Failed to open file manager: $e');
+                }
+              },
+              child: const Text('ファイルマネージャーを開く'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(

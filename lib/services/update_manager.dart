@@ -7,30 +7,76 @@ class UpdateManager {
     String fileName = assetName ?? filePath.split(Platform.pathSeparator).last;
     String fileExtension = fileName.split('.').last.toLowerCase();
 
-    print('Attempting to apply update for file: $filePath with extension: .$fileExtension');
-
-    if (Platform.isAndroid) {
+    print('Attempting to apply update for file: $filePath with extension: .$fileExtension');    if (Platform.isAndroid) {
       if (fileExtension == 'apk') {
         try {
-          final result = await OpenFile.open(filePath, type: 'application/vnd.android.package-archive');
+          print('Starting APK installation process for: $filePath');
+          
+          // Android 8.0+ (API 26+) での "不明なアプリのインストール" 権限チェック
+          // この権限はユーザーが設定画面で手動で有効にする必要がある
+          
+          // 方法1: 直接的なAPKインストール用のIntentを作成
+          // これによりシステムのパッケージインストーラーが起動される
+          final Uri fileUri = Uri.file(filePath);
+          
+          // まずOpenFileを使用（最も互換性が高い）
+          final result = await OpenFile.open(
+            filePath, 
+            type: 'application/vnd.android.package-archive'
+          );
+          
           print('OpenFile result: ${result.type} - ${result.message}');
-          if (result.type != ResultType.done) {
-            print('Error opening APK: ${result.message}');
-            // Optionally, try to launch the file URI if OpenFile fails
-            // This might sometimes work if OpenFile lacks specific permissions or handlers
-            if (!await launchUrl(Uri.file(filePath))) {
-                 print('Fallback: Could not launch APK using url_launcher either.');
-            } else {
-                print('Fallback: Launched APK using url_launcher.');
+          
+          if (result.type == ResultType.done) {
+            print('APK installation initiated successfully via OpenFile');
+            return;
+          } 
+          
+          // OpenFileが失敗した場合、システムのファイルマネージャーを開く
+          print('OpenFile failed, trying system file manager approach...');
+          
+          // 方法2: ファイルマネージャーでファイルを表示
+          // ユーザーが手動でタップしてインストールできる
+          try {
+            // ファイルの親ディレクトリを開く
+            final directory = filePath.substring(0, filePath.lastIndexOf('/'));
+            final directoryUri = Uri.parse('content://com.android.externalstorage.documents/document/primary:Android%2Fdata%2Fcom.example.shojin_app%2Ffiles%2Ftemp_install');
+            
+            if (await launchUrl(directoryUri, mode: LaunchMode.externalApplication)) {
+              print('Successfully opened file directory - user can manually install APK');
+              return;
             }
+          } catch (e) {
+            print('Directory opening failed: $e');
           }
-        } catch (e) {
-          print('Exception opening APK with OpenFile: $e');
-           if (!await launchUrl(Uri.file(filePath))) {
-               print('Fallback exception: Could not launch APK using url_launcher either: $e');
-           } else {
-                print('Fallback exception: Launched APK using url_launcher.');
-           }
+          
+          // 方法3: 一般的なファイルビューワーで開く
+          try {
+            // ACTION_VIEW IntentでAPKファイルを開く
+            if (await launchUrl(fileUri, mode: LaunchMode.externalApplication)) {
+              print('APK opened via general file viewer');
+              return;
+            }
+          } catch (e) {
+            print('File viewer approach failed: $e');
+          }
+          
+          // 最終手段: ユーザーに手動インストールの指示を表示
+          throw Exception(
+            'APKのインストールには追加の権限が必要です。\n\n'
+            '手動でインストールするには:\n'
+            '1. ファイルマネージャーを開く\n'
+            '2. 以下のパスに移動:\n'
+            '   Android/data/com.example.shojin_app/files/temp_install/\n'
+            '3. ${fileName}をタップしてインストール\n\n'
+            'または、設定 > アプリ > Shojin App > 詳細設定 > 不明なアプリのインストール を有効にしてください。'
+          );
+            } catch (e) {
+          print('Exception during APK installation: $e');
+          if (e is Exception) {
+            rethrow; // 既に適切にフォーマットされた例外はそのまま投げる
+          }
+          throw Exception('APKインストール中にエラーが発生しました: $e');
         }
       } else {
         print('Error: Android update file is not an APK. Path: $filePath');
