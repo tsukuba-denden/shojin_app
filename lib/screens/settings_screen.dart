@@ -224,8 +224,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               secondary: _getThemeIcon(mode),
             )),
             _HapticSwitchListTile(
-              title: 'Material You (ダイナミックカラー)',
-              subtitle: '壁紙の色に基づいてテーマを生成',
+              title: 'Material You',
+              subtitle: 'よりデバイスに近い体験が楽しめます',
               value: themeProvider.useMaterialYou,
               onChanged: themeProvider.setUseMaterialYou,
               icon: Icons.color_lens_outlined,

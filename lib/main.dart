@@ -44,7 +44,7 @@ void main() async {
   developer.log('App started successfully');
 }
 
-// デフォルトのカラースキーム
+// デフォルトのカラースキーム（MaterialYou ON時）
 const _defaultLightColorScheme = ColorScheme.light(
   primary: Colors.blue,
   onPrimary: Colors.white,
@@ -57,11 +57,28 @@ const _defaultDarkColorScheme = ColorScheme.dark(
   secondary: Colors.blueAccent,
 );
 
-// ピュアブラックモードのカラースキーム
-const _pureBlackColorScheme = ColorScheme.dark(
-  primary: Colors.blue,
-  onPrimary: Colors.white,
-  secondary: Colors.blueAccent,
+// カスタムテーマ（MaterialYou OFF時）
+final _lightCustomTheme = ColorScheme.fromSeed(
+  seedColor: Colors.purple,
+  brightness: Brightness.light,
+).copyWith(
+  primary: const Color(0xFF4C51C0),
+);
+
+final _darkCustomTheme = ColorScheme.fromSeed(
+  seedColor: Colors.purple,
+  brightness: Brightness.dark,
+).copyWith(
+  primary: const Color(0xFFBFC1FF),
+  surface: const Color(0xFF131316),
+);
+
+// ピュアブラックモードのカラースキーム（カスタムテーマベース）
+final _pureBlackColorScheme = ColorScheme.fromSeed(
+  seedColor: Colors.purple,
+  brightness: Brightness.dark,
+).copyWith(
+  primary: const Color(0xFFBFC1FF),
   surface: Colors.black,
   surfaceContainerHighest: Colors.black,
   onSurface: Colors.white,
@@ -80,18 +97,16 @@ class MyApp extends StatelessWidget {
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
         // Material Youを使用するかどうかでカラースキームを決定
         ColorScheme lightColorScheme;
-        ColorScheme darkColorScheme;
-
-        if (themeProvider.useMaterialYou) {
+        ColorScheme darkColorScheme;        if (themeProvider.useMaterialYou) {
           lightColorScheme = lightDynamic ?? _defaultLightColorScheme;
           darkColorScheme = themeProvider.isPureBlack
               ? _pureBlackColorScheme
               : (darkDynamic ?? _defaultDarkColorScheme);
         } else {
-          lightColorScheme = _defaultLightColorScheme;
+          lightColorScheme = _lightCustomTheme;
           darkColorScheme = themeProvider.isPureBlack
               ? _pureBlackColorScheme
-              : _defaultDarkColorScheme;
+              : _darkCustomTheme;
         }
 
         // Noto Sans JPフォントをテキストテーマに適用
