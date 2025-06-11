@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'cached_download_service.dart'; // キャッシュ機能付きダウンロードサービスをインポート
 
 // Enhanced AppUpdateInfo with more details
@@ -349,5 +350,80 @@ class EnhancedUpdateService {
   // インストール後のクリーンアップ
   Future<void> cleanupAfterInstallation() async {
     await _cachedDownloadService.cleanupInstallFiles();
+  }
+
+  // アップデート成功確認とユーザー通知機能
+  
+  /// アップデート試行を記録（ダウンロード開始時）
+  Future<void> markUpdateAttempt(String targetVersion) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pending_update_version', targetVersion);
+    await prefs.setInt('update_attempt_timestamp', DateTime.now().millisecondsSinceEpoch);
+    debugPrint('Marked update attempt for version: $targetVersion');
+  }
+  
+  /// アップデート完了を記録（手動インストール後の次回起動時）
+  Future<void> markUpdateCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('pending_update_version');
+    await prefs.remove('update_attempt_timestamp');
+    await prefs.setString('last_completed_update', await getCurrentAppVersion());
+    await prefs.setInt('last_update_timestamp', DateTime.now().millisecondsSinceEpoch);
+    debugPrint('Marked update as completed');
+  }
+  
+  /// アップデート成功の確認と通知
+  Future<bool> checkAndNotifyUpdateSuccess() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pendingVersion = prefs.getString('pending_update_version');
+      final currentVersion = await getCurrentAppVersion();
+      
+      if (pendingVersion != null && pendingVersion == currentVersion) {
+        // アップデートが成功している
+        await markUpdateCompleted();
+        debugPrint('Update successful: $pendingVersion → $currentVersion');
+        return true;
+      }
+      
+      // 古いpending updateが残っている場合はクリア（24時間以上経過）
+      final attemptTimestamp = prefs.getInt('update_attempt_timestamp');
+      if (attemptTimestamp != null) {
+        final attemptTime = DateTime.fromMillisecondsSinceEpoch(attemptTimestamp);
+        final elapsed = DateTime.now().difference(attemptTime);
+        
+        if (elapsed.inHours > 24) {
+          await prefs.remove('pending_update_version');
+          await prefs.remove('update_attempt_timestamp');
+          debugPrint('Cleared old pending update: $pendingVersion (${elapsed.inHours} hours ago)');
+        }
+      }
+      
+      return false;
+    } catch (e) {
+      debugPrint('Error checking update success: $e');
+      return false;
+    }
+  }
+  
+  /// 最後に完了したアップデート情報を取得
+  Future<Map<String, dynamic>?> getLastUpdateInfo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final version = prefs.getString('last_completed_update');
+      final timestamp = prefs.getInt('last_update_timestamp');
+      
+      if (version != null && timestamp != null) {
+        return {
+          'version': version,
+          'timestamp': DateTime.fromMillisecondsSinceEpoch(timestamp),
+          'timeAgo': DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(timestamp)),
+        };
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error getting last update info: $e');
+      return null;
+    }
   }
 }
