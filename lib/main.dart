@@ -121,13 +121,15 @@ class MyApp extends StatelessWidget {
           titleMedium: GoogleFonts.notoSansJp(fontSize: 16, fontWeight: FontWeight.w500),
           titleSmall: GoogleFonts.notoSansJp(fontSize: 14, fontWeight: FontWeight.w500),
           bodyLarge: GoogleFonts.notoSansJp(fontSize: 16),
-          bodyMedium: GoogleFonts.notoSansJp(fontSize: 14),
-          bodySmall: GoogleFonts.notoSansJp(fontSize: 12),
+          bodyMedium: GoogleFonts.notoSansJp(fontSize: 14),          bodySmall: GoogleFonts.notoSansJp(fontSize: 12),
           labelLarge: GoogleFonts.notoSansJp(fontSize: 14, fontWeight: FontWeight.w500),
           labelMedium: GoogleFonts.notoSansJp(fontSize: 12, fontWeight: FontWeight.w500),
           labelSmall: GoogleFonts.notoSansJp(fontSize: 11, fontWeight: FontWeight.w500),
-        );        return MaterialApp(
-          title: 'Shojin App',          localizationsDelegates: const [
+        );
+
+        return MaterialApp(
+          title: 'Shojin App',
+          localizationsDelegates: const [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
@@ -147,9 +149,13 @@ class MyApp extends StatelessWidget {
                 elevation: 2,
               ),
             ),
-            cardTheme: const CardThemeData(
+            cardTheme: CardThemeData(
               elevation: 2,
-              margin: EdgeInsets.all(8),
+              margin: const EdgeInsets.all(8),
+              // MaterialYou使用時のコントラスト改善
+              surfaceTintColor: themeProvider.useMaterialYou 
+                  ? lightColorScheme.primary.withOpacity(0.08)
+                  : null,
             ),
             textTheme: textTheme,
             fontFamily: GoogleFonts.notoSansJp().fontFamily,
@@ -166,6 +172,10 @@ class MyApp extends StatelessWidget {
               elevation: 2,
               margin: const EdgeInsets.all(8),
               color: themeProvider.isPureBlack ? const Color(0xFF121212) : null,
+              // MaterialYou使用時のコントラスト改善
+              surfaceTintColor: themeProvider.useMaterialYou 
+                  ? darkColorScheme.primary.withOpacity(0.08)
+                  : null,
             ),
             scaffoldBackgroundColor: themeProvider.isPureBlack ? Colors.black : null,
             textTheme: textTheme,

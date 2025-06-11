@@ -4,9 +4,11 @@ import 'dart:convert';
 import 'dart:ui' as ui; // Added for ui.Image and ui.ImageByteFormat
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:favicon/favicon.dart';
+import '../providers/theme_provider.dart';
 // For fetching favicon image
 
 // Helper function to determine text color based on background
@@ -491,15 +493,21 @@ class _BrowserScreenState extends State<BrowserScreen> {
            textColor = _getTextColorForBackground(backgroundColor);
         } else {
            throw const FormatException("Invalid hex color format");
-        }
-      } catch (e) {
+        }      } catch (e) {
         developer.log('Error parsing color hex $colorHex: $e', name: 'BrowserScreenButton');
         backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
         textColor = Theme.of(context).colorScheme.onSurfaceVariant;
       }
     } else {
+       // デフォルトの背景色とテキスト色を設定
        backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
        textColor = Theme.of(context).colorScheme.onSurfaceVariant;
+       
+       // MaterialYou使用時はプライマリカラーで軽いティントを追加してコントラストを向上
+       final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+       if (themeProvider.useMaterialYou) {
+         backgroundColor = backgroundColor.withOpacity(0.9);
+       }
     }
 
     return Padding(
