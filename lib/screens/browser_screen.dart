@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:favicon/favicon.dart';
 import '../providers/theme_provider.dart';
+import '../services/cached_download_service.dart'; // キャッシュ機能付きダウンロードサービス
 // For fetching favicon image
 
 // Helper function to determine text color based on background
@@ -35,6 +36,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
   bool _loadFailed = false;
   String _currentUrl = '';
   bool _isLoadingWebView = false;
+
+  // キャッシュ機能付きダウンロードサービス
+  final CachedDownloadService _cachedDownloadService = CachedDownloadService();
 
   // Default sites
   final String _noviStepsUrl = 'https://atcoder-novisteps.vercel.app/problems';

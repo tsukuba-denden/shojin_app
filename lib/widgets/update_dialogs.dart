@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../services/enhanced_update_service.dart';
 import '../services/update_manager.dart';
 
@@ -57,36 +57,9 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
       _hasError = false;
     });
 
-    // Check permissions for Android
-    try {
-      // Use Platform.isAndroid instead of Theme.of(context).platform
-      if (Platform.isAndroid) {
-        bool permissionGranted = await _requestStoragePermissionWithDialog();
-        if (!permissionGranted) {
-          setState(() {
-            _hasError = true;
-            _currentProgress = UpdateProgress(
-              progress: 0.0,
-              status: 'ストレージ権限が必要です',
-              errorMessage: 'Storage permission denied',
-            );
-            _isDownloading = false;
-          });
-          return;
-        }
-      }
-    } catch (e) {
-      setState(() {
-        _hasError = true;
-        _currentProgress = UpdateProgress(
-          progress: 0.0,
-          status: '権限チェックエラー',
-          errorMessage: e.toString(),
-        );
-        _isDownloading = false;
-      });
-      return;
-    }
+    // キャッシュを使用するため権限チェックは不要
+    // アプリ内部ストレージを使用するため、Androidでも権限は必要ない
+    debugPrint('Starting download using cache (no permissions required)');
 
     // Listen to progress stream
     _progressSubscription = _updateService.progressStream?.listen(
@@ -174,99 +147,6 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
     Navigator.of(context).pop();
     widget.onCancelled?.call();
   }
-
-  // ストレージ権限の要求（ダイアログ付き）
-  Future<bool> _requestStoragePermissionWithDialog() async {
-    // まず現在の権限状態をチェック
-    bool hasPermission = await _updateService.requestStoragePermission();
-    
-    if (hasPermission) {
-      return true;
-    }
-
-    // 権限が無い場合、ユーザーに説明ダイアログを表示
-    if (!mounted) return false;
-    
-    bool? userWantsToGrant = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.folder_open, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('ストレージ権限が必要です'),
-            ],
-          ),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'アップデートファイルをダウンロードするために、ストレージへのアクセス権限が必要です。',
-                style: TextStyle(fontSize: 16),
-              ),
-              SizedBox(height: 16),
-              Text(
-                '• ファイルのダウンロードと保存\n• 一時的なファイルの作成',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('キャンセル'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('権限を許可'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (userWantsToGrant != true) {
-      return false;
-    }
-
-    // ユーザーが同意した場合、再度権限を要求
-    hasPermission = await _updateService.requestStoragePermission();
-    
-    if (!hasPermission && mounted) {
-      // まだ権限が取得できない場合、設定画面への案内を表示
-      await showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.settings, color: Colors.blue),
-                SizedBox(width: 8),
-                Text('設定で権限を有効にしてください'),
-              ],
-            ),
-            content: const Text(
-              'ストレージ権限が拒否されました。\n\n'
-              'アプリの設定画面で手動で権限を有効にしてから、再度お試しください。\n\n'
-              '設定 > アプリ > Shojin App > 権限 > ストレージ',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          );
-        },
-      );
-    }
-
-    return hasPermission;
-  }
-
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -281,135 +161,155 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
             const SizedBox(width: 8),
             const Text('アップデートダウンロード'),
           ],
-        ),
-        content: SizedBox(
+        ),        content: SizedBox(
           width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Version info
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'バージョン ${widget.updateInfo.version}',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (widget.updateInfo.fileSize != null)
-                      Text(
-                        'ファイルサイズ: ${(widget.updateInfo.fileSize! / 1024 / 1024).toStringAsFixed(1)} MB',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              
-              // Progress section
-              if (_currentProgress != null) ...[
-                Text(
-                  _currentProgress!.status,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                
-                // Progress bar
-                if (_currentProgress!.progress >= 0)
-                  LinearProgressIndicator(
-                    value: _currentProgress!.progress,
-                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  )
-                else
-                  const LinearProgressIndicator(), // Indeterminate
-                
-                const SizedBox(height: 8),
-                
-                // Progress text
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      _currentProgress!.formattedProgress,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if (_currentProgress!.progress >= 0)
-                      Text(
-                        '${(_currentProgress!.progress * 100).toStringAsFixed(0)}%',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                  ],
-                ),
-              ],
-              
-              // Error message
-              if (_hasError && _currentProgress?.errorMessage != null) ...[
-                const SizedBox(height: 16),
+          height: MediaQuery.of(context).size.height * 0.6, // 画面の60%の高さに制限
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Version info
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.errorContainer,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.error_outline,
-                        color: Theme.of(context).colorScheme.onErrorContainer,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _currentProgress!.errorMessage!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onErrorContainer,
-                          ),
+                      Text(
+                        'バージョン ${widget.updateInfo.version}',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (widget.updateInfo.fileSize != null)
+                        Text(
+                          'ファイルサイズ: ${(widget.updateInfo.fileSize! / 1024 / 1024).toStringAsFixed(1)} MB',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                     ],
                   ),
                 ),
-              ],
-              
-              // Success message
-              if (_isCompleted && !_hasError) ...[
                 const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
+                
+                // Progress section
+                if (_currentProgress != null) ...[
+                  Text(
+                    _currentProgress!.status,
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
-                  child: Row(
+                  const SizedBox(height: 8),
+                  
+                  // Progress bar
+                  if (_currentProgress!.progress >= 0)
+                    LinearProgressIndicator(
+                      value: _currentProgress!.progress,
+                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    )
+                  else
+                    const LinearProgressIndicator(), // Indeterminate
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Progress text
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(
-                        Icons.check_circle_outline,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        size: 20,
+                      Text(
+                        _currentProgress!.formattedProgress,
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'ダウンロード完了！インストールを開始します。',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
-                          ),
+                      if (_currentProgress!.progress >= 0)
+                        Text(
+                          '${(_currentProgress!.progress * 100).toStringAsFixed(0)}%',
+                          style: Theme.of(context).textTheme.bodySmall,
                         ),
-                      ),
                     ],
                   ),
-                ),
+                ],
+                
+                // Error message - 表示を制限
+                if (_hasError && _currentProgress?.errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Theme.of(context).colorScheme.onErrorContainer,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'エラーが発生しました',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: Theme.of(context).colorScheme.onErrorContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 100), // エラーメッセージの高さを制限
+                          child: SingleChildScrollView(
+                            child: Text(
+                              _currentProgress!.errorMessage!,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onErrorContainer,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                
+                // Success message
+                if (_isCompleted && !_hasError) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline,
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'ダウンロード完了！インストールを開始します。',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
         actions: [

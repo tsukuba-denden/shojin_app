@@ -4,9 +4,8 @@ import 'dart:io';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
+import 'cached_download_service.dart'; // キャッシュ機能付きダウンロードサービスをインポート
 
 // Enhanced AppUpdateInfo with more details
 class EnhancedAppUpdateInfo {
@@ -59,6 +58,9 @@ class UpdateProgress {
 class EnhancedUpdateService {
   // StreamController for progress management (like ReVanced Manager)
   StreamController<UpdateProgress>? _progressController;
+  
+  // キャッシュ機能付きダウンロードサービス
+  final CachedDownloadService _cachedDownloadService = CachedDownloadService();
   
   Stream<UpdateProgress>? get progressStream => _progressController?.stream;
   
@@ -235,9 +237,8 @@ class EnhancedUpdateService {
       }
     }
     return null;
-  }
-
-  // Enhanced download with streaming progress (ReVanced Manager inspired)
+  }  // Enhanced download with streaming progress (ReVanced Manager inspired)
+  // キャッシュ機能付きでダウンロード（権限不要）
   Future<String?> downloadUpdateWithProgress(EnhancedAppUpdateInfo releaseInfo) async {
     if (releaseInfo.downloadUrl == null || releaseInfo.downloadUrl!.isEmpty) {
       _updateProgress(UpdateProgress(
@@ -251,88 +252,40 @@ class EnhancedUpdateService {
     // Initialize progress stream
     _initializeProgressStream();
     
-    _updateProgress(UpdateProgress(
-      progress: 0.0,
-      status: 'ダウンロードを開始しています...',
-    ));
-
-    final httpClient = http.Client();
     try {
-      final Uri downloadUri = Uri.parse(releaseInfo.downloadUrl!);
-      final request = http.Request('GET', downloadUri);
-      final http.StreamedResponse response = await httpClient.send(request);
-
-      if (response.statusCode != 200) {
-        _updateProgress(UpdateProgress(
-          progress: 0.0,
-          status: 'ダウンロードエラー: ${response.statusCode}',
-          errorMessage: 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
-        ));
-        return null;
-      }
-
-      final Directory tempDir = await getTemporaryDirectory();
-      final String fileName = releaseInfo.assetName ?? Uri.parse(releaseInfo.downloadUrl!).pathSegments.last;
-      final String localFilePath = '${tempDir.path}${Platform.pathSeparator}$fileName';
-      final File file = File(localFilePath);
-      final IOSink sink = file.openWrite();
-
-      int bytesReceived = 0;
-      final int? totalLength = response.contentLength ?? releaseInfo.fileSize;
-
-      _updateProgress(UpdateProgress(
-        progress: 0.0,
-        status: 'ダウンロード中...',
-        bytesDownloaded: 0,
-        totalBytes: totalLength,
-      ));
-
-      await response.stream.listen((List<int> chunk) {
-        sink.add(chunk);
-        bytesReceived += chunk.length;
-        
-        if (totalLength != null && totalLength > 0) {
-          double currentProgress = bytesReceived / totalLength;
-          _updateProgress(UpdateProgress(
-            progress: currentProgress,
-            status: 'ダウンロード中...',
-            bytesDownloaded: bytesReceived,
-            totalBytes: totalLength,
-          ));
-        } else {
-          _updateProgress(UpdateProgress(
-            progress: -1, // Indeterminate progress
-            status: 'ダウンロード中...',
-            bytesDownloaded: bytesReceived,
-            totalBytes: null,
-          ));
-        }
-      }).asFuture();
-
-      await sink.flush();
-      await sink.close();
+      // キャッシュ機能付きダウンロードサービスを使用（権限不要）
+      // プログレスの同期を設定
+      late StreamSubscription progressSubscription;
+      progressSubscription = _cachedDownloadService.progressStream?.listen((progress) {
+        _updateProgress(progress);
+      }) ?? const Stream.empty().listen((_) {});
       
-      _updateProgress(UpdateProgress(
-        progress: 1.0,
-        status: 'ダウンロード完了',
-        bytesDownloaded: bytesReceived,
-        totalBytes: totalLength,
-        isCompleted: true,
-      ));
-
-      debugPrint('Update downloaded to: $localFilePath');
-      return localFilePath;
-
+      debugPrint('Starting cache-based download for: ${releaseInfo.downloadUrl}');
+      final String? result = await _cachedDownloadService.downloadUpdateWithCache(releaseInfo);
+      
+      // プログレス監視を停止
+      progressSubscription.cancel();
+      
+      if (result != null) {
+        debugPrint('Update downloaded successfully to cache: $result');
+        _updateProgress(UpdateProgress(
+          progress: 1.0,
+          status: 'ダウンロード完了（キャッシュ使用）',
+          isCompleted: true,
+        ));
+      }
+      
+      return result;
     } catch (e) {
+      debugPrint('Error during cache-based download: $e');
       _updateProgress(UpdateProgress(
         progress: 0.0,
         status: 'ダウンロードエラー',
         errorMessage: e.toString(),
       ));
-      debugPrint('Error during download update: $e');
       return null;
     } finally {
-      httpClient.close();
+      _cachedDownloadService.disposeProgressStream();
     }
   }
 
@@ -349,24 +302,42 @@ class EnhancedUpdateService {
       return null;
     }
   }
-
-  // Request storage permission
+  // Request storage permission (キャッシュ使用により基本的に不要)
+  // 外部ストレージに明示的に保存する場合のみ使用
   Future<bool> requestStoragePermission() async {
+    // iOSでは権限不要
     if (Platform.isIOS) {
       return true;
     }
 
+    // Androidでもアプリ内部ストレージ（キャッシュ）使用時は権限不要
+    // 外部ストレージに保存する場合のみ権限が必要
     if (Platform.isAndroid) {
-      PermissionStatus status = await Permission.storage.status;
-      debugPrint('Current storage permission status: $status');
-      if (status.isGranted) {
-        return true;
-      } else {
-        status = await Permission.storage.request();
-        debugPrint('Storage permission status after request: $status');
-        return status.isGranted;
-      }
+      // API 30+ (Android 11+) では MANAGE_EXTERNAL_STORAGE が推奨
+      // しかし、アプリ内部ストレージを使用することで回避可能
+      debugPrint('Storage permission check skipped - using internal app storage');
+      return true; // アプリ内部ストレージを使用するため常にtrue
     }
     return true;
+  }
+
+  // 外部ストレージへの明示的な保存（ユーザーが要求した場合のみ）
+  Future<String?> saveToExternalStorage(String cachedFilePath, String fileName) async {
+    return await _cachedDownloadService.saveToExternalStorage(cachedFilePath, fileName);
+  }
+
+  // キャッシュ管理機能
+  Future<void> clearCache() async {
+    await _cachedDownloadService.clearCache();
+    debugPrint('Update cache cleared');
+  }
+
+  Future<void> clearExpiredCache() async {
+    await _cachedDownloadService.clearExpiredCache();
+    debugPrint('Expired update cache cleared');
+  }
+
+  Future<Map<String, dynamic>> getCacheStats() async {
+    return await _cachedDownloadService.getCacheStats();
   }
 }
