@@ -165,10 +165,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // カスタムヘッダー
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
-            child: Text(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),            child: Text(
               '設定',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.notoSansJp(
                 fontSize: 28,
                 fontWeight: FontWeight.w600,
                 color: Theme.of(context).colorScheme.onSurface,
@@ -237,10 +236,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+                children: [                  Text(
                     'ナビゲーションバーの透明度',
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.notoSansJp(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                       color: Theme.of(context).colorScheme.onSurface,
@@ -274,10 +272,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: 'テンプレート設定',
           icon: Icons.code,
           children: templateProvider.supportedLanguages.map((language) {
-            return ListTile(
-              title: Text(
+            return ListTile(              title: Text(
                 language,
-                style: GoogleFonts.inter(
+                style: GoogleFonts.notoSansJp(
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                 ),
@@ -342,11 +339,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const CircularProgressIndicator(),
               ],
               if (_updateCheckResult.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Text(
+                const SizedBox(height: 16),                Text(
                   _updateCheckResult,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(fontSize: 14),
+                  style: GoogleFonts.notoSansJp(fontSize: 14),
                 ),
               ],
             ],
@@ -360,10 +356,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: '言語設定',
       icon: Icons.language,
       children: [
-        ListTile(
-          title: Text(
+        ListTile(          title: Text(
             '日本語',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansJp(
               fontSize: 16,
               fontWeight: FontWeight.w400,
             ),
@@ -387,11 +382,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return _SettingsSection(
       title: 'エクスポート/インポート',
       icon: Icons.import_export,
-      children: [
-        ListTile(
+      children: [        ListTile(
           title: Text(
             '設定をエクスポート',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansJp(
               fontSize: 16,
               fontWeight: FontWeight.w400,
             ),
@@ -403,10 +397,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             await _exportSettings();
           },
         ),
-        ListTile(
-          title: Text(
+        ListTile(          title: Text(
             '設定をインポート',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansJp(
               fontSize: 16,
               fontWeight: FontWeight.w400,
             ),
@@ -419,10 +412,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           },
         ),
         const Divider(),
-        ListTile(
-          title: Text(
+        ListTile(          title: Text(
             'テンプレートをエクスポート',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansJp(
               fontSize: 16,
               fontWeight: FontWeight.w400,
             ),
@@ -434,10 +426,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             await _exportTemplates();
           },
         ),
-        ListTile(
-          title: Text(
+        ListTile(          title: Text(
             'テンプレートをインポート',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.notoSansJp(
               fontSize: 16,
               fontWeight: FontWeight.w400,
             ),
@@ -456,11 +447,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _SAboutSection() {
     return _SettingsSection(
       title: 'アプリについて',
-      icon: Icons.info_outline,
-      children: [        _CopyableListTile(
+      icon: Icons.info_outline,      children: [        _CopyableListTile(
           title: 'バージョン',
           subtitle: _currentVersion,
           icon: Icons.tag,
+          onCopy: _copyAllAppInfo,
         ),
         // 開発者セクション（ソーシャルメディアリンク付き）
         _DeveloperSection(),
@@ -482,56 +473,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
   List<Widget> _buildAboutDetails() {
-    return [
-      _CopyableListTile(
+    return [      _CopyableListTile(
         title: 'アプリ名',
         subtitle: _aboutInfo!['appName'] ?? '不明',
         icon: Icons.apps,
+        onCopy: _copyAllAppInfo,
       ),
       _CopyableListTile(
         title: 'パッケージ名',
         subtitle: _aboutInfo!['packageName'] ?? '不明',
         icon: Icons.inventory,
+        onCopy: _copyAllAppInfo,
       ),
       _CopyableListTile(
         title: 'ビルド番号',
         subtitle: _aboutInfo!['buildNumber'] ?? '不明',
         icon: Icons.build,
+        onCopy: _copyAllAppInfo,
       ),
       _CopyableListTile(
         title: 'プラットフォーム',
         subtitle: _aboutInfo!['platform'] ?? '不明',
         icon: Icons.computer,
-      ),
-      if (_aboutInfo!['model'] != null)
+        onCopy: _copyAllAppInfo,
+      ),      if (_aboutInfo!['model'] != null)
         _CopyableListTile(
           title: 'デバイスモデル',
           subtitle: _aboutInfo!['model'],
           icon: Icons.phone_android,
+          onCopy: _copyAllAppInfo,
         ),
       if (_aboutInfo!['androidVersion'] != null)
         _CopyableListTile(
           title: 'Androidバージョン',
           subtitle: _aboutInfo!['androidVersion'],
-          icon: Icons.android,        ),
+          icon: Icons.android,
+          onCopy: _copyAllAppInfo,
+        ),
       if (_aboutInfo!['supportedArch'] != null)
         _CopyableListTile(
           title: 'サポートアーキテクチャ',
           subtitle: (_aboutInfo!['supportedArch'] as List).join(', '),
           icon: Icons.architecture,
+          onCopy: _copyAllAppInfo,
         ),
       _CopyableListTile(
         title: 'ビルドタイプ',
         subtitle: _aboutInfo!['flavor'] ?? '不明',
         icon: Icons.settings,
-      ),    ];
+        onCopy: _copyAllAppInfo,
+      ),];
   }
 
   Widget _DeveloperSection() {
-    return ExpansionTile(
-      title: Text(
+    return ExpansionTile(      title: Text(
         '開発者',
-        style: GoogleFonts.inter(
+        style: GoogleFonts.notoSansJp(
           fontSize: 16,
           fontWeight: FontWeight.w400,
         ),
@@ -652,6 +649,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     }
   }
+
+  String _getAllAppInfo() {
+    List<String> infoLines = [];
+    
+    // バージョン情報
+    infoLines.add('バージョン: $_currentVersion');
+    
+    // アプリについての詳細情報
+    if (_aboutInfo != null && _aboutInfo!['error'] == null) {
+      infoLines.add('アプリ名: ${_aboutInfo!['appName'] ?? '不明'}');
+      infoLines.add('パッケージ名: ${_aboutInfo!['packageName'] ?? '不明'}');
+      infoLines.add('ビルド番号: ${_aboutInfo!['buildNumber'] ?? '不明'}');
+      infoLines.add('プラットフォーム: ${_aboutInfo!['platform'] ?? '不明'}');
+      
+      if (_aboutInfo!['model'] != null) {
+        infoLines.add('デバイスモデル: ${_aboutInfo!['model']}');
+      }
+      
+      if (_aboutInfo!['androidVersion'] != null) {
+        infoLines.add('Androidバージョン: ${_aboutInfo!['androidVersion']}');
+      }
+      
+      if (_aboutInfo!['supportedArch'] != null) {
+        infoLines.add('サポートアーキテクチャ: ${(_aboutInfo!['supportedArch'] as List).join(', ')}');
+      }
+      
+      infoLines.add('ビルドタイプ: ${_aboutInfo!['flavor'] ?? '不明'}');
+    }
+    
+    return infoLines.join('\n');
+  }
+
+  void _copyAllAppInfo(BuildContext context) {
+    String allInfo = _getAllAppInfo();
+    Clipboard.setData(ClipboardData(text: allInfo));
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('アプリ情報をすべてコピーしました'),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 }
 
 // 設定セクションのベースウィジェット
@@ -686,11 +727,10 @@ class _SettingsSection extends StatelessWidget {
                   icon,
                   size: 20,
                   color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 12),
+                ),                const SizedBox(width: 12),
                 Text(
                   title,
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.notoSansJp(
                     fontSize: 20,
                     fontWeight: FontWeight.w500,
                     color: Theme.of(context).colorScheme.onSurface,
@@ -726,10 +766,9 @@ class _HapticSwitchListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SwitchListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20.0),
-      title: Text(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20.0),      title: Text(
         title,
-        style: GoogleFonts.inter(
+        style: GoogleFonts.notoSansJp(
           fontSize: 16,
           fontWeight: FontWeight.w400,
         ),
@@ -737,7 +776,7 @@ class _HapticSwitchListTile extends StatelessWidget {
       subtitle: subtitle != null
           ? Text(
               subtitle!,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.notoSansJp(
                 fontSize: 14,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -771,11 +810,10 @@ class _HapticRadioListTile<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RadioListTile<T>(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20.0),
+    return RadioListTile<T>(      contentPadding: const EdgeInsets.symmetric(horizontal: 20.0),
       title: Text(
         title,
-        style: GoogleFonts.inter(
+        style: GoogleFonts.notoSansJp(
           fontSize: 16,
           fontWeight: FontWeight.w400,
         ),
@@ -795,50 +833,40 @@ class _CopyableListTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
-
+  final void Function(BuildContext) onCopy;
+  
   const _CopyableListTile({
     required this.title,
     required this.subtitle,
     required this.icon,
+    required this.onCopy,
   });
-
-  void _copyToClipboard(BuildContext context, String text) {
-    Clipboard.setData(ClipboardData(text: text));
-    HapticFeedback.lightImpact();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('「$text」をコピーしました'),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20.0),
+    return ListTile(      contentPadding: const EdgeInsets.symmetric(horizontal: 20.0),
       title: Text(
         title,
-        style: GoogleFonts.inter(
+        style: GoogleFonts.notoSansJp(
           fontSize: 16,
           fontWeight: FontWeight.w400,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: GoogleFonts.inter(
+        style: GoogleFonts.notoSansJp(
           fontSize: 14,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
       leading: Icon(icon),
-      onLongPress: () => _copyToClipboard(context, subtitle),      onTap: () {
+      onLongPress: () => onCopy(context),
+      onTap: () {
         HapticFeedback.lightImpact();
         // 短いタップでも説明を表示
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('長押しでコピーできます'),
+            content: const Text('長押しでアプリ情報をすべてコピーします'),
             duration: const Duration(seconds: 1),
             behavior: SnackBarBehavior.floating,
           ),
@@ -910,19 +938,18 @@ class _SocialMediaItem extends StatelessWidget {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
       leading: Icon(
-        icon,
-        color: Theme.of(context).colorScheme.primary,
+        icon,        color: Theme.of(context).colorScheme.primary,
       ),
       title: Text(
         title,
-        style: GoogleFonts.inter(
+        style: GoogleFonts.notoSansJp(
           fontSize: 16,
           fontWeight: FontWeight.w500,
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: GoogleFonts.inter(
+        style: GoogleFonts.notoSansJp(
           fontSize: 14,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
