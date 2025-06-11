@@ -1,87 +1,71 @@
 import 'dart:io';
+import 'package:flutter/services.dart'; // Added for MethodChannel
 import 'package:url_launcher/url_launcher.dart';
-import 'package:open_file/open_file.dart'; // Corrected import path
 
 class UpdateManager {
+  static const MethodChannel _platform = MethodChannel('com.example.shojin_app/patcher'); // Define MethodChannel
+
   Future<void> applyUpdate(String filePath, String? assetName) async {
     String fileName = assetName ?? filePath.split(Platform.pathSeparator).last;
     String fileExtension = fileName.split('.').last.toLowerCase();
 
-    print('Attempting to apply update for file: $filePath with extension: .$fileExtension');    if (Platform.isAndroid) {
+    print('Attempting to apply update for file: $filePath with extension: .$fileExtension');
+    if (Platform.isAndroid) {
       if (fileExtension == 'apk') {
         try {
-          print('Starting APK installation process for: $filePath');
+          print('Starting APK installation process via MethodChannel for: $filePath');
           
-          // Android 8.0+ (API 26+) での "不明なアプリのインストール" 権限チェック
-          // この権限はユーザーが設定画面で手動で有効にする必要がある
-          
-          // 方法1: 直接的なAPKインストール用のIntentを作成
-          // これによりシステムのパッケージインストーラーが起動される
-          final Uri fileUri = Uri.file(filePath);
-          
-          // まずOpenFileを使用（最も互換性が高い）
-          final result = await OpenFile.open(
-            filePath, 
-            type: 'application/vnd.android.package-archive'
-          );
-          
-          print('OpenFile result: ${result.type} - ${result.message}');
-          
-          if (result.type == ResultType.done) {
-            print('APK installation initiated successfully via OpenFile');
-            return;
-          } 
-          
-          // OpenFileが失敗した場合、システムのファイルマネージャーを開く
-          print('OpenFile failed, trying system file manager approach...');
-          
-          // 方法2: ファイルマネージャーでファイルを表示
-          // ユーザーが手動でタップしてインストールできる
-          try {
-            // ファイルの親ディレクトリを開く
-            final directory = filePath.substring(0, filePath.lastIndexOf('/'));
-            final directoryUri = Uri.parse('content://com.android.externalstorage.documents/document/primary:Android%2Fdata%2Fcom.example.shojin_app%2Ffiles%2Ftemp_install');
-            
-            if (await launchUrl(directoryUri, mode: LaunchMode.externalApplication)) {
-              print('Successfully opened file directory - user can manually install APK');
+          final result = await _platform.invokeMethod('installApk', {'apkPath': filePath});
+
+          print('MethodChannel installApk result: $result');
+
+          if (result is Map) {
+            final status = result['status'];
+            final message = result['message'] ?? 'No message from installer.';
+
+            if (status == 0) { // STATUS_SUCCESS from native side
+              print('APK installation successful: $message');
+              // Potentially, clean up the APK file if it's no longer needed and was copied to a temp location for install
+              // await _cleanupApkFile(filePath); // Example cleanup call
               return;
+            } else if (status == 3) { // STATUS_FAILURE_ABORTED (User Cancelled) from native side
+              print('APK installation cancelled by user: $message');
+              throw Exception('インストールがユーザーによってキャンセルされました。');
+            } else {
+              // Other failure statuses from PackageInstaller
+              print('APK installation failed with status $status: $message');
+              throw Exception('APKのインストールに失敗しました: $message (ステータス: $status)');
             }
-          } catch (e) {
-            print('Directory opening failed: $e');
+          } else {
+            // Should not happen if native side is correctly implemented
+            print('APK installation failed: Unexpected result format from MethodChannel.');
+            throw Exception('APKのインストールに失敗しました: 予期しない応答です。');
           }
-          
-          // 方法3: 一般的なファイルビューワーで開く
-          try {
-            // ACTION_VIEW IntentでAPKファイルを開く
-            if (await launchUrl(fileUri, mode: LaunchMode.externalApplication)) {
-              print('APK opened via general file viewer');
-              return;
-            }
-          } catch (e) {
-            print('File viewer approach failed: $e');
+        } on PlatformException catch (e) {
+          print('PlatformException during APK installation: ${e.code} - ${e.message} - ${e.details}');
+          // Map common error codes from native side if needed
+          if (e.code == "FILE_NOT_FOUND") {
+            throw Exception('APKファイルが見つかりません: ${e.message}');
+          } else if (e.code == "INSTALL_FAILED" || e.code.startsWith("INSTALL_FAILURE_")) {
+             throw Exception('APKのインストールに失敗しました: ${e.message}');
+          } else if (e.code == "INSTALL_BLOCKED") {
+            throw Exception('APKのインストールがブロックされました: ${e.message}');
+          } else if (e.code == "INSTALL_INVALID_APK") {
+            throw Exception('無効なAPKファイルです: ${e.message}');
           }
-          
-          // 最終手段: ユーザーに手動インストールの指示を表示
-          throw Exception(
-            'APKのインストールには追加の権限が必要です。\n\n'
-            '手動でインストールするには:\n'
-            '1. ファイルマネージャーを開く\n'
-            '2. 以下のパスに移動:\n'
-            '   Android/data/com.example.shojin_app/files/temp_install/\n'
-            '3. ${fileName}をタップしてインストール\n\n'
-            'または、設定 > アプリ > Shojin App > 詳細設定 > 不明なアプリのインストール を有効にしてください。'
-          );
-            } catch (e) {
+          // Fallback to a generic message, or attempt old method
+          // For now, rethrow a user-friendly version of the platform exception
+          throw Exception('APKインストール中にプラットフォームエラーが発生しました: ${e.message}');
+        } catch (e) {
           print('Exception during APK installation: $e');
-          if (e is Exception) {
-            rethrow; // 既に適切にフォーマットされた例外はそのまま投げる
+          if (e is Exception && e.toString().contains("APKのインストール")) { // Avoid re-wrapping our specific exceptions
+            rethrow;
           }
-          throw Exception('APKインストール中にエラーが発生しました: $e');
+          throw Exception('APKインストール中に予期しないエラーが発生しました: $e');
         }
       } else {
         print('Error: Android update file is not an APK. Path: $filePath');
-        // Consider launching a file explorer to the directory for other file types
-        // For now, just log.
+        throw Exception('Androidの更新ファイルはAPKではありません。');
       }
     } else if (Platform.isIOS) {
       print('Direct update application is not supported on iOS from within the app.');
@@ -145,4 +129,24 @@ class UpdateManager {
       print('Update downloaded to $filePath. Platform not explicitly handled, please manage manually.');
     }
   }
+
+  // Example placeholder for APK cleanup logic if needed after successful install
+  // Future<void> _cleanupApkFile(String filePath) async {
+  //   try {
+  //     final file = File(filePath);
+  //     if (await file.exists()) {
+  //       // Be careful with this. Ensure this is the correct file to delete.
+  //       // This might be the original cached file or a temporary copy.
+  //       // The current native implementation reads directly from the provided path.
+  //       // If EnhancedUpdateService copies it to a specific "install" location,
+  //       // then that specific copy could be targeted for cleanup.
+  //       // For now, let's assume the file at `filePath` might still be the cached version
+  //       // or a user-accessible copy, so automatic deletion might not be desired without more context.
+  //       print('Hypothetical cleanup of APK at: $filePath');
+  //       // await file.delete();
+  //     }
+  //   } catch (e) {
+  //     print('Error cleaning up APK file: $e');
+  //   }
+  // }
 }
