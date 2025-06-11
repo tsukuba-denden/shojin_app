@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart'; // For haptic feedback
 import 'package:google_fonts/google_fonts.dart'; // Add Google Fonts
+import 'package:shared_preferences/shared_preferences.dart'; // For settings persistence
+import 'package:url_launcher/url_launcher.dart'; // For launching URLs
 import '../providers/theme_provider.dart';
 import '../providers/template_provider.dart';
 import 'template_edit_screen.dart';
@@ -23,13 +25,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final EnhancedUpdateService _updateService = EnhancedUpdateService();
   final AutoUpdateManager _autoUpdateManager = AutoUpdateManager();
   bool _autoUpdateCheckEnabled = true;
+  bool _showUpdateDialog = true; // アップデート通知の表示設定
   Map<String, dynamic>? _aboutInfo;
-
   @override
   void initState() {
     super.initState();
     _loadCurrentVersion();
     _loadAutoUpdatePreference(); // Load preference
+    _loadShowUpdateDialogPreference(); // Load show update dialog preference
     _loadAboutInfo(); // Load about info
   }
 
@@ -59,7 +62,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
     }
   }
-
   // Method to save auto update preference
   Future<void> _setAutoUpdatePreference(bool value) async {
     await _autoUpdateManager.setAutoUpdateEnabled(value);
@@ -67,6 +69,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _autoUpdateCheckEnabled = value;
       });
+    }
+  }
+
+  // Method to load show update dialog preference
+  Future<void> _loadShowUpdateDialogPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedShowUpdateDialog = prefs.getBool('show_update_dialog');
+      if (mounted) {
+        setState(() {
+          _showUpdateDialog = savedShowUpdateDialog ?? true; // デフォルトはtrue
+        });
+      }
+    } catch (e) {
+      print('Failed to load show update dialog preference: $e');
+    }
+  }
+
+  // Method to set show update dialog preference
+  Future<void> _setShowUpdateDialog(bool value) async {
+    // SharedPreferencesを使って設定を保存
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('show_update_dialog', value);
+      if (mounted) {
+        setState(() {
+          _showUpdateDialog = value;
+        });
+      }
+    } catch (e) {
+      print('Failed to save show update dialog preference: $e');
     }
   }
 
@@ -97,11 +130,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       EnhancedAppUpdateInfo? releaseInfo = await _autoUpdateManager.checkForUpdatesManually();
       if (!mounted) return;
 
-      if (releaseInfo != null) {
-        setState(() {
+      if (releaseInfo != null) {        setState(() {
           _updateCheckResult = "新しいバージョンがあります: ${releaseInfo.version}";
         });
-        _showUpdateDialog(releaseInfo);
+        _showUpdateDialogMethod(releaseInfo);
       } else {
         setState(() {
           _updateCheckResult = "お使いのバージョンは最新です。";
@@ -115,13 +147,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
       print('Error checking for updates: $e');
     } finally {
-      if (mounted) {
-        setState(() {
+      if (mounted) {        setState(() {
           _isLoadingUpdate = false;
         });
       }
     }
-  }  void _showUpdateDialog(EnhancedAppUpdateInfo releaseInfo) {
+  }
+
+  void _showUpdateDialogMethod(EnhancedAppUpdateInfo releaseInfo) {
     if (!mounted) return;
     _autoUpdateManager.showManualUpdateDialog(context, releaseInfo);
   }
@@ -146,9 +179,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         
         // 設定項目のリスト
         SliverList(
-          delegate: SliverChildListDelegate([
-            // テーマ設定セクション
+          delegate: SliverChildListDelegate([            // テーマ設定セクション
             _SUpdateThemeUI(),
+            const SizedBox(height: 16),
+            
+            // 言語設定セクション
+            _SUpdateLanguageUI(),
             const SizedBox(height: 16),
             
             // テンプレート設定セクション
@@ -157,6 +193,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             
             // 更新設定セクション
             _SUpdateSection(),
+            const SizedBox(height: 16),
+            
+            // エクスポート/インポート設定セクション
+            _SExportSection(),
             const SizedBox(height: 16),
             
             // アプリについてセクション
@@ -261,7 +301,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
-
   Widget _SUpdateSection() {
     return _SettingsSection(
       title: '更新設定',
@@ -272,6 +311,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           value: _autoUpdateCheckEnabled,
           onChanged: _setAutoUpdatePreference,
           icon: Icons.sync_outlined,
+        ),
+        _HapticSwitchListTile(
+          title: 'アップデート通知を表示',
+          subtitle: '新しいバージョンが利用可能な時に通知を表示',
+          value: _showUpdateDialog,
+          onChanged: _setShowUpdateDialog,
+          icon: Icons.notifications_outlined,
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
@@ -307,6 +353,103 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ],
+    );  }
+
+  Widget _SUpdateLanguageUI() {
+    return _SettingsSection(
+      title: '言語設定',
+      icon: Icons.language,
+      children: [
+        ListTile(
+          title: Text(
+            '日本語',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          subtitle: const Text('Japanese'),
+          leading: const Icon(Icons.language),
+          trailing: const Icon(Icons.check, color: Colors.green),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            // 将来的に多言語対応する際の実装場所
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('現在は日本語のみサポートしています')),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _SExportSection() {
+    return _SettingsSection(
+      title: 'エクスポート/インポート',
+      icon: Icons.import_export,
+      children: [
+        ListTile(
+          title: Text(
+            '設定をエクスポート',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          subtitle: const Text('現在の設定をファイルに保存'),
+          leading: const Icon(Icons.upload_file),
+          onTap: () async {
+            HapticFeedback.lightImpact();
+            await _exportSettings();
+          },
+        ),
+        ListTile(
+          title: Text(
+            '設定をインポート',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          subtitle: const Text('ファイルから設定を復元'),
+          leading: const Icon(Icons.file_download),
+          onTap: () async {
+            HapticFeedback.lightImpact();
+            await _importSettings();
+          },
+        ),
+        const Divider(),
+        ListTile(
+          title: Text(
+            'テンプレートをエクスポート',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          subtitle: const Text('カスタムテンプレートをファイルに保存'),
+          leading: const Icon(Icons.code_rounded),
+          onTap: () async {
+            HapticFeedback.lightImpact();
+            await _exportTemplates();
+          },
+        ),
+        ListTile(
+          title: Text(
+            'テンプレートをインポート',
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+          subtitle: const Text('ファイルからテンプレートを復元'),
+          leading: const Icon(Icons.code_outlined),
+          onTap: () async {
+            HapticFeedback.lightImpact();
+            await _importTemplates();
+          },
+        ),
+      ],
     );
   }
 
@@ -314,17 +457,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return _SettingsSection(
       title: 'アプリについて',
       icon: Icons.info_outline,
-      children: [
-        ListTile(
-          title: const Text('バージョン'),
-          subtitle: Text(_currentVersion),
-          leading: const Icon(Icons.tag),
+      children: [        _CopyableListTile(
+          title: 'バージョン',
+          subtitle: _currentVersion,
+          icon: Icons.tag,
         ),
-        const ListTile(
-          title: Text('開発者'),
-          subtitle: Text('筑波大学附属中学校 電子電脳技術研究会'),
-          leading: Icon(Icons.code),
-        ),
+        // 開発者セクション（ソーシャルメディアリンク付き）
+        _DeveloperSection(),
         if (_aboutInfo != null) ...[
           const Divider(),
           if (_aboutInfo!['error'] != null)
@@ -342,53 +481,97 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ],
     );
   }
-
   List<Widget> _buildAboutDetails() {
     return [
-      ListTile(
-        title: const Text('アプリ名'),
-        subtitle: Text(_aboutInfo!['appName'] ?? '不明'),
-        leading: const Icon(Icons.apps),
+      _CopyableListTile(
+        title: 'アプリ名',
+        subtitle: _aboutInfo!['appName'] ?? '不明',
+        icon: Icons.apps,
       ),
-      ListTile(
-        title: const Text('パッケージ名'),
-        subtitle: Text(_aboutInfo!['packageName'] ?? '不明'),
-        leading: const Icon(Icons.inventory),
+      _CopyableListTile(
+        title: 'パッケージ名',
+        subtitle: _aboutInfo!['packageName'] ?? '不明',
+        icon: Icons.inventory,
       ),
-      ListTile(
-        title: const Text('ビルド番号'),
-        subtitle: Text(_aboutInfo!['buildNumber'] ?? '不明'),
-        leading: const Icon(Icons.build),
+      _CopyableListTile(
+        title: 'ビルド番号',
+        subtitle: _aboutInfo!['buildNumber'] ?? '不明',
+        icon: Icons.build,
       ),
-      ListTile(
-        title: const Text('プラットフォーム'),
-        subtitle: Text(_aboutInfo!['platform'] ?? '不明'),
-        leading: const Icon(Icons.computer),
+      _CopyableListTile(
+        title: 'プラットフォーム',
+        subtitle: _aboutInfo!['platform'] ?? '不明',
+        icon: Icons.computer,
       ),
       if (_aboutInfo!['model'] != null)
-        ListTile(
-          title: const Text('デバイスモデル'),
-          subtitle: Text(_aboutInfo!['model']),
-          leading: const Icon(Icons.phone_android),
+        _CopyableListTile(
+          title: 'デバイスモデル',
+          subtitle: _aboutInfo!['model'],
+          icon: Icons.phone_android,
         ),
       if (_aboutInfo!['androidVersion'] != null)
-        ListTile(
-          title: const Text('Androidバージョン'),
-          subtitle: Text(_aboutInfo!['androidVersion']),
-          leading: const Icon(Icons.android),
-        ),
+        _CopyableListTile(
+          title: 'Androidバージョン',
+          subtitle: _aboutInfo!['androidVersion'],
+          icon: Icons.android,        ),
       if (_aboutInfo!['supportedArch'] != null)
-        ListTile(
-          title: const Text('サポートアーキテクチャ'),
-          subtitle: Text((_aboutInfo!['supportedArch'] as List).join(', ')),
-          leading: const Icon(Icons.architecture),
+        _CopyableListTile(
+          title: 'サポートアーキテクチャ',
+          subtitle: (_aboutInfo!['supportedArch'] as List).join(', '),
+          icon: Icons.architecture,
         ),
-      ListTile(
-        title: const Text('ビルドタイプ'),
-        subtitle: Text(_aboutInfo!['flavor'] ?? '不明'),
-        leading: const Icon(Icons.settings),
+      _CopyableListTile(
+        title: 'ビルドタイプ',
+        subtitle: _aboutInfo!['flavor'] ?? '不明',
+        icon: Icons.settings,
+      ),    ];
+  }
+
+  Widget _DeveloperSection() {
+    return ExpansionTile(
+      title: Text(
+        '開発者',
+        style: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+        ),
       ),
-    ];
+      subtitle: const Text('筑波大学附属中学校 電子電脳技術研究会'),
+      leading: const Icon(Icons.code),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Column(
+            children: [
+              _SocialMediaItem(
+                icon: Icons.language,
+                title: 'Website',
+                subtitle: 'tsukuba-denden.github.io',
+                url: 'https://tsukuba-denden.github.io/',
+              ),
+              _SocialMediaItem(
+                icon: Icons.alternate_email,
+                title: 'X (Twitter)',
+                subtitle: '@Tsukuba_Denden',
+                url: 'https://twitter.com/Tsukuba_Denden',
+              ),
+              _SocialMediaItem(
+                icon: Icons.play_arrow,
+                title: 'YouTube',
+                subtitle: '@Tsukuba-DenDen',
+                url: 'https://www.youtube.com/@Tsukuba-DenDen',
+              ),
+              _SocialMediaItem(
+                icon: Icons.code,
+                title: 'GitHub',
+                subtitle: 'tsukuba-denden',
+                url: 'https://github.com/tsukuba-denden',
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   // テーマモードに対応するアイコンを返す
@@ -399,9 +582,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case ThemeModeOption.light:
         return const Icon(Icons.light_mode);
       case ThemeModeOption.dark:
-        return const Icon(Icons.dark_mode);
-      case ThemeModeOption.pureBlack:
+        return const Icon(Icons.dark_mode);      case ThemeModeOption.pureBlack:
         return const Icon(Icons.nights_stay);
+    }
+  }
+
+  // エクスポート/インポートメソッド群
+  Future<void> _exportSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      
+      final settings = {
+        'theme_mode': themeProvider.themeMode.index,
+        'use_material_you': themeProvider.useMaterialYou,
+        'nav_bar_opacity': themeProvider.navBarOpacity,
+        'auto_update_enabled': _autoUpdateCheckEnabled,
+        'show_update_dialog': _showUpdateDialog,
+      };
+      
+      // 将来的にファイルとして保存する実装を追加
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('設定のエクスポート機能は開発中です')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('設定のエクスポートに失敗しました: $e')),
+      );
+    }
+  }
+
+  Future<void> _importSettings() async {
+    try {
+      // 将来的にファイルから設定を読み込む実装を追加
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('設定のインポート機能は開発中です')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('設定のインポートに失敗しました: $e')),
+      );
+    }
+  }
+
+  Future<void> _exportTemplates() async {
+    try {
+      final templateProvider = Provider.of<TemplateProvider>(context, listen: false);
+      
+      // 将来的にテンプレートをファイルとして保存する実装を追加
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('テンプレートのエクスポート機能は開発中です')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('テンプレートのエクスポートに失敗しました: $e')),
+      );
+    }
+  }
+
+  Future<void> _importTemplates() async {
+    try {
+      // 将来的にファイルからテンプレートを読み込む実装を追加
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('テンプレートのインポート機能は開発中です')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('テンプレートのインポートに失敗しました: $e')),
+      );
     }
   }
 }
@@ -531,14 +779,160 @@ class _HapticRadioListTile<T> extends StatelessWidget {
           fontSize: 16,
           fontWeight: FontWeight.w400,
         ),
-      ),
-      value: value,
+      ),      value: value,
       groupValue: groupValue,
       onChanged: (newValue) {
         HapticFeedback.lightImpact();
         onChanged(newValue);
       },
       secondary: secondary,
+    );
+  }
+}
+
+// コピー可能なListTile
+class _CopyableListTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  const _CopyableListTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  void _copyToClipboard(BuildContext context, String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('「$text」をコピーしました'),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20.0),
+      title: Text(
+        title,
+        style: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      leading: Icon(icon),
+      onLongPress: () => _copyToClipboard(context, subtitle),      onTap: () {
+        HapticFeedback.lightImpact();
+        // 短いタップでも説明を表示
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('長押しでコピーできます'),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ソーシャルメディアアイテム
+class _SocialMediaItem extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String url;
+
+  const _SocialMediaItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.url,
+  });
+  Future<void> _launchUrl(BuildContext context) async {
+    try {
+      final uri = Uri.parse(url);
+      // より確実なURL起動方法を使用
+      await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+        webViewConfiguration: const WebViewConfiguration(
+          enableJavaScript: true,
+          enableDomStorage: true,
+        ),
+      );
+      HapticFeedback.lightImpact();
+    } catch (e) {
+      // canLaunchUrlをチェックしないで直接起動を試行
+      // 失敗した場合のフォールバック処理
+      try {
+        await launchUrl(
+          Uri.parse(url),
+          mode: LaunchMode.platformDefault,
+        );
+        HapticFeedback.lightImpact();
+      } catch (fallbackError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('URLを開けませんでした: $url'),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'コピー',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: url));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('URLをクリップボードにコピーしました'),
+                    behavior: SnackBarBehavior.floating,
+                  ),                );
+              },
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
+      leading: Icon(
+        icon,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      title: Text(
+        title,
+        style: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+      trailing: Icon(
+        Icons.open_in_new,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        size: 20,
+      ),
+      onTap: () => _launchUrl(context),
     );
   }
 }
