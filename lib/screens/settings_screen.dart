@@ -10,6 +10,7 @@ import 'template_edit_screen.dart';
 import '../services/enhanced_update_service.dart'; // Use enhanced service
 import '../services/auto_update_manager.dart'; // Import auto update manager
 import '../services/about_info.dart'; // Import AboutInfo
+import '../widgets/shared/custom_sliver_app_bar.dart'; // Import CustomSliverAppBar
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -157,21 +158,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showUpdateDialogMethod(EnhancedAppUpdateInfo releaseInfo) {
     if (!mounted) return;
     _autoUpdateManager.showManualUpdateDialog(context, releaseInfo);
-  }
-  @override
+  }  @override
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: [
-        // カスタムヘッダー
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),            child: Text(
-              '設定',
-              style: GoogleFonts.notoSansJp(
-                fontSize: 28,
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+        // カスタムSliverAppBar
+        CustomSliverAppBar(
+          isMainView: true,
+          title: Text(
+            '設定',
+            style: GoogleFonts.notoSansJp(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).textTheme.titleLarge!.color,
             ),
           ),
         ),
