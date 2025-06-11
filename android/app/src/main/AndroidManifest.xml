@@ -4,7 +4,8 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true"
-        android:usesCleartextTraffic="true"> <!-- この行を追加 -->
+        android:usesCleartextTraffic="true"
+        android:requestLegacyExternalStorage="true"> <!-- この行を追加 -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -45,4 +46,7 @@
         </intent>
     </queries>
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>
