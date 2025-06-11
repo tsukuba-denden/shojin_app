@@ -10,11 +10,11 @@ class UpdateProgressDialog extends StatefulWidget {
   final VoidCallback? onCancelled;
 
   const UpdateProgressDialog({
-    Key? key,
+    super.key,
     required this.updateInfo,
     this.onCompleted,
     this.onCancelled,
-  }) : super(key: key);
+  });
 
   @override
   State<UpdateProgressDialog> createState() => _UpdateProgressDialogState();
@@ -292,7 +292,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -326,7 +326,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                 if (_currentProgress!.progress >= 0)
                   LinearProgressIndicator(
                     value: _currentProgress!.progress,
-                    backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                   )
                 else
                   const LinearProgressIndicator(), // Indeterminate
@@ -452,12 +452,12 @@ class EnhancedUpdateDialog extends StatelessWidget {
   final VoidCallback? onSkipPressed;
 
   const EnhancedUpdateDialog({
-    Key? key,
+    super.key,
     required this.updateInfo,
     this.onUpdatePressed,
     this.onLaterPressed,
     this.onSkipPressed,
-  }) : super(key: key);
+  });
   @override
   Widget build(BuildContext context) {
     // Ensure version string has 'v' prefix for URL
