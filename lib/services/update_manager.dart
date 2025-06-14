@@ -1,9 +1,17 @@
 import 'dart:io';
-import 'package:flutter/services.dart'; // Added for MethodChannel
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/material.dart';
+import 'package:android_package_installer/android_package_installer.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:url_launcher/url_launcher.dart'; // Import url_launcher
 
-class UpdateManager {
-  static const MethodChannel _platform = MethodChannel('com.example.shojin_app/patcher'); // Define MethodChannel
+class UpdateManager extends ChangeNotifier {
+  bool _isDownloading = false;
+  double _downloadProgress = 0.0;
+  String _statusMessage = '';
+
+  bool get isDownloading => _isDownloading;
+  double get downloadProgress => _downloadProgress;
+  String get statusMessage => _statusMessage;
 
   Future<void> applyUpdate(String filePath, String? assetName) async {
     String fileName = assetName ?? filePath.split(Platform.pathSeparator).last;
@@ -13,59 +21,18 @@ class UpdateManager {
     if (Platform.isAndroid) {
       if (fileExtension == 'apk') {
         try {
-          print('Starting APK installation process via MethodChannel for: $filePath');
-          
-          final result = await _platform.invokeMethod('installApk', {'apkPath': filePath});
-
-          print('MethodChannel installApk result: $result');
-
-          if (result is Map) {
-            final status = result['status'];
-            final message = result['message'] ?? 'No message from installer.';
-
-            if (status == 0) { // STATUS_SUCCESS from native side
-              print('APK installation successful: $message');
-              // Potentially, clean up the APK file if it's no longer needed and was copied to a temp location for install
-              // await _cleanupApkFile(filePath); // Example cleanup call
-              return;
-            } else if (status == 3) { // STATUS_FAILURE_ABORTED (User Cancelled) from native side
-              print('APK installation cancelled by user: $message');
-              throw Exception('インストールがユーザーによってキャンセルされました。');
-            } else {
-              // Other failure statuses from PackageInstaller
-              print('APK installation failed with status $status: $message');
-              throw Exception('APKのインストールに失敗しました: $message (ステータス: $status)');
-            }
-          } else {
-            // Should not happen if native side is correctly implemented
-            print('APK installation failed: Unexpected result format from MethodChannel.');
-            throw Exception('APKのインストールに失敗しました: 予期しない応答です。');
-          }
-        } on PlatformException catch (e) {
-          print('PlatformException during APK installation: ${e.code} - ${e.message} - ${e.details}');
-          // Map common error codes from native side if needed
-          if (e.code == "FILE_NOT_FOUND") {
-            throw Exception('APKファイルが見つかりません: ${e.message}');
-          } else if (e.code == "INSTALL_FAILED" || e.code.startsWith("INSTALL_FAILURE_")) {
-             throw Exception('APKのインストールに失敗しました: ${e.message}');
-          } else if (e.code == "INSTALL_BLOCKED") {
-            throw Exception('APKのインストールがブロックされました: ${e.message}');
-          } else if (e.code == "INSTALL_INVALID_APK") {
-            throw Exception('無効なAPKファイルです: ${e.message}');
-          }
-          // Fallback to a generic message, or attempt old method
-          // For now, rethrow a user-friendly version of the platform exception
-          throw Exception('APKインストール中にプラットフォームエラーが発生しました: ${e.message}');
+          print('Starting APK installation process for: $filePath');
+          await _installApk(filePath); // Added await here
         } catch (e) {
           print('Exception during APK installation: $e');
-          if (e is Exception && e.toString().contains("APKのインストール")) { // Avoid re-wrapping our specific exceptions
-            rethrow;
-          }
-          throw Exception('APKインストール中に予期しないエラーが発生しました: $e');
+          _statusMessage = 'APKのインストール中にエラーが発生しました: $e';
+          notifyListeners(); // Notify listeners on error
         }
       } else {
         print('Error: Android update file is not an APK. Path: $filePath');
-        throw Exception('Androidの更新ファイルはAPKではありません。');
+        _statusMessage = 'Androidの更新ファイルはAPKではありません。'; // Set status message
+        notifyListeners(); // Notify listeners
+        // throw Exception('Androidの更新ファイルはAPKではありません。'); // Consider if throwing is still desired
       }
     } else if (Platform.isIOS) {
       print('Direct update application is not supported on iOS from within the app.');
@@ -80,11 +47,8 @@ class UpdateManager {
       if (fileExtension == 'exe' || fileExtension == 'msi') {
         try {
           print('Attempting to launch Windows installer: $filePath');
-          // Using url_launcher for .exe and .msi is generally safer and more user-friendly
-          // as it leverages the OS's default file handling.
-          if (!await launchUrl(Uri.file(filePath))) {
+          if (!await launchUrl(Uri.file(filePath))) { // launchUrl is from url_launcher
             print('Failed to launch Windows installer using url_launcher. Attempting Process.run...');
-            // Fallback to Process.run if url_launcher fails, though this has limitations.
             ProcessResult result = await Process.run(filePath, [], runInShell: true);
             print('Windows installer launch result: exitCode=${result.exitCode}, stdout=${result.stdout}, stderr=${result.stderr}');
           } else {
@@ -102,7 +66,7 @@ class UpdateManager {
       if (fileExtension == 'dmg') {
         try {
           print('Attempting to open macOS DMG: $filePath');
-          if (!await launchUrl(Uri.file(filePath))) {
+          if (!await launchUrl(Uri.file(filePath))) { // launchUrl is from url_launcher
             print('Failed to open DMG using url_launcher.');
           } else {
             print('DMG opened successfully via url_launcher.');
@@ -130,23 +94,137 @@ class UpdateManager {
     }
   }
 
-  // Example placeholder for APK cleanup logic if needed after successful install
-  // Future<void> _cleanupApkFile(String filePath) async {
-  //   try {
-  //     final file = File(filePath);
-  //     if (await file.exists()) {
-  //       // Be careful with this. Ensure this is the correct file to delete.
-  //       // This might be the original cached file or a temporary copy.
-  //       // The current native implementation reads directly from the provided path.
-  //       // If EnhancedUpdateService copies it to a specific "install" location,
-  //       // then that specific copy could be targeted for cleanup.
-  //       // For now, let's assume the file at `filePath` might still be the cached version
-  //       // or a user-accessible copy, so automatic deletion might not be desired without more context.
-  //       print('Hypothetical cleanup of APK at: $filePath');
-  //       // await file.delete();
-  //     }
-  //   } catch (e) {
-  //     print('Error cleaning up APK file: $e');
-  //   }
-  // }
+  Future<void> _installApk(String filePath) async {
+    _statusMessage = 'APKのインストールプロセスを開始しています: $filePath';
+    notifyListeners();
+    debugPrint(_statusMessage);
+
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        _statusMessage = 'エラー: APKファイルが見つかりません: $filePath';
+        notifyListeners();
+        debugPrint(_statusMessage);
+        return;
+      }
+
+      final installResult = await AndroidPackageInstaller.installApk(
+        apkFilePath: filePath,
+      );
+
+      String statusResultString;
+      switch (installResult) {
+        case 0: // PackageInstallerStatus.success
+          statusResultString = '成功';
+          _statusMessage = 'APKのインストールに成功しました。';
+          break;
+        case 1: // PackageInstallerStatus.pending
+          statusResultString = 'ユーザー操作保留中';
+          _statusMessage = 'インストールのためにユーザーの操作が必要です。';
+          break;
+        case -1: // PackageInstallerStatus.failure
+          statusResultString = '失敗';
+          _statusMessage = 'APKのインストールに失敗しました: 一般的な失敗';
+          break;
+        case -2: // PackageInstallerStatus.failureAborted
+          statusResultString = '失敗 (中断)';
+          _statusMessage = 'APKのインストールに失敗しました: ユーザーによって中断されました';
+          break;
+        case -3: // PackageInstallerStatus.failureBlocked
+          statusResultString = '失敗 (ブロック)';
+          _statusMessage = 'APKのインストールに失敗しました: インストールはブロックされました';
+          break;
+        case -4: // PackageInstallerStatus.failureConflict
+          statusResultString = '失敗 (競合)';
+          _statusMessage = 'APKのインストールに失敗しました: 既存のパッケージと競合しています';
+          break;
+        case -5: // PackageInstallerStatus.failureIncompatible
+          statusResultString = '失敗 (非互換)';
+          _statusMessage = 'APKのインストールに失敗しました: パッケージは互換性がありません';
+          break;
+        case -6: // PackageInstallerStatus.failureInvalid
+          statusResultString = '失敗 (無効)';
+          _statusMessage = 'APKのインストールに失敗しました: 無効なAPKファイルです';
+          break;
+        case -7: // PackageInstallerStatus.failureStorage
+          statusResultString = '失敗 (ストレージ)';
+          _statusMessage = 'APKのインストールに失敗しました: ストレージの問題';
+          break;
+        default:
+          statusResultString = '不明 ($installResult)';
+          _statusMessage = 'APKのインストールに失敗しました: 不明なステータス ($installResult)';
+          break;
+      }
+
+      notifyListeners();
+      debugPrint('APK installation result: $statusResultString');
+
+    } catch (e) {
+      _statusMessage = 'APKのインストール中にエラーが発生しました: $e';
+      debugPrint('Error during APK installation: $e');
+    }
+    notifyListeners();
+  }
+
+  Future<void> downloadAndInstallUpdate(String downloadUrl, String fileName) async {
+    if (_isDownloading) return;
+
+    _isDownloading = true;
+    _downloadProgress = 0.0;
+    _statusMessage = 'アップデートのダウンロードを開始しています...';
+    notifyListeners();
+
+    // final permissionGranted = await _checkAndRequestPermissions();
+    // if (!permissionGranted) {
+    //   _statusMessage = 'ストレージのアクセス許可が必要です。';
+    //   _isDownloading = false;
+    //   notifyListeners();
+    //   return;
+    // }
+
+    try {
+      final directory = await getTemporaryDirectory(); // Or getExternalStorageDirectory()
+      final filePath = '${directory.path}/$fileName';
+      final file = File(filePath);
+
+      if (await file.exists()) {
+        await file.delete();
+        debugPrint('既存のAPKファイルを削除しました: $filePath');
+      }
+
+      final client = HttpClient();
+      final request = await client.getUrl(Uri.parse(downloadUrl));
+      final response = await request.close();
+
+      if (response.statusCode == 200) {
+        final totalBytes = response.contentLength;
+        var receivedBytes = 0;
+
+        await response.listen((List<int> data) {
+          file.writeAsBytesSync(data, mode: FileMode.append);
+          receivedBytes += data.length;
+          if (totalBytes != -1) {
+            _downloadProgress = receivedBytes / totalBytes;
+            _statusMessage = 'ダウンロード中: ${(_downloadProgress * 100).toStringAsFixed(0)}%';
+            notifyListeners();
+          }
+        }).asFuture();
+
+        _statusMessage = 'ダウンロードが完了しました。インストールを開始します...';
+        _isDownloading = false;
+        notifyListeners();
+        debugPrint('APK downloaded to: $filePath');
+        await _installApk(filePath);
+      } else {
+        _statusMessage = 'ダウンロードに失敗しました: ${response.statusCode}';
+        _isDownloading = false;
+        notifyListeners();
+      }
+    } catch (e) {
+      _statusMessage = 'アップデートのダウンロードまたはインストール中にエラーが発生しました: $e';
+      _isDownloading = false;
+      notifyListeners();
+      debugPrint('Error in downloadAndInstallUpdate: $e');
+    }
+  }
 }
