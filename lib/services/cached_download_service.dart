@@ -233,7 +233,7 @@ class CachedDownloadService {
       
     } catch (e) {
       developer.log('Error saving to external storage: $e', name: 'CachedDownloadService');
-      throw e;
+      rethrow;
     }
   }
 
@@ -276,7 +276,7 @@ class CachedDownloadService {
       
     } catch (e) {
       developer.log('Error copying file to installable location: $e', name: 'CachedDownloadService');
-      throw e;
+      rethrow;
     }
   }
 

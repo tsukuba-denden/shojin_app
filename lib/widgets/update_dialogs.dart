@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/enhanced_update_service.dart';
 import '../services/update_manager.dart';

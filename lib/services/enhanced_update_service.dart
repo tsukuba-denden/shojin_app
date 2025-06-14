@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cached_download_service.dart'; // キャッシュ機能付きダウンロードサービスをインポート
+import 'package:open_file/open_file.dart';
 
 // Enhanced AppUpdateInfo with more details
 class EnhancedAppUpdateInfo {
@@ -424,6 +425,27 @@ class EnhancedUpdateService {
     } catch (e) {
       debugPrint('Error getting last update info: $e');
       return null;
+    }
+  }
+  
+  // インストール処理
+  Future<void> installUpdate(String apkPath) async {
+    try {
+      // ダウンロードしたAPKファイルを開く
+      final OpenResult openResult = await OpenFile.open(apkPath);
+
+      if (openResult.type != ResultType.done) {
+        // エラー処理: ファイルを開けなかった場合
+        print('Error opening APK file: ${openResult.message}');
+        // 必要に応じてユーザーにエラーを通知
+        return; // または適切なエラーハンドリング
+      }
+
+      // インストールが開始されたことをユーザーに通知（任意）
+      print('APK installation process started.');
+
+    } catch (e) {
+      debugPrint('Error during installation: $e');
     }
   }
 }

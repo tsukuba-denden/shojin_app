@@ -62,8 +62,10 @@ class MainActivity: FlutterActivity() {
             outputStream.close()
             inputStream.close()
 
-            val intent = Intent(applicationContext, InstallReceiver::class.java)
-            intent.action = ACTION_INSTALL_COMPLETE
+            val intent = Intent(ACTION_INSTALL_COMPLETE)
+            intent.setPackage(applicationContext.packageName)
+            // intent.action is already set by the constructor Intent(ACTION_INSTALL_COMPLETE)
+            // If you use new Intent(), then you need intent.action = ACTION_INSTALL_COMPLETE
             // Add sessionId to intent extras if needed for more complex scenarios,
             // but for basic status, it might not be strictly necessary if we only handle one install at a time.
 
