@@ -255,30 +255,32 @@ class EnhancedUpdateService {
       return null;
     }
 
-    // Initialize progress stream
-    _initializeProgressStream();
+    // Initialize progress stream for EnhancedUpdateService
+    if (_progressController == null || _progressController!.isClosed) {
+      _initializeProgressStream();
+    }
     
     try {
-      // キャッシュ機能付きダウンロードサービスを使用（権限不要）
-      // プログレスの同期を設定
-      late StreamSubscription progressSubscription;
-      progressSubscription = _cachedDownloadService.progressStream?.listen((progress) {
-        _updateProgress(progress);
-      }) ?? const Stream.empty().listen((_) {});
-      
-      debugPrint('Starting cache-based download for: ${releaseInfo.downloadUrl}');
-      final String? result = await _cachedDownloadService.downloadUpdateWithCache(releaseInfo);
-      
-      // プログレス監視を停止
-      progressSubscription.cancel();
+      // CachedDownloadService の onProgress コールバック経由で進捗を受け取る
+      final String? result = await _cachedDownloadService.downloadUpdateWithCache(
+        releaseInfo,
+        onProgress: (UpdateProgress progress) {
+          // EnhancedUpdateService のストリームに進捗を中継
+          _updateProgress(progress);
+        },
+      );
       
       if (result != null) {
         debugPrint('Update downloaded successfully to cache: $result');
-        _updateProgress(UpdateProgress(
-          progress: 1.0,
-          status: 'ダウンロード完了（キャッシュ使用）',
-          isCompleted: true,
-        ));
+        // 完了の通知は downloadUpdateWithCache 内の onProgress で行われるため、ここでは不要
+        // _updateProgress(UpdateProgress(
+        //   progress: 1.0,
+        //   status: 'ダウンロード完了（キャッシュ使用）',
+        //   isCompleted: true,
+        // ));
+      } else {
+        // エラーの場合も downloadUpdateWithCache 内の onProgress で通知されるはず
+        // 必要であれば、ここで追加のエラー処理を行う
       }
       
       return result;
@@ -291,7 +293,8 @@ class EnhancedUpdateService {
       ));
       return null;
     } finally {
-      _cachedDownloadService.disposeProgressStream();
+      // _cachedDownloadService.disposeProgressStream(); // dispose は CachedDownloadService 側で行うか、
+                                                      // EnhancedUpdateService の dispose でまとめて行うか検討
     }
   }
 
