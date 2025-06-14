@@ -199,17 +199,14 @@ class _BrowserScreenState extends State<BrowserScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('タイトルとURLを入力してください。')),
                     );
-                    isValid = false;
-                  } else {
-                    if (title == _noviStepsTitle && url == _noviStepsUrl) {
+                    isValid = false;                  } else {
+                    // Check if site already exists
+                    final existingDefault = BrowserConstants.defaultSites.any(
+                      (defaultSite) => defaultSite.title == title && defaultSite.url == url
+                    );
+                    if (existingDefault) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('NoviStepsは既に追加されています。')),
-                      );
-                      isValid = false;
-                    }
-                     if (isValid && title == _atcoderProblemsTitle && url == _atcoderProblemsUrl) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('AtCoder Problemsは既に追加されています。')),
+                        SnackBar(content: Text('$titleは既に追加されています。')),
                       );
                       isValid = false;
                     }
@@ -230,20 +227,17 @@ class _BrowserScreenState extends State<BrowserScreen> {
                        context: context,
                        barrierDismissible: false,
                        builder: (context) => const Center(child: CircularProgressIndicator()),
-                    );
-
-                    try {
-                       final metadata = await _fetchSiteMetadata(url);
+                    );                    try {
+                       final newSite = BrowserSite(title: title, url: url);
+                       final metadata = await BrowserSiteService.fetchSiteMetadata(url);
+                       final siteWithMetadata = newSite.copyWithMetadata(
+                         faviconUrl: metadata.faviconUrl,
+                         colorHex: metadata.colorHex,
+                       );
                        Navigator.pop(context); // Dismiss loading
 
-                       _sites.add({
-                         'title': title,
-                         'url': url,
-                         'faviconUrl': metadata['faviconUrl'],
-                         'colorHex': metadata['colorHex'],
-                       });
-                       final list = _sites.map((e) => jsonEncode(e)).toList();
-                       await _prefs.setStringList('homeSites', list);
+                       _sites.add(siteWithMetadata);
+                       await BrowserSiteService.saveSites(_sites);
                        if (mounted) {
                          setState(() {});
                        }
@@ -265,39 +259,39 @@ class _BrowserScreenState extends State<BrowserScreen> {
       ),
     );
   }
-
   Future<void> _removeSite(int index) async {
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('サイトを削除'),
-        content: Text('\'${_sites[index]['title']}\' を削除しますか？'),
+        content: Text('\'${_sites[index].title}\' を削除しますか？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('削除')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false), 
+            child: const Text('キャンセル')
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true), 
+            child: const Text('削除')
+          ),
         ],
       ),
     );
 
     if (confirm == true) {
-      final faviconUrl = _sites[index]['faviconUrl'];
-      if (faviconUrl != null) {
-         _imagePixelFutures.remove(faviconUrl); // Cleared new cache
-      }
       _sites.removeAt(index);
-      final list = _sites.map((e) => jsonEncode(e)).toList();
-      await _prefs.setStringList('homeSites', list);
+      await BrowserSiteService.saveSites(_sites);
       if (mounted) {
         setState(() {});
       }
     }
   }
-
   Future<void> _editSite(int index) async {
     final site = _sites[index];
-    final titleController = TextEditingController(text: site['title']);
-    final urlController = TextEditingController(text: site['url']);
+    final titleController = TextEditingController(text: site.title);
+    final urlController = TextEditingController(text: site.url);
     String? urlErrorText;
+    
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -319,7 +313,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
                   ),
                   keyboardType: TextInputType.url,
                   onChanged: (_) {
-                    if (urlErrorText != null) setStateDialog(() => urlErrorText = null);
+                    if (urlErrorText != null) {
+                      setStateDialog(() => urlErrorText = null);
+                    }
                   },
                 ),
               ],
@@ -332,31 +328,46 @@ class _BrowserScreenState extends State<BrowserScreen> {
                 },
                 child: const Text('削除', style: TextStyle(color: Colors.red)),
               ),
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
+              TextButton(
+                onPressed: () => Navigator.pop(context), 
+                child: const Text('キャンセル')
+              ),
               TextButton(
                 onPressed: () async {
                   final newTitle = titleController.text.trim();
                   final newUrl = urlController.text.trim();
+                  
                   if (newTitle.isEmpty || newUrl.isEmpty) {
-                    setStateDialog(() { urlErrorText = 'タイトルとURLを入力してください。'; });
+                    setStateDialog(() { 
+                      urlErrorText = 'タイトルとURLを入力してください。'; 
+                    });
                     return;
                   }
+                  
                   final uri = Uri.tryParse(newUrl);
                   if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
                     setStateDialog(() => urlErrorText = '有効なURLを入力してください。');
                     return;
                   }
-                  final oldUrl = site['url'];
-                  site['title'] = newTitle;
-                  if (newUrl != oldUrl) {
-                    site['url'] = newUrl;
-                    site['faviconUrl'] = null;
-                    site['colorHex'] = null;
-                  }
-                  final list = _sites.map((e) => jsonEncode(e)).toList();
-                  await _prefs.setStringList('homeSites', list);
+                  
+                  final oldUrl = site.url;
+                  final updatedSite = site.copyWith(
+                    title: newTitle,
+                    url: newUrl,
+                    // Clear metadata if URL changed
+                    faviconUrl: newUrl != oldUrl ? null : site.faviconUrl,
+                    colorHex: newUrl != oldUrl ? null : site.colorHex,
+                  );
+                  
+                  _sites[index] = updatedSite;
+                  await BrowserSiteService.saveSites(_sites);
+                  
                   if (mounted) setState(() {});
-                  if (newUrl != oldUrl) _updateMissingMetadata();
+                  
+                  if (newUrl != oldUrl) {
+                    _updateMissingMetadata();
+                  }
+                  
                   Navigator.pop(context);
                 },
                 child: const Text('更新'),
@@ -366,6 +377,12 @@ class _BrowserScreenState extends State<BrowserScreen> {
         },
       ),
     );
+  }
+
+  Color _getTextColorForBackground(Color backgroundColor) {
+    // Calculate luminance to determine if we should use light or dark text
+    final luminance = backgroundColor.computeLuminance();
+    return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 
   Widget _buildSiteButton({
@@ -480,35 +497,29 @@ class _BrowserScreenState extends State<BrowserScreen> {
           height: 60,
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            scrollDirection: Axis.horizontal,
-            children: [
-              _buildSiteButton(
-                title: _noviStepsTitle,
-                url: _noviStepsUrl,
-                faviconUrl: _noviStepsFaviconUrl,
-                colorHex: _noviStepsColorHex,
+            scrollDirection: Axis.horizontal,            children: [
+              // Default sites
+              ...BrowserConstants.defaultSites.map((defaultSite) => 
+                _buildSiteButton(
+                  title: defaultSite.title,
+                  url: defaultSite.url,
+                  faviconUrl: defaultSite.faviconUrl,
+                  colorHex: defaultSite.colorHex,
+                )
               ),
-              _buildSiteButton(
-                title: _atcoderProblemsTitle,
-                url: _atcoderProblemsUrl,
-                faviconUrl: _atcoderProblemsFaviconUrl,
-                colorHex: _atcoderProblemsColorHex,
-              ),
+              // User-added sites
               ..._sites.asMap().entries.map((entry) {
                  int index = entry.key;
-                 Map<String, String?> site = entry.value;
-                 if (site['url'] != _noviStepsUrl && site['url'] != _atcoderProblemsUrl && site['title'] != null && site['url'] != null) {
-                    return _buildSiteButton(
-                      title: site['title']!,
-                      url: site['url']!,
-                      faviconUrl: site['faviconUrl'],
-                      colorHex: site['colorHex'],
-                      onLongPress: () => _editSite(index),
-                    );
-                 } else {
-                    return const SizedBox.shrink();
-                 }
+                 BrowserSite site = entry.value;
+                 return _buildSiteButton(
+                   title: site.title,
+                   url: site.url,
+                   faviconUrl: site.faviconUrl,
+                   colorHex: site.colorHex,
+                   onLongPress: () => _editSite(index),
+                 );
               }),
+              // Add site button
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 child: ElevatedButton(
