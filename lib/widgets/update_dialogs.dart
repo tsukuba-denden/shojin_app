@@ -35,13 +35,19 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
   void initState() {
     super.initState();
     // Theme.of(context)を使用する処理はdidChangeDependenciesに移動
-  }
-  @override
+  }  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // 初回実行時のみアップデートチェックを開始
     if (!_isInitialized && !_isDownloading && !_isCompleted && !_hasError) {
       _isInitialized = true;
+      // 初期プログレス状態を設定
+      setState(() {
+        _currentProgress = UpdateProgress(
+          progress: 0.0,
+          status: '準備中...',
+        );
+      });
       _startDownload();
     }
   }
@@ -61,9 +67,13 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
     // アプリ内部ストレージを使用するため、Androidでも権限は必要ない
     debugPrint('Starting download using cache (no permissions required)');
 
+    // プログレスストリームを初期化
+    _updateService.initializeProgressStream();
+    
     // Listen to progress stream
     _progressSubscription = _updateService.progressStream?.listen(
       (progress) {
+        debugPrint('[UpdateProgressDialog] Progress received: ${progress.status} - ${progress.progress * 100}%');
         if (mounted) {
           setState(() {
             _currentProgress = progress;
@@ -76,9 +86,11 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
               _isDownloading = false;
             }
           });
+          debugPrint('[UpdateProgressDialog] UI updated with progress: ${progress.status}');
         }
       },
       onError: (error) {
+        debugPrint('[UpdateProgressDialog] Progress stream error: $error');
         if (mounted) {
           setState(() {
             _hasError = true;
@@ -91,7 +103,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
           });
         }
       },
-    );    // Start download
+    );// Start download
     try {
       // アップデート試行を記録
       await _updateService.markUpdateAttempt(widget.updateInfo.version);
@@ -109,53 +121,41 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
         
         try {
           await Future.delayed(const Duration(milliseconds: 500));          // APKインストール用にファイルを準備
-          final String fileName = widget.updateInfo.assetName ?? 'update.apk';
-          final String? installFilePath = await _updateService.prepareForInstallation(
-            _downloadedFilePath!, 
-            fileName
-          );
-            if (installFilePath != null) {
-            debugPrint('Installing from prepared path: $installFilePath');
+          debugPrint('Installing from downloaded path: $_downloadedFilePath');
+          
+          try {
+            await _updateManager.applyUpdate(_downloadedFilePath!, widget.updateInfo.assetName);
             
-            try {
-              await _updateManager.applyUpdate(installFilePath, widget.updateInfo.assetName);
-              
-              // インストール後のクリーンアップ
-              await _updateService.cleanupAfterInstallation();
-              
-              if (mounted) {
-                setState(() {
-                  _currentProgress = UpdateProgress(
-                    progress: 1.0,
-                    status: 'インストールを開始しました',
-                    isCompleted: true,
-                  );
-                });
-              }
-              
-              // 手動インストールの場合はダイアログを表示せずに終了
-              debugPrint('Update installation process completed');
-              
-            } catch (installError) {
-              // インストールエラーの場合、手動インストールガイダンスを表示
-              debugPrint('Installation failed, showing manual install guide: $installError');
-              if (mounted) {
-                setState(() {
-                  _hasError = true;
-                  _currentProgress = UpdateProgress(
-                    progress: 1.0,
-                    status: 'アップデートファイル準備完了',
-                    errorMessage: 'ファイルは準備できました。手動でインストールしてください。',
-                  );
-                });
-                
-                // 手動インストールガイダンスを表示
-                _showManualInstallDialog(installError.toString());
-              }
-              return; // 手動インストールガイダンス表示後は早期リターン
+            if (mounted) {
+              setState(() {
+                _currentProgress = UpdateProgress(
+                  progress: 1.0,
+                  status: 'インストールを開始しました',
+                  isCompleted: true,
+                );
+              });
             }
-          } else {
-            throw Exception('インストール用ファイルの準備に失敗しました');
+            
+            // 手動インストールの場合はダイアログを表示せずに終了
+            debugPrint('Update installation process completed');
+            
+          } catch (installError) {
+            // インストールエラーの場合、手動インストールガイダンスを表示
+            debugPrint('Installation failed, showing manual install guide: $installError');
+            if (mounted) {
+              setState(() {
+                _hasError = true;
+                _currentProgress = UpdateProgress(
+                  progress: 1.0,
+                  status: 'アップデートファイル準備完了',
+                  errorMessage: 'ファイルは準備できました。手動でインストールしてください。',
+                );
+              });
+              
+              // 手動インストールガイダンスを表示
+              _showManualInstallDialog(installError.toString());
+            }
+            return; // 手動インストールガイダンス表示後は早期リターン
           }} catch (e) {
           debugPrint('Installation preparation error: $e');
           if (mounted) {
@@ -203,8 +203,9 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
       _currentProgress = null;
     });
     _startDownload();
-  }
-  void _cancelDownload() {
+  }  void _cancelDownload() {
+    debugPrint('[UpdateProgressDialog] Cancel download requested');
+    _progressSubscription?.cancel();
     _updateService.disposeProgressStream();
     Navigator.of(context).pop();
     widget.onCancelled?.call();
@@ -421,42 +422,39 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                  // Progress section
+                Text(
+                  _currentProgress?.status ?? '準備中...',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 8),
                 
-                // Progress section
-                if (_currentProgress != null) ...[
-                  Text(
-                    _currentProgress!.status,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // Progress bar
-                  if (_currentProgress!.progress >= 0)
-                    LinearProgressIndicator(
-                      value: _currentProgress!.progress,
-                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    )
-                  else
-                    const LinearProgressIndicator(), // Indeterminate
-                  
-                  const SizedBox(height: 8),
-                  
-                  // Progress text
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
+                // Progress bar
+                if (_currentProgress?.progress != null && _currentProgress!.progress >= 0)
+                  LinearProgressIndicator(
+                    value: _currentProgress!.progress,
+                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  )
+                else
+                  const LinearProgressIndicator(), // Indeterminate
+                
+                const SizedBox(height: 8),
+                
+                // Progress text
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _currentProgress?.formattedProgress ?? '0.0%',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (_currentProgress?.progress != null && _currentProgress!.progress >= 0)
                       Text(
-                        _currentProgress!.formattedProgress,
+                        '${(_currentProgress!.progress * 100).toStringAsFixed(0)}%',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      if (_currentProgress!.progress >= 0)
-                        Text(
-                          '${(_currentProgress!.progress * 100).toStringAsFixed(0)}%',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
                 
                 // Error message - 表示を制限
                 if (_hasError && _currentProgress?.errorMessage != null) ...[
@@ -538,10 +536,9 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
               ],
             ),
           ),
-        ),
-        actions: [
-          // Cancel button (only show when not downloading)
-          if (!_isDownloading && !_isCompleted)
+        ),        actions: [
+          // Cancel button (always show unless completed)
+          if (!_isCompleted)
             TextButton(
               onPressed: _cancelDownload,
               child: const Text('キャンセル'),

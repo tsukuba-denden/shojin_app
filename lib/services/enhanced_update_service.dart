@@ -1,18 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:package_info_plus/package_info_plus.dart' as pip; // エイリアスを設定
+import 'dart:developer' as developer;
+import 'package:package_info_plus/package_info_plus.dart' as pip;
 import 'package:pub_semver/pub_semver.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'cached_download_service.dart'; // キャッシュ機能付きダウンロードサービスをインポート
-// TODO: Remove OpenFile if android_package_installer works well
-// import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:android_package_installer/android_package_installer.dart';
-// import 'package:android_package_manager/android_package_manager.dart'; // 今回は未使用のためコメントアウト
 
-// Enhanced AppUpdateInfo with more details
+/// アップデート情報クラス
 class EnhancedAppUpdateInfo {
   final String version;
   final String? releaseNotes;
@@ -21,7 +19,7 @@ class EnhancedAppUpdateInfo {
   final String? assetName;
   final int? fileSize;
   final String? releaseTag;
-  final String fileName; // ファイル名を追加
+  final String fileName;
 
   EnhancedAppUpdateInfo({
     required this.version,
@@ -31,11 +29,11 @@ class EnhancedAppUpdateInfo {
     this.assetName,
     this.fileSize,
     this.releaseTag,
-    required this.fileName, // 必須パラメータとして追加
+    required this.fileName,
   });
 }
 
-// Progress information class
+/// プログレス情報クラス
 class UpdateProgress {
   final double progress;
   final String status;
@@ -55,106 +53,108 @@ class UpdateProgress {
 
   String get formattedProgress {
     if (totalBytes != null && bytesDownloaded != null) {
-      return '${(bytesDownloaded! / 1024 / 1024).toStringAsFixed(1)} MB / ${(totalBytes! / 1024 / 1024).toStringAsFixed(1)} MB';
+      final downloadedMB = (bytesDownloaded! / 1024 / 1024);
+      final totalMB = (totalBytes! / 1024 / 1024);
+      return '${downloadedMB.toStringAsFixed(1)} MB / ${totalMB.toStringAsFixed(1)} MB';
     }
-    return '${(progress * 100).toStringAsFixed(0)}%';
+    return '${(progress * 100).toStringAsFixed(1)}%';
   }
 }
 
-// Enhanced Update Service with ReVanced Manager inspired features
+/// 高機能アップデートサービス
 class EnhancedUpdateService {
-  // StreamController for progress management (like ReVanced Manager)
+  // プログレス用のStreamController
   StreamController<UpdateProgress>? _progressController;
   
+  /// プログレスストリームの取得
   Stream<UpdateProgress>? get progressStream => _progressController?.stream;
-    // Create progress stream
-  void _initializeProgressStream() {
-    debugPrint('[EnhancedUpdateService] Creating new progress stream controller...');
+    /// プログレスストリームの初期化
+  void initializeProgressStream() {
+    developer.log('Progress stream initializing...', name: 'EnhancedUpdateService');
+    // 既存のStreamControllerがあれば閉じる
+    if (_progressController != null && !_progressController!.isClosed) {
+      _progressController!.close();
+    }
     _progressController = StreamController<UpdateProgress>.broadcast();
-    debugPrint('[EnhancedUpdateService] Progress stream controller created successfully');
+    developer.log('Progress stream initialized successfully', name: 'EnhancedUpdateService');
   }
-    // Update progress
+    /// プログレス更新
   void _updateProgress(UpdateProgress progress) {
-    debugPrint('[EnhancedUpdateService] _updateProgress called:');
-    debugPrint('  - status: ${progress.status}');
-    debugPrint('  - progress: ${progress.progress} (${(progress.progress * 100).toStringAsFixed(1)}%)');
-    debugPrint('  - formatted: ${progress.formattedProgress}');
-    debugPrint('  - completed: ${progress.isCompleted}');
-    debugPrint('  - error: ${progress.errorMessage}');
-    debugPrint('  - stream controller exists: ${_progressController != null}');
-    debugPrint('  - stream controller closed: ${_progressController?.isClosed ?? true}');
+    developer.log(
+      'Progress Update: ${progress.status} - ${progress.formattedProgress}', 
+      name: 'EnhancedUpdateService'
+    );
     
     if (_progressController != null && !_progressController!.isClosed) {
       _progressController!.add(progress);
-      debugPrint('  - Progress added to stream successfully');
+      developer.log('Progress sent to stream successfully', name: 'EnhancedUpdateService');
     } else {
-      debugPrint('  - WARNING: Progress NOT added to stream (controller null or closed)');
+      developer.log('Warning: Progress controller is null or closed', name: 'EnhancedUpdateService');
+      // 緊急時はStreamControllerを再初期化
+      if (_progressController == null) {
+        initializeProgressStream();
+        if (_progressController != null && !_progressController!.isClosed) {
+          _progressController!.add(progress);
+          developer.log('Progress sent after emergency re-initialization', name: 'EnhancedUpdateService');
+        }
+      }
     }
   }
   
-  // Dispose progress stream
+  /// プログレスストリームの破棄
   void disposeProgressStream() {
     _progressController?.close();
     _progressController = null;
+    developer.log('Progress stream disposed', name: 'EnhancedUpdateService');
   }
-  // Get current app version
+  
+  /// 現在のアプリバージョンを取得
   Future<String> getCurrentAppVersion() async {
     try {
-      pip.PackageInfo packageInfo = await pip.PackageInfo.fromPlatform(); // エイリアスを使用
-      String version = packageInfo.version;
-      debugPrint('=== 現在のアプリバージョン取得 ===');
-      debugPrint('PackageInfo.version: "$version"');
-      debugPrint('PackageInfo.buildNumber: "${packageInfo.buildNumber}"');
-      debugPrint('PackageInfo.appName: "${packageInfo.appName}"');
-      debugPrint('PackageInfo.packageName: "${packageInfo.packageName}"');
-      debugPrint('==============================');
+      final packageInfo = await pip.PackageInfo.fromPlatform();
+      final version = packageInfo.version;
+      developer.log('Current app version: $version', name: 'EnhancedUpdateService');
       return version;
     } catch (e) {
-      debugPrint('Error getting app version: $e');
+      developer.log('Error getting app version: $e', name: 'EnhancedUpdateService');
       return '0.0.0';
     }
   }
-  // Check if update is available
+  
+  /// アップデートが利用可能かチェック
   bool isUpdateAvailable(String currentVersionStr, String latestVersionStr) {
     try {
-      // Clean version strings by removing 'v' prefix
-      String cleanCurrentVersion = currentVersionStr.replaceAll('v', '');
-      String cleanLatestVersion = latestVersionStr.replaceAll('v', '');
+      final cleanCurrentVersion = currentVersionStr.replaceAll('v', '');
+      final cleanLatestVersion = latestVersionStr.replaceAll('v', '');
       
-      Version currentVersion = Version.parse(cleanCurrentVersion);
-      Version latestVersion = Version.parse(cleanLatestVersion);
+      final currentVersion = Version.parse(cleanCurrentVersion);
+      final latestVersion = Version.parse(cleanLatestVersion);
       
-      bool updateAvailable = latestVersion > currentVersion;
+      final updateAvailable = latestVersion > currentVersion;
       
-      // Debug output
-      debugPrint('=== バージョン比較デバッグ ===');
-      debugPrint('現在のバージョン（元）: "$currentVersionStr"');
-      debugPrint('現在のバージョン（処理後）: "$cleanCurrentVersion"');
-      debugPrint('最新バージョン（元）: "$latestVersionStr"');
-      debugPrint('最新バージョン（処理後）: "$cleanLatestVersion"');
-      debugPrint('パース後 - 現在: $currentVersion');
-      debugPrint('パース後 - 最新: $latestVersion');
-      debugPrint('アップデート利用可能: $updateAvailable');
-      debugPrint('===========================');
+      developer.log(
+        'Version comparison: $cleanCurrentVersion vs $cleanLatestVersion = $updateAvailable',
+        name: 'EnhancedUpdateService'
+      );
       
       return updateAvailable;
     } catch (e) {
-      debugPrint('Error parsing version strings: $e');
-      debugPrint('Current version string: "$currentVersionStr"');
-      debugPrint('Latest version string: "$latestVersionStr"');
+      developer.log('Error parsing version strings: $e', name: 'EnhancedUpdateService');
       return false;
     }
   }
-
-  // Get latest release info with enhanced details
+  
+  /// GitHubから最新リリース情報を取得
   Future<EnhancedAppUpdateInfo?> getLatestReleaseInfo(String owner, String repo, {bool silent = false}) async {
     final url = Uri.parse('https://api.github.com/repos/$owner/$repo/releases/latest');
     
     try {
-      final response = await http.get(url, headers: {'Accept': 'application/vnd.github.v3+json'});      if (response.statusCode == 200) {
+      final response = await http.get(url, headers: {'Accept': 'application/vnd.github.v3+json'});
+      
+      if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
+        
         DateTime? releaseDateTime;
-
         if (jsonResponse['published_at'] != null) {
           releaseDateTime = DateTime.tryParse(jsonResponse['published_at']);
         }
@@ -164,7 +164,7 @@ class EnhancedUpdateService {
         int? fileSize;
         
         if (jsonResponse['assets'] != null && jsonResponse['assets'] is List) {
-          Map<String, dynamic>? assetDetails = _getPlatformSpecificAssetUrl(jsonResponse['assets']);
+          final assetDetails = _getPlatformSpecificAssetUrl(jsonResponse['assets']);
           if (assetDetails != null) {
             assetDownloadUrl = assetDetails['url'];
             foundAssetName = assetDetails['name'];
@@ -172,17 +172,14 @@ class EnhancedUpdateService {
           }
         }
 
-        String rawTagName = jsonResponse['tag_name'] ?? '0.0.0';
-        String cleanVersion = rawTagName.replaceAll('v', '');
+        final rawTagName = jsonResponse['tag_name'] ?? '0.0.0';
+        final cleanVersion = rawTagName.replaceAll('v', '');
         
-        debugPrint('=== GitHub API レスポンス ===');
-        debugPrint('tag_name（元）: "$rawTagName"');
-        debugPrint('version（処理後）: "$cleanVersion"');
-        debugPrint('published_at: "${jsonResponse['published_at']}"');
-        debugPrint('assets count: ${jsonResponse['assets']?.length ?? 0}');
-        debugPrint('download URL: $assetDownloadUrl');
-        debugPrint('asset name: $foundAssetName');
-        debugPrint('==========================');        return EnhancedAppUpdateInfo(
+        if (!silent) {
+          developer.log('GitHub Release: $cleanVersion, Asset: $foundAssetName', name: 'EnhancedUpdateService');
+        }
+        
+        return EnhancedAppUpdateInfo(
           version: cleanVersion,
           releaseNotes: jsonResponse['body'],
           releaseDate: releaseDateTime,
@@ -190,43 +187,49 @@ class EnhancedUpdateService {
           assetName: foundAssetName,
           fileSize: fileSize,
           releaseTag: rawTagName,
-          fileName: foundAssetName ?? 'app-release.apk', // ファイル名を設定
+          fileName: foundAssetName ?? 'app-release.apk',
         );
       } else {
         if (!silent) {
-          debugPrint('Failed to get latest release info: ${response.statusCode} ${response.body}');
+          developer.log('Failed to get latest release info: ${response.statusCode}', name: 'EnhancedUpdateService');
         }
         return null;
       }
     } catch (e) {
       if (!silent) {
-        debugPrint('Error fetching latest release info: $e');
+        developer.log('Error fetching latest release info: $e', name: 'EnhancedUpdateService');
       }
       return null;
     }
   }
-
-  // Enhanced platform-specific asset detection
+  
+  /// プラットフォーム固有のアセットURLを取得
   Map<String, dynamic>? _getPlatformSpecificAssetUrl(List<dynamic> assets) {
-    String os = Platform.operatingSystem;
+    final os = Platform.operatingSystem;
     List<String> prioritizedPatterns = [];
 
-    if (os == 'android') {
-      prioritizedPatterns = ['.apk'];
-    } else if (os == 'windows') {
-      prioritizedPatterns = ['.exe', '.msi', '.zip'];
-    } else if (os == 'macos') {
-      prioritizedPatterns = ['.dmg', '.zip'];
-    } else if (os == 'linux') {
-      prioritizedPatterns = ['.AppImage', '.deb', '.tar.gz'];
-    } else if (os == 'ios') {
-      prioritizedPatterns = ['.ipa'];
+    switch (os) {
+      case 'android':
+        prioritizedPatterns = ['.apk'];
+        break;
+      case 'windows':
+        prioritizedPatterns = ['.exe', '.msi', '.zip'];
+        break;
+      case 'macos':
+        prioritizedPatterns = ['.dmg', '.zip'];
+        break;
+      case 'linux':
+        prioritizedPatterns = ['.AppImage', '.deb', '.tar.gz'];
+        break;
+      case 'ios':
+        prioritizedPatterns = ['.ipa'];
+        break;
     }
 
-    for (String pattern in prioritizedPatterns) {
-      for (var asset in assets) {
+    for (final pattern in prioritizedPatterns) {
+      for (final asset in assets) {
         if (asset is Map && asset.containsKey('name') && asset.containsKey('browser_download_url')) {
-          String name = asset['name'].toLowerCase();
+          final name = asset['name'].toString().toLowerCase();
           if (name.endsWith(pattern.toLowerCase())) {
             return {
               'url': asset['browser_download_url'],
@@ -238,13 +241,14 @@ class EnhancedUpdateService {
       }
     }
 
-    // Fallback for Linux
+    // Linuxのフォールバック
     if (os == 'linux') {
-      for (var asset in assets) {
+      for (final asset in assets) {
         if (asset is Map && asset.containsKey('name') && asset.containsKey('browser_download_url')) {
-          String name = asset['name'].toLowerCase();
+          final name = asset['name'].toString().toLowerCase();
           if (name.endsWith('.zip') || name.endsWith('.tar.gz')) {
-            return {              'url': asset['browser_download_url'],
+            return {
+              'url': asset['browser_download_url'],
               'name': asset['name'],
               'size': asset['size']
             };
@@ -253,10 +257,8 @@ class EnhancedUpdateService {
       }
     }
     return null;
-  }
-  
-  // Enhanced download with streaming progress (ReVanced Manager inspired)
-  // キャッシュ機能付きでダウンロード（権限不要）
+  }  
+  /// アップデートファイルをダウンロード（プログレス付き）
   Future<String?> downloadUpdateWithProgress(EnhancedAppUpdateInfo releaseInfo) async {
     if (releaseInfo.downloadUrl == null || releaseInfo.downloadUrl!.isEmpty) {
       _updateProgress(UpdateProgress(
@@ -265,62 +267,89 @@ class EnhancedUpdateService {
         errorMessage: 'Download URL is null or empty',
       ));
       return null;
-    }    // Initialize progress stream if needed
+    }
+
+    // プログレスストリームの初期化
     if (_progressController == null || _progressController!.isClosed) {
-      debugPrint('[EnhancedUpdateService] Initializing progress stream...');
-      _initializeProgressStream();
+      initializeProgressStream();
     }
     
-    // 初期状態を確実に通知
+    // 初期状態を通知
     _updateProgress(UpdateProgress(
       progress: 0.0,
       status: 'ダウンロード準備中...',
     ));
     
-    // 少し待機してUIが更新されるのを確実にする
-    await Future.delayed(Duration(milliseconds: 200));
-    
-    // ダウンロード開始状態を通知
-    _updateProgress(UpdateProgress(
-      progress: 0.0,
-      status: 'ダウンロード開始...',
-    ));
-    
     try {
-      // CachedDownloadService の静的メソッドを正しく呼び出す
-      final String? result = await CachedDownloadService.downloadUpdateWithCache(
-        releaseInfo,
-        (UpdateProgress progress) {
-          // EnhancedUpdateService のストリームに進捗を中継
-          debugPrint('[EnhancedUpdateService] Progress relay: ${progress.status} (${(progress.progress * 100).toStringAsFixed(1)}%) - bytes: ${progress.bytesDownloaded}/${progress.totalBytes}');
-          
-          // プログレス情報をそのまま中継（遅延なし）
-          _updateProgress(progress);
-          
-          // 完了時の追加ログ
-          if (progress.isCompleted) {
-            debugPrint('[EnhancedUpdateService] Download completed successfully');
-          }
-        },
-      );
+      // キャッシュディレクトリの取得
+      final cacheDir = await getApplicationCacheDirectory();
+      final file = File('${cacheDir.path}/${releaseInfo.fileName}');
       
-      if (result != null) {
-        debugPrint('[EnhancedUpdateService] Update downloaded successfully to cache: $result');
-      } else {
-        debugPrint('[EnhancedUpdateService] Download failed, result is null');
-        // エラー情報が既に onProgress で通知されていない場合のフォールバック
-        if (_progressController != null && !_progressController!.isClosed) {
-          _updateProgress(UpdateProgress(
-            progress: 0.0,
-            status: 'ダウンロードが完了しませんでした',
-            errorMessage: 'Download returned null without specific error',
-          ));
-        }
+      // 親ディレクトリの作成
+      await file.parent.create(recursive: true);
+      
+      _updateProgress(UpdateProgress(
+        progress: 0.1,
+        status: 'ダウンロード開始...',
+      ));
+      
+      // HTTPクライアントでダウンロード
+      final client = http.Client();
+      final request = http.Request('GET', Uri.parse(releaseInfo.downloadUrl!));
+      final response = await client.send(request);
+      
+      if (response.statusCode != 200) {
+        _updateProgress(UpdateProgress(
+          progress: 0.0,
+          status: 'ダウンロードエラー: ${response.statusCode}',
+          errorMessage: 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
+        ));
+        return null;
       }
       
-      return result;
+      final totalBytes = response.contentLength ?? 0;
+      int downloadedBytes = 0;
+      
+      final sink = file.openWrite();
+      
+      try {
+        await for (final chunk in response.stream) {
+          sink.add(chunk);
+          downloadedBytes += chunk.length;
+          
+          final progress = totalBytes > 0 ? downloadedBytes / totalBytes : 0.0;
+          
+          _updateProgress(UpdateProgress(
+            progress: progress,
+            status: 'ダウンロード中...',
+            bytesDownloaded: downloadedBytes,
+            totalBytes: totalBytes,
+          ));
+        }
+        
+        await sink.close();
+        client.close();
+        
+        // 完了通知
+        _updateProgress(UpdateProgress(
+          progress: 1.0,
+          status: 'ダウンロード完了',
+          bytesDownloaded: downloadedBytes,
+          totalBytes: totalBytes,
+          isCompleted: true,
+        ));
+        
+        developer.log('Download completed: ${file.path}', name: 'EnhancedUpdateService');
+        return file.path;
+        
+      } catch (e) {
+        await sink.close();
+        client.close();
+        throw e;
+      }
+      
     } catch (e) {
-      debugPrint('[EnhancedUpdateService] Error during cache-based download: $e');
+      developer.log('Download error: $e', name: 'EnhancedUpdateService');
       _updateProgress(UpdateProgress(
         progress: 0.0,
         status: 'ダウンロードエラー',
@@ -329,96 +358,36 @@ class EnhancedUpdateService {
       return null;
     }
   }
-
-  // Startup update check (silent)
+  
+  /// 起動時のアップデートチェック（サイレント）
   Future<EnhancedAppUpdateInfo?> checkForUpdateOnStartup(String currentVersion, String owner, String repo) async {
     try {
-      EnhancedAppUpdateInfo? releaseInfo = await getLatestReleaseInfo(owner, repo, silent: true);
+      final releaseInfo = await getLatestReleaseInfo(owner, repo, silent: true);
       if (releaseInfo != null && isUpdateAvailable(currentVersion, releaseInfo.version)) {
         return releaseInfo;
       }
       return null;
     } catch (e) {
-      // Silently fail on startup
       return null;
     }
   }
-  // Request storage permission (キャッシュ使用により基本的に不要)
-  // 外部ストレージに明示的に保存する場合のみ使用
-  Future<bool> requestStoragePermission() async {
-    // iOSでは権限不要
-    if (Platform.isIOS) {
-      return true;
-    }
-
-    // Androidでもアプリ内部ストレージ（キャッシュ）使用時は権限不要
-    // 外部ストレージに保存する場合のみ権限が必要
-    if (Platform.isAndroid) {
-      // API 30+ (Android 11+) では MANAGE_EXTERNAL_STORAGE が推奨
-      // しかし、アプリ内部ストレージを使用することで回避可能
-      debugPrint('Storage permission check skipped - using internal app storage');
-      return true; // アプリ内部ストレージを使用するため常にtrue
-    }
-    return true;
-  }
-  // 外部ストレージへの明示的な保存（ユーザーが要求した場合のみ）
-  Future<String?> saveToExternalStorage(String cachedFilePath, String fileName) async {
-    // この機能は現在実装されていません
-    debugPrint('External storage save not implemented yet');
-    return cachedFilePath; // キャッシュファイルのパスをそのまま返す
-  }
-
-  // キャッシュ管理機能
-  Future<void> clearCache() async {
-    // この機能は現在実装されていません
-    debugPrint('Cache clear not implemented yet');
-  }
-
-  Future<void> clearExpiredCache() async {
-    // この機能は現在実装されていません
-    debugPrint('Expired cache clear not implemented yet');
-  }
-
-  Future<Map<String, dynamic>> getCacheStats() async {
-    // この機能は現在実装されていません
-    return {
-      'totalSize': 0,
-      'fileCount': 0,
-      'lastCleanup': DateTime.now().toIso8601String(),
-    };
-  }
-
-  // APKインストール用の一時ファイル処理
-  Future<String?> prepareForInstallation(String cachedFilePath, String fileName) async {
-    // この機能は現在実装されていません - キャッシュファイルをそのまま使用
-    debugPrint('Prepare for installation: using cached file directly');
-    return cachedFilePath;
-  }
-
-  // インストール後のクリーンアップ
-  Future<void> cleanupAfterInstallation() async {
-    // この機能は現在実装されていません
-    debugPrint('Cleanup after installation not implemented yet');
-  }
-
-  // アップデート成功確認とユーザー通知機能
   
-  /// アップデート試行を記録（ダウンロード開始時）
+  /// アップデート試行を記録
   Future<void> markUpdateAttempt(String targetVersion) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('pending_update_version', targetVersion);
     await prefs.setInt('update_attempt_timestamp', DateTime.now().millisecondsSinceEpoch);
-    debugPrint('Marked update attempt for version: $targetVersion');
+    developer.log('Marked update attempt for version: $targetVersion', name: 'EnhancedUpdateService');
   }
   
-  /// アップデート完了を記録（手動インストール後の次回起動時）
+  /// アップデート完了を記録
   Future<void> markUpdateCompleted() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('pending_update_version');
     await prefs.remove('update_attempt_timestamp');
     await prefs.setString('last_completed_update', await getCurrentAppVersion());
     await prefs.setInt('last_update_timestamp', DateTime.now().millisecondsSinceEpoch);
-    debugPrint('Marked update as completed');
+    developer.log('Marked update as completed', name: 'EnhancedUpdateService');
   }
   
   /// アップデート成功の確認と通知
@@ -429,13 +398,12 @@ class EnhancedUpdateService {
       final currentVersion = await getCurrentAppVersion();
       
       if (pendingVersion != null && pendingVersion == currentVersion) {
-        // アップデートが成功している
         await markUpdateCompleted();
-        debugPrint('Update successful: $pendingVersion → $currentVersion');
+        developer.log('Update successful: $pendingVersion → $currentVersion', name: 'EnhancedUpdateService');
         return true;
       }
       
-      // 古いpending updateが残っている場合はクリア（24時間以上経過）
+      // 古いpending updateをクリア（24時間経過）
       final attemptTimestamp = prefs.getInt('update_attempt_timestamp');
       if (attemptTimestamp != null) {
         final attemptTime = DateTime.fromMillisecondsSinceEpoch(attemptTimestamp);
@@ -444,13 +412,13 @@ class EnhancedUpdateService {
         if (elapsed.inHours > 24) {
           await prefs.remove('pending_update_version');
           await prefs.remove('update_attempt_timestamp');
-          debugPrint('Cleared old pending update: $pendingVersion (${elapsed.inHours} hours ago)');
+          developer.log('Cleared old pending update: $pendingVersion', name: 'EnhancedUpdateService');
         }
       }
       
       return false;
     } catch (e) {
-      debugPrint('Error checking update success: $e');
+      developer.log('Error checking update success: $e', name: 'EnhancedUpdateService');
       return false;
     }
   }
@@ -471,89 +439,96 @@ class EnhancedUpdateService {
       }
       return null;
     } catch (e) {
-      debugPrint('Error getting last update info: $e');
+      developer.log('Error getting last update info: $e', name: 'EnhancedUpdateService');
       return null;
+    }
+  }  
+  /// APKインストール処理
+  Future<void> installUpdate(String apkPath) async {
+    try {
+      developer.log('Installing APK: $apkPath', name: 'EnhancedUpdateService');
+      
+      final statusCode = await AndroidPackageInstaller.installApk(apkFilePath: apkPath);
+      
+      if (statusCode == null) {
+        developer.log('Installation failed: status code was null', name: 'EnhancedUpdateService');
+        return;
+      }
+
+      if (statusCode == -1) {
+        developer.log('Installation pending user action', name: 'EnhancedUpdateService');
+        return;
+      }
+
+      final installationStatus = PackageInstallerStatus.byCode(statusCode);
+      developer.log('Installation status: ${installationStatus.name}', name: 'EnhancedUpdateService');
+
+      if (installationStatus == PackageInstallerStatus.success) {
+        developer.log('Installation process started successfully', name: 'EnhancedUpdateService');
+      } else {
+        developer.log('Installation failed: ${installationStatus.name}', name: 'EnhancedUpdateService');
+      }
+    } catch (e) {
+      developer.log('Installation error: $e', name: 'EnhancedUpdateService');
     }
   }
   
-  // インストール処理
-  Future<void> installUpdate(String apkPath) async {
-    try {
-      final int? statusCode = await AndroidPackageInstaller.installApk(apkFilePath: apkPath);
-      debugPrint('Installation status code: $statusCode');
-
-      if (statusCode == null) {
-        debugPrint('Error installing APK: status code was null');
-        // 必要に応じてエラーをユーザーに通知する処理を追加できます
-        return;
-      }
-
-      if (statusCode == -1) { // Androidネイティブの STATUS_PENDING_USER_ACTION
-        debugPrint('APK installation pending user action. Please confirm the installation on your device.');
-        // ユーザーに確認を促す通知を表示することを検討
-        return;
-      }
-
-      PackageInstallerStatus installationStatus = PackageInstallerStatus.byCode(statusCode);
-      debugPrint('Installation status enum: ${installationStatus.name}');
-
-      if (installationStatus == PackageInstallerStatus.success) {
-        debugPrint('APK installation process started or completed successfully.');
-        // ここでユーザーに成功を通知する処理などを追加できます
-      } else {
-        debugPrint('Error installing APK: ${installationStatus.name} (code: $statusCode)');
-        // 詳細なエラーメッセージをユーザーに表示することを検討
-      }
-
-    } catch (e) {
-      debugPrint('Error during installation: $e');
-      // 例外発生時のエラーハンドリング
-    }
-  }
+  /// アップデート適用処理（プログレス付き）
   Future<void> applyUpdate(String apkPath, BuildContext context) async {
-    _initializeProgressStream();
+    // プログレスストリームの初期化
+    if (_progressController == null || _progressController!.isClosed) {
+      initializeProgressStream();
+    }
     
-    // 初期状態を確実に通知
-    _updateProgress(UpdateProgress(progress: 0.0, status: 'インストール開始...'));
-    
-    // 少し待機してUIが更新されるのを確実にする
-    await Future.delayed(Duration(milliseconds: 100));
+    // 初期状態を通知
+    _updateProgress(UpdateProgress(
+      progress: 0.0, 
+      status: 'インストール開始...'
+    ));
     
     try {
-      _updateProgress(UpdateProgress(progress: 0.1, status: 'APKファイルを確認中...'));
+      _updateProgress(UpdateProgress(
+        progress: 0.1, 
+        status: 'APKファイルを確認中...'
+      ));
       
       if (!await File(apkPath).exists()) {
         _updateProgress(UpdateProgress(
           progress: 0.0,
-          status: 'エラー: APKファイルが見つかりません。',
+          status: 'エラー: APKファイルが見つかりません',
           isCompleted: true,
           errorMessage: 'APKファイルが見つかりません: $apkPath',
         ));
         return;
       }
 
-      _updateProgress(UpdateProgress(progress: 0.3, status: 'インストールの準備中...'));
-      await Future.delayed(Duration(milliseconds: 200));
+      _updateProgress(UpdateProgress(
+        progress: 0.3, 
+        status: 'インストールの準備中...'
+      ));
       
-      _updateProgress(UpdateProgress(progress: 0.5, status: 'インストーラーを起動しています...'));
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      _updateProgress(UpdateProgress(
+        progress: 0.5, 
+        status: 'インストーラーを起動しています...'
+      ));
 
-      debugPrint('Attempting to install APK at path: $apkPath');
-      final int? statusCode = await AndroidPackageInstaller.installApk(apkFilePath: apkPath);
-
-      debugPrint('Installation status code: $statusCode');
+      developer.log('Attempting to install APK: $apkPath', name: 'EnhancedUpdateService');
+      final statusCode = await AndroidPackageInstaller.installApk(apkFilePath: apkPath);
 
       if (statusCode == null) {
         _updateProgress(UpdateProgress(
           progress: 1.0,
           status: 'インストール状態不明',
           isCompleted: true,
-          errorMessage: 'Installation status code was null.',
+          errorMessage: 'Installation status code was null',
         ));
         return;
       }
 
-      if (statusCode == -1) { // Androidネイティブの STATUS_PENDING_USER_ACTION
-         _updateProgress(UpdateProgress(
+      if (statusCode == -1) {
+        _updateProgress(UpdateProgress(
           progress: 1.0, 
           status: 'ユーザーの操作待機中です。インストールを許可してください。',
           isCompleted: true, 
@@ -561,18 +536,17 @@ class EnhancedUpdateService {
         return;
       }
       
-      PackageInstallerStatus installationStatus = PackageInstallerStatus.byCode(statusCode);
-      debugPrint('Installation status enum: ${installationStatus.name}');
+      final installationStatus = PackageInstallerStatus.byCode(statusCode);
 
       if (installationStatus == PackageInstallerStatus.success) {
         _updateProgress(UpdateProgress(
           progress: 1.0,
-          status: 'インストール処理をシステムに委譲しました。',
+          status: 'インストール処理をシステムに委譲しました',
           isCompleted: true,
         ));
       } else {
         String errorMessage = 'インストール開始失敗';
-        // PackageInstallerStatus enum に基づいてエラーメッセージを設定
+        
         switch (installationStatus) {
           case PackageInstallerStatus.failure:
             errorMessage = 'インストール失敗';
@@ -595,12 +569,13 @@ class EnhancedUpdateService {
           case PackageInstallerStatus.failureStorage:
             errorMessage = 'ストレージ容量不足のためインストールできませんでした';
             break;
-          case PackageInstallerStatus.unknown: // -1 は上で処理済みのため、ここは主に -2 やその他の未定義コード
+          case PackageInstallerStatus.unknown:
             errorMessage = '不明なインストールエラーが発生しました (コード: $statusCode)';
             break;
-          default: // success は上で処理済み
+          default:
             errorMessage = '予期せぬインストール状態です: ${installationStatus.name} (code: $statusCode)';
         }
+        
         _updateProgress(UpdateProgress(
           progress: 1.0,
           status: errorMessage,
@@ -609,13 +584,140 @@ class EnhancedUpdateService {
         ));
       }
     } catch (e) {
-      debugPrint('Error applying update: $e');
+      developer.log('Error applying update: $e', name: 'EnhancedUpdateService');
       _updateProgress(UpdateProgress(
         progress: 1.0,
-        status: 'アップデート適用中にエラーが発生しました。',
+        status: 'アップデート適用中にエラーが発生しました',
         isCompleted: true,
-        errorMessage: e.toString(),
-      ));
+        errorMessage: e.toString(),      ));
+    }
+  }
+
+  /// キャッシュファイルを削除
+  Future<Map<String, dynamic>> clearUpdateCache() async {
+    try {
+      final cacheDir = await getApplicationCacheDirectory();
+      int deletedFiles = 0;
+      int deletedSize = 0;
+      List<String> deletedFileNames = [];
+      
+      if (await cacheDir.exists()) {
+        final files = cacheDir.listSync(recursive: true);
+        
+        for (final file in files) {
+          if (file is File) {
+            final fileName = file.path.split('/').last;
+            // APKファイルと一時ファイルを対象にする
+            if (fileName.endsWith('.apk') || 
+                fileName.endsWith('.tmp') ||
+                fileName.contains('update') ||
+                fileName.contains('install')) {
+              try {
+                final fileSize = await file.length();
+                await file.delete();
+                deletedFiles++;
+                deletedSize += fileSize;
+                deletedFileNames.add(fileName);
+                developer.log('Deleted cache file: $fileName (${(fileSize / 1024 / 1024).toStringAsFixed(2)} MB)', name: 'EnhancedUpdateService');
+              } catch (e) {
+                developer.log('Failed to delete cache file $fileName: $e', name: 'EnhancedUpdateService');
+              }
+            }
+          }
+        }
+      }
+      
+      developer.log('Cache cleanup completed: $deletedFiles files deleted, ${(deletedSize / 1024 / 1024).toStringAsFixed(2)} MB freed', name: 'EnhancedUpdateService');
+      
+      return {
+        'success': true,
+        'deletedFiles': deletedFiles,
+        'deletedSize': deletedSize,
+        'deletedFileNames': deletedFileNames,
+        'message': '$deletedFiles個のファイルを削除し、${(deletedSize / 1024 / 1024).toStringAsFixed(2)} MBの容量を解放しました',
+      };
+      
+    } catch (e) {
+      developer.log('Error clearing update cache: $e', name: 'EnhancedUpdateService');
+      return {
+        'success': false,
+        'error': e.toString(),
+        'message': 'キャッシュの削除中にエラーが発生しました: $e',
+      };
+    }
+  }
+
+  /// キャッシュサイズを取得
+  Future<Map<String, dynamic>> getCacheInfo() async {
+    try {
+      final cacheDir = await getApplicationCacheDirectory();
+      int totalFiles = 0;
+      int totalSize = 0;
+      int updateFiles = 0;
+      int updateSize = 0;
+      List<String> updateFileNames = [];
+      
+      if (await cacheDir.exists()) {
+        final files = cacheDir.listSync(recursive: true);
+        
+        for (final file in files) {
+          if (file is File) {
+            try {
+              final fileSize = await file.length();
+              final fileName = file.path.split('/').last;
+              
+              totalFiles++;
+              totalSize += fileSize;
+              
+              // アップデート関連ファイルをチェック
+              if (fileName.endsWith('.apk') || 
+                  fileName.endsWith('.tmp') ||
+                  fileName.contains('update') ||
+                  fileName.contains('install')) {
+                updateFiles++;
+                updateSize += fileSize;
+                updateFileNames.add('$fileName (${(fileSize / 1024 / 1024).toStringAsFixed(2)} MB)');
+              }
+            } catch (e) {
+              developer.log('Failed to get file size: $e', name: 'EnhancedUpdateService');
+            }
+          }
+        }
+      }
+      
+      return {
+        'totalFiles': totalFiles,
+        'totalSize': totalSize,
+        'updateFiles': updateFiles,
+        'updateSize': updateSize,
+        'updateFileNames': updateFileNames,
+        'cachePath': cacheDir.path,
+      };
+      
+    } catch (e) {
+      developer.log('Error getting cache info: $e', name: 'EnhancedUpdateService');
+      return {
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /// アップデート設定をリセット
+  Future<void> resetUpdateSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // アップデート関連の設定を削除
+      await prefs.remove('pending_update_version');
+      await prefs.remove('update_attempt_timestamp');
+      await prefs.remove('last_completed_update');
+      await prefs.remove('last_update_timestamp');
+      await prefs.remove('skipped_version');
+      await prefs.remove('last_update_check');
+      
+      developer.log('Update settings reset completed', name: 'EnhancedUpdateService');
+    } catch (e) {
+      developer.log('Error resetting update settings: $e', name: 'EnhancedUpdateService');
     }
   }
 }
