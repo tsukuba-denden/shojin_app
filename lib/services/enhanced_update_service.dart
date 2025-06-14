@@ -65,6 +65,8 @@ class UpdateProgress {
 class EnhancedUpdateService {
   // プログレス用のStreamController
   StreamController<UpdateProgress>? _progressController;
+  bool _cancelDownload = false; // ダウンロードキャンセル用フラグ
+  int _lastLoggedPercentage = -1; // ログ抑制用
   
   /// プログレスストリームの取得
   Stream<UpdateProgress>? get progressStream => _progressController?.stream;
@@ -106,6 +108,19 @@ class EnhancedUpdateService {
     _progressController?.close();
     _progressController = null;
     developer.log('Progress stream disposed', name: 'EnhancedUpdateService');
+  }
+
+  /// プログレスとキャンセル状態をリセット
+  void _resetDownloadState() {
+    _lastLoggedPercentage = -1;
+    _cancelDownload = false;
+    developer.log('Download state reset.', name: 'EnhancedUpdateService');
+  }
+
+  /// 現在のダウンロードをキャンセル
+  void cancelCurrentDownload() {
+    developer.log('Download cancellation requested.', name: 'EnhancedUpdateService');
+    _cancelDownload = true;
   }
   
   /// 現在のアプリバージョンを取得
@@ -269,68 +284,131 @@ class EnhancedUpdateService {
       return null;
     }
 
-    // プログレスストリームの初期化
     if (_progressController == null || _progressController!.isClosed) {
       initializeProgressStream();
     }
     
-    // 初期状態を通知
+    _resetDownloadState(); // ダウンロード開始前に状態をリセット
+
     _updateProgress(UpdateProgress(
       progress: 0.0,
       status: 'ダウンロード準備中...',
     ));
-    
+
+    final client = http.Client();
+    // http.StreamedResponse? response; // Removed as it's declared later
+    // StreamSubscription? subscription; // Removed as await for is used
+    // final fileBytes = <int>[]; // Removed as data is written directly to sink
+    String? filePath;
+
     try {
-      // キャッシュディレクトリの取得
-      final cacheDir = await getApplicationCacheDirectory();
-      final file = File('${cacheDir.path}/${releaseInfo.fileName}');
-      
-      // 親ディレクトリの作成
-      await file.parent.create(recursive: true);
-      
-      _updateProgress(UpdateProgress(
-        progress: 0.0,
-        status: 'ダウンロード開始...',
-      ));
-      
-      // HTTPクライアントでダウンロード
-      final client = http.Client();
       final request = http.Request('GET', Uri.parse(releaseInfo.downloadUrl!));
-      final response = await client.send(request);
-      
+      final http.StreamedResponse response = await client.send(request); // Ensure response is typed
+
       if (response.statusCode != 200) {
         _updateProgress(UpdateProgress(
           progress: 0.0,
           status: 'ダウンロードエラー: ${response.statusCode}',
           errorMessage: 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
         ));
+        client.close(); // Close client on error
+        return null;
+      }
+
+      final totalBytes = response.contentLength ?? 0;
+      int downloadedBytes = 0;
+
+      _updateProgress(UpdateProgress(
+        progress: 0.0,
+        status: 'ダウンロード開始...',
+        bytesDownloaded: 0,
+        totalBytes: totalBytes,
+      ));
+      
+      final cacheDir = await getApplicationCacheDirectory();
+      final file = File('${cacheDir.path}/${releaseInfo.fileName}');
+      await file.parent.create(recursive: true);
+      final sink = file.openWrite();
+      filePath = file.path;
+
+      await for (final chunk in response.stream) {
+        if (_cancelDownload) {
+          developer.log('Download cancelled by user.', name: 'EnhancedUpdateService');
+          _updateProgress(UpdateProgress(
+            progress: totalBytes > 0 ? downloadedBytes / totalBytes : 0.0, // キャンセル時点の進捗
+            status: 'ダウンロードがキャンセルされました',
+            bytesDownloaded: downloadedBytes,
+            totalBytes: totalBytes,
+            errorMessage: 'User cancelled download',
+          ));
+          await sink.close(); 
+          if (await file.exists()) { // Check if file exists before deleting
+            await file.delete(); 
+          }
+          filePath = null; 
+          client.close(); // Close client on cancellation
+          return null; // Return null as download was cancelled
+        }
+
+        sink.add(chunk);
+        downloadedBytes += chunk.length;
+
+        final currentProgress = totalBytes > 0 ? downloadedBytes / totalBytes : 0.0;
+        
+        int currentPercentage = (currentProgress * 100).toInt();
+        if (currentPercentage > 100) currentPercentage = 100;
+
+        bool shouldLog = false;
+        if (_lastLoggedPercentage == -1 && currentPercentage == 0) {
+          shouldLog = true;
+        } else if (currentPercentage >= _lastLoggedPercentage + 10 && currentPercentage < 100) {
+          shouldLog = true;
+        } else if (currentProgress >= 1.0 && currentPercentage == 100 && _lastLoggedPercentage < 100) { 
+          shouldLog = true;
+        }
+        
+        if (shouldLog) {
+          developer.log('Progress Update: $currentPercentage%', name: 'EnhancedUpdateService');
+          _lastLoggedPercentage = currentPercentage;
+        }
+
+        _updateProgress(UpdateProgress(
+          progress: currentProgress,
+          status: 'ダウンロード中...',
+          bytesDownloaded: downloadedBytes,
+          totalBytes: totalBytes,
+        ));
+      }
+
+      await sink.flush(); 
+      await sink.close();
+
+      if (_cancelDownload) {
+        // This case should ideally be handled within the loop, but as a safeguard:
+        if (filePath != null && await File(filePath).exists()) { // Check filePath and existence
+            await File(filePath).delete();
+        }
+        client.close(); // Ensure client is closed
         return null;
       }
       
-      final totalBytes = response.contentLength ?? 0;
-      int downloadedBytes = 0;
-      
-      final sink = file.openWrite();
-      
-      try {
-        await for (final chunk in response.stream) {
-          sink.add(chunk);
-          downloadedBytes += chunk.length;
-          
-          final progress = totalBytes > 0 ? downloadedBytes / totalBytes : 0.0;
-          
-          _updateProgress(UpdateProgress(
-            progress: progress,
-            status: 'ダウンロード中...',
-            bytesDownloaded: downloadedBytes,
-            totalBytes: totalBytes,
-          ));
-        }
-        
-        await sink.close();
+      // Check if file exists after download attempt (excluding cancellation)
+      if (!await file.exists()){
+        developer.log('Error: File does not exist after download attempt (not due to cancellation). Path: ${file.path}', name: 'EnhancedUpdateService');
+        _updateProgress(UpdateProgress(
+          progress: downloadedBytes / totalBytes,
+          status: 'ダウンロードエラー: ファイルが作成されませんでした',
+          bytesDownloaded: downloadedBytes,
+          totalBytes: totalBytes,
+          errorMessage: 'File not created after download.',
+          isCompleted: true,
+        ));
         client.close();
-        
-        // 完了通知
+        return null;
+      }
+
+
+      if (totalBytes == 0 || downloadedBytes == totalBytes) { 
         _updateProgress(UpdateProgress(
           progress: 1.0,
           status: 'ダウンロード完了',
@@ -338,24 +416,58 @@ class EnhancedUpdateService {
           totalBytes: totalBytes,
           isCompleted: true,
         ));
-        
         developer.log('Download completed: ${file.path}', name: 'EnhancedUpdateService');
+        client.close(); // Close client on success
         return file.path;
-        
-      } catch (e) {
-        await sink.close();
-        client.close();
-        throw e;
+      } else if (downloadedBytes < totalBytes && totalBytes > 0) {
+        _updateProgress(UpdateProgress(
+          progress: downloadedBytes / totalBytes,
+          status: 'ダウンロードが不完全です',
+          bytesDownloaded: downloadedBytes,
+          totalBytes: totalBytes,
+          errorMessage: 'Downloaded size ($downloadedBytes) does not match total size ($totalBytes).',
+          isCompleted: true, 
+        ));
+        if (await file.exists()) { 
+            await file.delete(); 
+        }
+        client.close(); // Close client on incomplete download
+        return null;
+      } else {
+         _updateProgress(UpdateProgress(
+          progress: totalBytes > 0 ? downloadedBytes / totalBytes : 0.0, 
+          status: 'ダウンロード中に予期せぬ問題が発生しました',
+          bytesDownloaded: downloadedBytes,
+          totalBytes: totalBytes,
+          errorMessage: 'Unexpected issue during download completion. Downloaded: $downloadedBytes, Total: $totalBytes',
+          isCompleted: true,
+        ));
+        if (await file.exists()) {
+            await file.delete();
+        }
+        client.close(); // Close client on unexpected issue
+        return null;
       }
-      
-    } catch (e) {
-      developer.log('Download error: $e', name: 'EnhancedUpdateService');
+
+    } catch (e, s) { // Added stack trace
+      developer.log('Download error: $e\\nStackTrace: $s', name: 'EnhancedUpdateService'); // Log stack trace
       _updateProgress(UpdateProgress(
-        progress: 0.0,
+        progress: 0.0, 
         status: 'ダウンロードエラー',
         errorMessage: e.toString(),
       ));
+      if (filePath != null && await File(filePath).exists()) {
+          try {
+              await File(filePath).delete();
+              developer.log('Deleted incomplete file due to error: $filePath', name: 'EnhancedUpdateService');
+          } catch (deleteError) {
+              developer.log('Error deleting incomplete file: $deleteError', name: 'EnhancedUpdateService');
+          }
+      }
+      client.close(); // Ensure client is closed on catch
       return null;
+    } finally {
+      // client.close(); // Moved to specific exit points (success, error, cancellation)
     }
   }
   
