@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cached_download_service.dart'; // キャッシュ機能付きダウンロードサービスをインポート
 import 'package:open_file/open_file.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 // Enhanced AppUpdateInfo with more details
 class EnhancedAppUpdateInfo {
@@ -446,6 +447,80 @@ class EnhancedUpdateService {
 
     } catch (e) {
       debugPrint('Error during installation: $e');
+    }
+  }
+
+  Future<void> applyUpdate(String apkPath, BuildContext context) async {
+    _initializeProgressStream();
+    try {
+      _updateProgress(UpdateProgress(progress: 0.0, status: 'インストールの準備中...'));
+
+      // REQUEST_INSTALL_PACKAGES 権限の確認と要求
+      var status = await Permission.requestInstallPackages.status;
+      if (status.isDenied) {
+        // 権限が拒否されている場合は要求する
+        status = await Permission.requestInstallPackages.request();
+        if (status.isDenied) {
+          _updateProgress(UpdateProgress(
+            progress: 1.0,
+            status: 'インストール権限がありません。設定から許可してください。',
+            isCompleted: true,
+            errorMessage: 'インストール権限が拒否されました。',
+          ));
+          // ユーザーに設定画面を開くよう促すなどの対応
+          // 例: openAppSettings();
+          return;
+        }
+      }
+      
+      if (!await File(apkPath).exists()) {
+        _updateProgress(UpdateProgress(
+          progress: 1.0,
+          status: 'エラー: APKファイルが見つかりません。',
+          isCompleted: true,
+          errorMessage: 'APKファイルが見つかりません: $apkPath',
+        ));
+        return;
+      }
+
+      _updateProgress(UpdateProgress(progress: 1.0, status: 'インストーラーを起動しています...'));
+
+      debugPrint('Attempting to open APK at path: $apkPath');
+      final OpenResult openResult = await OpenFile.open(apkPath);
+
+      debugPrint('OpenFile result type: ${openResult.type}');
+      debugPrint('OpenFile result message: ${openResult.message}');
+
+      if (openResult.type == ResultType.done) {
+        _updateProgress(UpdateProgress(
+          progress: 1.0,
+          status: 'インストール処理を開始しました。',
+          isCompleted: true,
+        ));
+      } else if (openResult.type == ResultType.noAppToOpen) {
+        // APKファイルを開けるアプリがない場合 (通常Androidでは発生しにくい)
+         _updateProgress(UpdateProgress(
+          progress: 1.0,
+          status: 'エラー: APKファイルを開けるアプリが見つかりません。',
+          isCompleted: true,
+          errorMessage: 'No app to open APK: ${openResult.message}',
+        ));
+      } else {
+        _updateProgress(UpdateProgress(
+          progress: 1.0,
+          status: 'インストール開始失敗: ${openResult.message}',
+          isCompleted: true,
+          errorMessage: openResult.message,
+        ));
+      }
+    } catch (e) {
+      debugPrint('Error applying update: $e');
+      _updateProgress(UpdateProgress(
+        progress: 1.0,
+        status: 'アップデート適用中にエラーが発生しました。',
+        isCompleted: true,
+        errorMessage: e.toString(),
+      ));
     }
   }
 }
