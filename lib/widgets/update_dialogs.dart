@@ -73,7 +73,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
     // Listen to progress stream
     _progressSubscription = _updateService.progressStream?.listen(
       (progress) {
-        debugPrint('[UpdateProgressDialog] Progress received: ${progress.status} - ${progress.progress * 100}%');
+        //debugPrint('[UpdateProgressDialog] Progress received: ${progress.status} - ${progress.progress * 100}%');
         if (mounted) {
           setState(() {
             _currentProgress = progress;
@@ -86,7 +86,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
               _isDownloading = false;
             }
           });
-          debugPrint('[UpdateProgressDialog] UI updated with progress: ${progress.status}');
+          // debugPrint('[UpdateProgressDialog] UI updated with progress: ${progress.status}');
         }
       },
       onError: (error) {

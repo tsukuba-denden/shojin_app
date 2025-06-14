@@ -82,14 +82,14 @@ class EnhancedUpdateService {
   }
     /// プログレス更新
   void _updateProgress(UpdateProgress progress) {
-    developer.log(
-      'Progress Update: ${progress.status} - ${progress.formattedProgress}', 
-      name: 'EnhancedUpdateService'
-    );
+    // developer.log(
+    //   'Progress Update: ${progress.status} - ${progress.formattedProgress}',
+    //   name: 'EnhancedUpdateService'
+    // );
     
     if (_progressController != null && !_progressController!.isClosed) {
       _progressController!.add(progress);
-      developer.log('Progress sent to stream successfully', name: 'EnhancedUpdateService');
+      // developer.log('Progress sent to stream successfully', name: 'EnhancedUpdateService');
     } else {
       developer.log('Warning: Progress controller is null or closed', name: 'EnhancedUpdateService');
       // 緊急時はStreamControllerを再初期化
@@ -97,7 +97,7 @@ class EnhancedUpdateService {
         initializeProgressStream();
         if (_progressController != null && !_progressController!.isClosed) {
           _progressController!.add(progress);
-          developer.log('Progress sent after emergency re-initialization', name: 'EnhancedUpdateService');
+          // developer.log('Progress sent after emergency re-initialization', name: 'EnhancedUpdateService');
         }
       }
     }
@@ -288,7 +288,7 @@ class EnhancedUpdateService {
       initializeProgressStream();
     }
     
-    _resetDownloadState(); // ダウンロード開始前に状態をリセット
+    _resetDownloadState();
 
     _updateProgress(UpdateProgress(
       progress: 0.0,
@@ -296,14 +296,11 @@ class EnhancedUpdateService {
     ));
 
     final client = http.Client();
-    // http.StreamedResponse? response; // Removed as it's declared later
-    // StreamSubscription? subscription; // Removed as await for is used
-    // final fileBytes = <int>[]; // Removed as data is written directly to sink
     String? filePath;
 
     try {
       final request = http.Request('GET', Uri.parse(releaseInfo.downloadUrl!));
-      final http.StreamedResponse response = await client.send(request); // Ensure response is typed
+      final http.StreamedResponse response = await client.send(request);
 
       if (response.statusCode != 200) {
         _updateProgress(UpdateProgress(
@@ -311,7 +308,7 @@ class EnhancedUpdateService {
           status: 'ダウンロードエラー: ${response.statusCode}',
           errorMessage: 'HTTP ${response.statusCode}: ${response.reasonPhrase}',
         ));
-        client.close(); // Close client on error
+        client.close();
         return null;
       }
 
@@ -335,19 +332,19 @@ class EnhancedUpdateService {
         if (_cancelDownload) {
           developer.log('Download cancelled by user.', name: 'EnhancedUpdateService');
           _updateProgress(UpdateProgress(
-            progress: totalBytes > 0 ? downloadedBytes / totalBytes : 0.0, // キャンセル時点の進捗
+            progress: totalBytes > 0 ? downloadedBytes / totalBytes : 0.0,
             status: 'ダウンロードがキャンセルされました',
             bytesDownloaded: downloadedBytes,
             totalBytes: totalBytes,
             errorMessage: 'User cancelled download',
           ));
           await sink.close(); 
-          if (await file.exists()) { // Check if file exists before deleting
+          if (await file.exists()) {
             await file.delete(); 
           }
           filePath = null; 
-          client.close(); // Close client on cancellation
-          return null; // Return null as download was cancelled
+          client.close();
+          return null;
         }
 
         sink.add(chunk);
@@ -384,15 +381,13 @@ class EnhancedUpdateService {
       await sink.close();
 
       if (_cancelDownload) {
-        // This case should ideally be handled within the loop, but as a safeguard:
-        if (filePath != null && await File(filePath).exists()) { // Check filePath and existence
+        if (filePath != null && await File(filePath).exists()) {
             await File(filePath).delete();
         }
-        client.close(); // Ensure client is closed
+        client.close();
         return null;
       }
       
-      // Check if file exists after download attempt (excluding cancellation)
       if (!await file.exists()){
         developer.log('Error: File does not exist after download attempt (not due to cancellation). Path: ${file.path}', name: 'EnhancedUpdateService');
         _updateProgress(UpdateProgress(
@@ -407,17 +402,16 @@ class EnhancedUpdateService {
         return null;
       }
 
-
       if (totalBytes == 0 || downloadedBytes == totalBytes) { 
         _updateProgress(UpdateProgress(
           progress: 1.0,
-          status: 'ダウンロード完了',
+          status: 'ダウンロード完了！インストールを開始します...',
           bytesDownloaded: downloadedBytes,
           totalBytes: totalBytes,
-          isCompleted: true,
+          isCompleted: false, // まだ完了していない（インストールが残っている）
         ));
         developer.log('Download completed: ${file.path}', name: 'EnhancedUpdateService');
-        client.close(); // Close client on success
+        client.close();
         return file.path;
       } else if (downloadedBytes < totalBytes && totalBytes > 0) {
         _updateProgress(UpdateProgress(
@@ -431,7 +425,7 @@ class EnhancedUpdateService {
         if (await file.exists()) { 
             await file.delete(); 
         }
-        client.close(); // Close client on incomplete download
+        client.close();
         return null;
       } else {
          _updateProgress(UpdateProgress(
@@ -445,12 +439,12 @@ class EnhancedUpdateService {
         if (await file.exists()) {
             await file.delete();
         }
-        client.close(); // Close client on unexpected issue
+        client.close();
         return null;
       }
 
-    } catch (e, s) { // Added stack trace
-      developer.log('Download error: $e\\nStackTrace: $s', name: 'EnhancedUpdateService'); // Log stack trace
+    } catch (e, s) {
+      developer.log('Download error: $e\\nStackTrace: $s', name: 'EnhancedUpdateService');
       _updateProgress(UpdateProgress(
         progress: 0.0, 
         status: 'ダウンロードエラー',
@@ -464,13 +458,11 @@ class EnhancedUpdateService {
               developer.log('Error deleting incomplete file: $deleteError', name: 'EnhancedUpdateService');
           }
       }
-      client.close(); // Ensure client is closed on catch
+      client.close();
       return null;
-    } finally {
-      // client.close(); // Moved to specific exit points (success, error, cancellation)
     }
   }
-  
+
   /// 起動時のアップデートチェック（サイレント）
   Future<EnhancedAppUpdateInfo?> checkForUpdateOnStartup(String currentVersion, String owner, String repo) async {
     try {
@@ -700,6 +692,44 @@ class EnhancedUpdateService {
       _updateProgress(UpdateProgress(
         progress: 1.0,
         status: 'アップデート適用中にエラーが発生しました',
+        isCompleted: true,
+        errorMessage: e.toString(),
+      ));
+    }
+  }
+
+  /// ダウンロードとインストールを連続して実行
+  Future<void> downloadAndInstallUpdate(EnhancedAppUpdateInfo releaseInfo, BuildContext context) async {
+    try {
+      // バージョンを記録
+      await markUpdateAttempt(releaseInfo.version);
+      
+      // ダウンロード実行
+      final downloadedPath = await downloadUpdateWithProgress(releaseInfo);
+      
+      if (downloadedPath != null && !_cancelDownload) {
+        // ダウンロード成功後、インストール開始
+        await applyUpdate(downloadedPath, context);
+      } else if (_cancelDownload) {
+        _updateProgress(UpdateProgress(
+          progress: 0.0,
+          status: 'アップデートがキャンセルされました',
+          isCompleted: true,
+          errorMessage: 'Update cancelled by user',
+        ));
+      } else {
+        _updateProgress(UpdateProgress(
+          progress: 0.0,
+          status: 'ダウンロードに失敗しました',
+          isCompleted: true,
+          errorMessage: 'Download failed',
+        ));
+      }
+    } catch (e) {
+      developer.log('Error in downloadAndInstallUpdate: $e', name: 'EnhancedUpdateService');
+      _updateProgress(UpdateProgress(
+        progress: 0.0,
+        status: 'アップデート処理中にエラーが発生しました',
         isCompleted: true,
         errorMessage: e.toString(),
       ));
