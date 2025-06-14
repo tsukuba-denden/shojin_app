@@ -17,6 +17,24 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.4.5"
+  android_package_installer:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: main
+      resolved-ref: c9e144fae63231b5d1d7b88af779c314afcb6e83
+      url: "https://github.com/ImranR98/android_package_installer"
+    source: git
+    version: "0.0.1"
+  android_package_manager:
+    dependency: "direct main"
+    description:
+      path: "."
+      ref: master
+      resolved-ref: "18231a8a2343747440b0bfe90f7d56ef7f586099"
+      url: "https://github.com/ImranR98/android_package_manager"
+    source: git
+    version: "0.7.1"
   animations:
     dependency: "direct main"
     description:

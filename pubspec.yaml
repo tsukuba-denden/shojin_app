@@ -45,6 +45,14 @@ dependencies:
   open_file: ^3.5.10
   intl: ^0.20.2
   animations: ^2.0.11
+  android_package_installer:
+    git:
+      url: https://github.com/ImranR98/android_package_installer
+      ref: main
+  android_package_manager:
+    git:
+      url: https://github.com/ImranR98/android_package_manager
+      ref: master
 
 dev_dependencies:
   flutter_test:

@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:package_info_plus/package_info_plus.dart';
+import 'package:package_info_plus/package_info_plus.dart' as pip; // エイリアスを設定
 import 'package:pub_semver/pub_semver.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'cached_download_service.dart'; // キャッシュ機能付きダウンロードサービスをインポート
-import 'package:open_file/open_file.dart';
-import 'package:permission_handler/permission_handler.dart';
+// TODO: Remove OpenFile if android_package_installer works well
+// import 'package:open_file/open_file.dart';
+import 'package:android_package_installer/android_package_installer.dart';
+// import 'package:android_package_manager/android_package_manager.dart'; // 今回は未使用のためコメントアウト
 
 // Enhanced AppUpdateInfo with more details
 class EnhancedAppUpdateInfo {
@@ -85,7 +87,7 @@ class EnhancedUpdateService {
   // Get current app version
   Future<String> getCurrentAppVersion() async {
     try {
-      PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      pip.PackageInfo packageInfo = await pip.PackageInfo.fromPlatform(); // エイリアスを使用
       String version = packageInfo.version;
       debugPrint('=== 現在のアプリバージョン取得 ===');
       debugPrint('PackageInfo.version: "$version"');
@@ -432,21 +434,35 @@ class EnhancedUpdateService {
   // インストール処理
   Future<void> installUpdate(String apkPath) async {
     try {
-      // ダウンロードしたAPKファイルを開く
-      final OpenResult openResult = await OpenFile.open(apkPath);
+      final int? statusCode = await AndroidPackageInstaller.installApk(apkFilePath: apkPath);
+      debugPrint('Installation status code: $statusCode');
 
-      if (openResult.type != ResultType.done) {
-        // エラー処理: ファイルを開けなかった場合
-        print('Error opening APK file: ${openResult.message}');
-        // 必要に応じてユーザーにエラーを通知
-        return; // または適切なエラーハンドリング
+      if (statusCode == null) {
+        debugPrint('Error installing APK: status code was null');
+        // 必要に応じてエラーをユーザーに通知する処理を追加できます
+        return;
       }
 
-      // インストールが開始されたことをユーザーに通知（任意）
-      print('APK installation process started.');
+      if (statusCode == -1) { // Androidネイティブの STATUS_PENDING_USER_ACTION
+        debugPrint('APK installation pending user action. Please confirm the installation on your device.');
+        // ユーザーに確認を促す通知を表示することを検討
+        return;
+      }
+
+      PackageInstallerStatus installationStatus = PackageInstallerStatus.byCode(statusCode);
+      debugPrint('Installation status enum: ${installationStatus.name}');
+
+      if (installationStatus == PackageInstallerStatus.success) {
+        debugPrint('APK installation process started or completed successfully.');
+        // ここでユーザーに成功を通知する処理などを追加できます
+      } else {
+        debugPrint('Error installing APK: ${installationStatus.name} (code: $statusCode)');
+        // 詳細なエラーメッセージをユーザーに表示することを検討
+      }
 
     } catch (e) {
       debugPrint('Error during installation: $e');
+      // 例外発生時のエラーハンドリング
     }
   }
 
@@ -454,24 +470,6 @@ class EnhancedUpdateService {
     _initializeProgressStream();
     try {
       _updateProgress(UpdateProgress(progress: 0.0, status: 'インストールの準備中...'));
-
-      // REQUEST_INSTALL_PACKAGES 権限の確認と要求
-      var status = await Permission.requestInstallPackages.status;
-      if (status.isDenied) {
-        // 権限が拒否されている場合は要求する
-        status = await Permission.requestInstallPackages.request();
-        if (status.isDenied) {
-          _updateProgress(UpdateProgress(
-            progress: 1.0,
-            status: 'インストール権限がありません。設定から許可してください。',
-            isCompleted: true,
-            errorMessage: 'インストール権限が拒否されました。',
-          ));
-          // ユーザーに設定画面を開くよう促すなどの対応
-          // 例: openAppSettings();
-          return;
-        }
-      }
       
       if (!await File(apkPath).exists()) {
         _updateProgress(UpdateProgress(
@@ -483,34 +481,77 @@ class EnhancedUpdateService {
         return;
       }
 
-      _updateProgress(UpdateProgress(progress: 1.0, status: 'インストーラーを起動しています...'));
+      _updateProgress(UpdateProgress(progress: 0.5, status: 'インストーラーを起動しています...'));
 
-      debugPrint('Attempting to open APK at path: $apkPath');
-      final OpenResult openResult = await OpenFile.open(apkPath);
+      debugPrint('Attempting to install APK at path: $apkPath');
+      final int? statusCode = await AndroidPackageInstaller.installApk(apkFilePath: apkPath);
 
-      debugPrint('OpenFile result type: ${openResult.type}');
-      debugPrint('OpenFile result message: ${openResult.message}');
+      debugPrint('Installation status code: $statusCode');
 
-      if (openResult.type == ResultType.done) {
+      if (statusCode == null) {
         _updateProgress(UpdateProgress(
           progress: 1.0,
-          status: 'インストール処理を開始しました。',
+          status: 'インストール状態不明',
           isCompleted: true,
+          errorMessage: 'Installation status code was null.',
         ));
-      } else if (openResult.type == ResultType.noAppToOpen) {
-        // APKファイルを開けるアプリがない場合 (通常Androidでは発生しにくい)
+        return;
+      }
+
+      if (statusCode == -1) { // Androidネイティブの STATUS_PENDING_USER_ACTION
          _updateProgress(UpdateProgress(
+          progress: 1.0, 
+          status: 'ユーザーの操作待機中です。インストールを許可してください。',
+          isCompleted: true, 
+        ));
+        return;
+      }
+      
+      PackageInstallerStatus installationStatus = PackageInstallerStatus.byCode(statusCode);
+      debugPrint('Installation status enum: ${installationStatus.name}');
+
+      if (installationStatus == PackageInstallerStatus.success) {
+        _updateProgress(UpdateProgress(
           progress: 1.0,
-          status: 'エラー: APKファイルを開けるアプリが見つかりません。',
+          status: 'インストール処理をシステムに委譲しました。',
           isCompleted: true,
-          errorMessage: 'No app to open APK: ${openResult.message}',
         ));
       } else {
+        String errorMessage = 'インストール開始失敗';
+        // PackageInstallerStatus enum に基づいてエラーメッセージを設定
+        switch (installationStatus) {
+          case PackageInstallerStatus.failure:
+            errorMessage = 'インストール失敗';
+            break;
+          case PackageInstallerStatus.failureAborted:
+            errorMessage = 'インストールが中止されました';
+            break;
+          case PackageInstallerStatus.failureBlocked:
+            errorMessage = 'インストールがブロックされました';
+            break;
+          case PackageInstallerStatus.failureConflict:
+            errorMessage = '競合が発生したためインストールできませんでした';
+            break;
+          case PackageInstallerStatus.failureIncompatible:
+            errorMessage = '互換性がないためインストールできませんでした';
+            break;
+          case PackageInstallerStatus.failureInvalid:
+            errorMessage = '無効なAPKファイルです';
+            break;
+          case PackageInstallerStatus.failureStorage:
+            errorMessage = 'ストレージ容量不足のためインストールできませんでした';
+            break;
+          case PackageInstallerStatus.unknown: // -1 は上で処理済みのため、ここは主に -2 やその他の未定義コード
+            errorMessage = '不明なインストールエラーが発生しました (コード: $statusCode)';
+            break;
+          default: // success は上で処理済み
+            errorMessage = '予期せぬインストール状態です: ${installationStatus.name} (code: $statusCode)';
+        }
         _updateProgress(UpdateProgress(
           progress: 1.0,
-          status: 'インストール開始失敗: ${openResult.message}',
+          status: errorMessage,
           isCompleted: true,
-          errorMessage: openResult.message,
+          errorMessage: 'Installation failed with status: ${installationStatus.name} (code: $statusCode)',
         ));
       }
     } catch (e) {
