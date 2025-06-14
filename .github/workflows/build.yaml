@@ -24,11 +24,6 @@ on:
         type: boolean
         required: true
         default: false
-      version:
-        description: 'Version'
-        type: string
-        required: true
-        default: 'v0.0.0-Beta'
 
 jobs:
   build:
@@ -63,6 +58,12 @@ jobs:
       # - name: Clean Flutter project
       #   run: flutter clean
 
+      # Step 5.1: Read version from pubspec.yaml
+      - name: Read version from pubspec.yaml
+        id: get_version
+        run: |
+          echo "version=$(grep '^version: ' pubspec.yaml | sed 's/version: //')" >> $GITHUB_OUTPUT
+
       # Step 6: Android APK をビルド (--release オプションでリリースモード)
       # --split-per-abi をつけるとCPUアーキテクチャごとにAPKが分割されます
       - name: Build APK
@@ -82,10 +83,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.event.inputs.release == 'true'
         with:
-          tag_name: ${{github.event.inputs.version}}
+          tag_name: ${{ steps.get_version.outputs.version }}
           draft: false
           prerelease: false
           generate_release_notes: true
           files: build/app/outputs/flutter-apk/app-*-release.apk
 
-      
+
