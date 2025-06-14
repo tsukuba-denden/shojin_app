@@ -76,6 +76,7 @@ class EnhancedUpdateService {
   
   // Update progress
   void _updateProgress(UpdateProgress progress) {
+    debugPrint('[EnhancedUpdateService] _updateProgress: status=${progress.status}, progress=${progress.progress}, formatted=${progress.formattedProgress}, completed=${progress.isCompleted}, error=${progress.errorMessage}');
     _progressController?.add(progress);
   }
   
