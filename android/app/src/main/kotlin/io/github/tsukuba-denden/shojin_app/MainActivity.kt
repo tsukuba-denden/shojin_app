@@ -1,4 +1,4 @@
-package com.tsukuba.atcoder.shojin
+package io.github.tsukuba-denden.shojin_app-denden.shojin_ap
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
