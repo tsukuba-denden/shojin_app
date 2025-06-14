@@ -289,7 +289,7 @@ class EnhancedUpdateService {
       await file.parent.create(recursive: true);
       
       _updateProgress(UpdateProgress(
-        progress: 0.1,
+        progress: 0.0,
         status: 'ダウンロード開始...',
       ));
       
@@ -589,135 +589,8 @@ class EnhancedUpdateService {
         progress: 1.0,
         status: 'アップデート適用中にエラーが発生しました',
         isCompleted: true,
-        errorMessage: e.toString(),      ));
-    }
-  }
-
-  /// キャッシュファイルを削除
-  Future<Map<String, dynamic>> clearUpdateCache() async {
-    try {
-      final cacheDir = await getApplicationCacheDirectory();
-      int deletedFiles = 0;
-      int deletedSize = 0;
-      List<String> deletedFileNames = [];
-      
-      if (await cacheDir.exists()) {
-        final files = cacheDir.listSync(recursive: true);
-        
-        for (final file in files) {
-          if (file is File) {
-            final fileName = file.path.split('/').last;
-            // APKファイルと一時ファイルを対象にする
-            if (fileName.endsWith('.apk') || 
-                fileName.endsWith('.tmp') ||
-                fileName.contains('update') ||
-                fileName.contains('install')) {
-              try {
-                final fileSize = await file.length();
-                await file.delete();
-                deletedFiles++;
-                deletedSize += fileSize;
-                deletedFileNames.add(fileName);
-                developer.log('Deleted cache file: $fileName (${(fileSize / 1024 / 1024).toStringAsFixed(2)} MB)', name: 'EnhancedUpdateService');
-              } catch (e) {
-                developer.log('Failed to delete cache file $fileName: $e', name: 'EnhancedUpdateService');
-              }
-            }
-          }
-        }
-      }
-      
-      developer.log('Cache cleanup completed: $deletedFiles files deleted, ${(deletedSize / 1024 / 1024).toStringAsFixed(2)} MB freed', name: 'EnhancedUpdateService');
-      
-      return {
-        'success': true,
-        'deletedFiles': deletedFiles,
-        'deletedSize': deletedSize,
-        'deletedFileNames': deletedFileNames,
-        'message': '$deletedFiles個のファイルを削除し、${(deletedSize / 1024 / 1024).toStringAsFixed(2)} MBの容量を解放しました',
-      };
-      
-    } catch (e) {
-      developer.log('Error clearing update cache: $e', name: 'EnhancedUpdateService');
-      return {
-        'success': false,
-        'error': e.toString(),
-        'message': 'キャッシュの削除中にエラーが発生しました: $e',
-      };
-    }
-  }
-
-  /// キャッシュサイズを取得
-  Future<Map<String, dynamic>> getCacheInfo() async {
-    try {
-      final cacheDir = await getApplicationCacheDirectory();
-      int totalFiles = 0;
-      int totalSize = 0;
-      int updateFiles = 0;
-      int updateSize = 0;
-      List<String> updateFileNames = [];
-      
-      if (await cacheDir.exists()) {
-        final files = cacheDir.listSync(recursive: true);
-        
-        for (final file in files) {
-          if (file is File) {
-            try {
-              final fileSize = await file.length();
-              final fileName = file.path.split('/').last;
-              
-              totalFiles++;
-              totalSize += fileSize;
-              
-              // アップデート関連ファイルをチェック
-              if (fileName.endsWith('.apk') || 
-                  fileName.endsWith('.tmp') ||
-                  fileName.contains('update') ||
-                  fileName.contains('install')) {
-                updateFiles++;
-                updateSize += fileSize;
-                updateFileNames.add('$fileName (${(fileSize / 1024 / 1024).toStringAsFixed(2)} MB)');
-              }
-            } catch (e) {
-              developer.log('Failed to get file size: $e', name: 'EnhancedUpdateService');
-            }
-          }
-        }
-      }
-      
-      return {
-        'totalFiles': totalFiles,
-        'totalSize': totalSize,
-        'updateFiles': updateFiles,
-        'updateSize': updateSize,
-        'updateFileNames': updateFileNames,
-        'cachePath': cacheDir.path,
-      };
-      
-    } catch (e) {
-      developer.log('Error getting cache info: $e', name: 'EnhancedUpdateService');
-      return {
-        'error': e.toString(),
-      };
-    }
-  }
-
-  /// アップデート設定をリセット
-  Future<void> resetUpdateSettings() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      // アップデート関連の設定を削除
-      await prefs.remove('pending_update_version');
-      await prefs.remove('update_attempt_timestamp');
-      await prefs.remove('last_completed_update');
-      await prefs.remove('last_update_timestamp');
-      await prefs.remove('skipped_version');
-      await prefs.remove('last_update_check');
-      
-      developer.log('Update settings reset completed', name: 'EnhancedUpdateService');
-    } catch (e) {
-      developer.log('Error resetting update settings: $e', name: 'EnhancedUpdateService');
+        errorMessage: e.toString(),
+      ));
     }
   }
 }
