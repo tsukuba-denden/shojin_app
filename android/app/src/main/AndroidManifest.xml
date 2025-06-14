@@ -7,7 +7,7 @@
         android:usesCleartextTraffic="true"
         android:requestLegacyExternalStorage="true"> <!-- この行を追加 -->
         <activity
-            android:name=".MainActivity"
+            android:name="io.github.tsukuba_denden.shojin_app.MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""

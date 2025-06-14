@@ -1,5 +1,7 @@
 name: shojin_app
 description: "AtCoderの精進をスマホでも。"
+homepage: https://github.com/tsukuba-denden/shojin_app
+
 publish_to: 'none'
 
 version: 0.4.0-Beta
