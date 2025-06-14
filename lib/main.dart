@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:animations/animations.dart';
 import 'screens/problem_detail_screen.dart';
 import 'screens/editor_screen.dart';
 import 'screens/settings_screen.dart';
@@ -14,6 +15,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // 追加
 import 'l10n/app_localizations.dart'; // 追加 (生成されるファイル)
+import 'services/auto_update_manager.dart'; // Add auto update manager
 
 void main() async {
   // Flutter Engineの初期化を保証
@@ -42,7 +44,7 @@ void main() async {
   developer.log('App started successfully');
 }
 
-// デフォルトのカラースキーム
+// デフォルトのカラースキーム（MaterialYou ON時）
 const _defaultLightColorScheme = ColorScheme.light(
   primary: Colors.blue,
   onPrimary: Colors.white,
@@ -55,11 +57,28 @@ const _defaultDarkColorScheme = ColorScheme.dark(
   secondary: Colors.blueAccent,
 );
 
-// ピュアブラックモードのカラースキーム
-const _pureBlackColorScheme = ColorScheme.dark(
-  primary: Colors.blue,
-  onPrimary: Colors.white,
-  secondary: Colors.blueAccent,
+// カスタムテーマ（MaterialYou OFF時）
+final _lightCustomTheme = ColorScheme.fromSeed(
+  seedColor: Colors.purple,
+  brightness: Brightness.light,
+).copyWith(
+  primary: const Color(0xFF4C51C0),
+);
+
+final _darkCustomTheme = ColorScheme.fromSeed(
+  seedColor: Colors.purple,
+  brightness: Brightness.dark,
+).copyWith(
+  primary: const Color(0xFFBFC1FF),
+  surface: const Color(0xFF131316),
+);
+
+// ピュアブラックモードのカラースキーム（カスタムテーマベース）
+final _pureBlackColorScheme = ColorScheme.fromSeed(
+  seedColor: Colors.purple,
+  brightness: Brightness.dark,
+).copyWith(
+  primary: const Color(0xFFBFC1FF),
   surface: Colors.black,
   surfaceContainerHighest: Colors.black,
   onSurface: Colors.white,
@@ -78,18 +97,16 @@ class MyApp extends StatelessWidget {
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
         // Material Youを使用するかどうかでカラースキームを決定
         ColorScheme lightColorScheme;
-        ColorScheme darkColorScheme;
-
-        if (themeProvider.useMaterialYou) {
+        ColorScheme darkColorScheme;        if (themeProvider.useMaterialYou) {
           lightColorScheme = lightDynamic ?? _defaultLightColorScheme;
           darkColorScheme = themeProvider.isPureBlack
               ? _pureBlackColorScheme
               : (darkDynamic ?? _defaultDarkColorScheme);
         } else {
-          lightColorScheme = _defaultLightColorScheme;
+          lightColorScheme = _lightCustomTheme;
           darkColorScheme = themeProvider.isPureBlack
               ? _pureBlackColorScheme
-              : _defaultDarkColorScheme;
+              : _darkCustomTheme;
         }
 
         // Noto Sans JPフォントをテキストテーマに適用
@@ -104,13 +121,15 @@ class MyApp extends StatelessWidget {
           titleMedium: GoogleFonts.notoSansJp(fontSize: 16, fontWeight: FontWeight.w500),
           titleSmall: GoogleFonts.notoSansJp(fontSize: 14, fontWeight: FontWeight.w500),
           bodyLarge: GoogleFonts.notoSansJp(fontSize: 16),
-          bodyMedium: GoogleFonts.notoSansJp(fontSize: 14),
-          bodySmall: GoogleFonts.notoSansJp(fontSize: 12),
+          bodyMedium: GoogleFonts.notoSansJp(fontSize: 14),          bodySmall: GoogleFonts.notoSansJp(fontSize: 12),
           labelLarge: GoogleFonts.notoSansJp(fontSize: 14, fontWeight: FontWeight.w500),
           labelMedium: GoogleFonts.notoSansJp(fontSize: 12, fontWeight: FontWeight.w500),
           labelSmall: GoogleFonts.notoSansJp(fontSize: 11, fontWeight: FontWeight.w500),
-        );        return MaterialApp(
-          title: 'Shojin App',          localizationsDelegates: const [
+        );
+
+        return MaterialApp(
+          title: 'Shojin App',
+          localizationsDelegates: const [
             AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
@@ -130,9 +149,13 @@ class MyApp extends StatelessWidget {
                 elevation: 2,
               ),
             ),
-            cardTheme: const CardThemeData(
+            cardTheme: CardThemeData(
               elevation: 2,
-              margin: EdgeInsets.all(8),
+              margin: const EdgeInsets.all(8),
+              // MaterialYou使用時のコントラスト改善
+              surfaceTintColor: themeProvider.useMaterialYou 
+                  ? lightColorScheme.primary.withOpacity(0.08)
+                  : null,
             ),
             textTheme: textTheme,
             fontFamily: GoogleFonts.notoSansJp().fontFamily,
@@ -149,6 +172,10 @@ class MyApp extends StatelessWidget {
               elevation: 2,
               margin: const EdgeInsets.all(8),
               color: themeProvider.isPureBlack ? const Color(0xFF121212) : null,
+              // MaterialYou使用時のコントラスト改善
+              surfaceTintColor: themeProvider.useMaterialYou 
+                  ? darkColorScheme.primary.withOpacity(0.08)
+                  : null,
             ),
             scaffoldBackgroundColor: themeProvider.isPureBlack ? Colors.black : null,
             textTheme: textTheme,
@@ -173,6 +200,28 @@ class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0; // Default to new Home tab
   String _currentProblemId = 'default_problem';
   String? _problemIdFromWebView;
+  UpdateLifecycleManager? _updateLifecycleManager;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Initialize auto update manager for startup update checks
+    _updateLifecycleManager = UpdateLifecycleManager(context);
+    _updateLifecycleManager!.startListening();
+    
+    // Schedule initial update check after the first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final autoUpdateManager = AutoUpdateManager();
+      autoUpdateManager.checkForUpdatesOnStartup(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    _updateLifecycleManager?.stopListening();
+    super.dispose();
+  }
 
   // Callback for ProblemDetailScreen -> EditorScreen update
   void _updateProblemIdForEditor(String newProblemUrl) {
@@ -202,7 +251,6 @@ class _MainScreenState extends State<MainScreen> {
       });
     }
   }
-
   // Builds the list of screens - Now a class method
   List<Widget> _buildScreens() {
     String? idToPass = _problemIdFromWebView;
@@ -223,17 +271,21 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     return [
-      const NewHomeScreen(), // Index 0
-      BrowserScreen(navigateToProblem: _navigateToProblemTabWithId), // Index 1 - Use imported screen
+      NewHomeScreen(key: const ValueKey('home')), // Index 0
+      BrowserScreen(
+        key: const ValueKey('browser'),
+        navigateToProblem: _navigateToProblemTabWithId,
+      ), // Index 1 - Use imported screen
       ProblemsScreen( // Index 2
+          key: const ValueKey('problems'),
           problemIdToLoad: idToPass,
           onProblemChanged: _updateProblemIdForEditor
       ),
       EditorScreen( // Index 3
-        key: ValueKey(_currentProblemId),
+        key: ValueKey('editor_$_currentProblemId'),
         problemId: _currentProblemId,
       ),
-      const SettingsScreen(), // Index 4
+      SettingsScreen(key: const ValueKey('settings')), // Index 4
     ];
   }
 
@@ -255,7 +307,6 @@ class _MainScreenState extends State<MainScreen> {
   void _hideKeyboard(BuildContext context) {
     FocusScope.of(context).unfocus();
   }
-
   @override
   Widget build(BuildContext context) {
     // Now _buildScreens is a class method and uses the state variable _problemIdFromWebView
@@ -266,14 +317,28 @@ class _MainScreenState extends State<MainScreen> {
         // Hide the keyboard on tap outside of the keyboard
         // キーボードの外側のタップでキーボードを隠す
         _hideKeyboard(context);
-      },
-      child: Scaffold(
+      },      child: Scaffold(
         extendBody: true, // Allow body to extend behind BottomNavigationBar for backdrop blur
         body: SafeArea(
           bottom: false, // allow content under BottomNavigationBar for BackdropFilter
-          child: IndexedStack(
-            index: _selectedIndex,
-            children: screens,
+          child: PageTransitionSwitcher(
+            duration: const Duration(milliseconds: 400),
+            transitionBuilder: (
+              Widget child,
+              Animation<double> animation,
+              Animation<double> secondaryAnimation,
+            ) {
+              return FadeThroughTransition(
+                animation: animation,
+                secondaryAnimation: secondaryAnimation,
+                fillColor: Theme.of(context).colorScheme.surface,
+                child: child,
+              );
+            },
+            child: KeyedSubtree(
+              key: ValueKey(_selectedIndex),
+              child: screens[_selectedIndex],
+            ),
           ),
         ),
         bottomNavigationBar: ClipRect(
