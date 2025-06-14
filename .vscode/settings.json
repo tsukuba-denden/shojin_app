@@ -1,3 +1,5 @@
 {
   "cmake.ignoreCMakeListsMissing": true,
+  "dart.flutterSdkPath": "C:\\Users\\yuubi\\fvm\\versions\\3.32.4",
+  "dart.flutterSdkPaths": ["C:\\Users\\yuubi\\fvm\\versions\\3.32.4"]
 }

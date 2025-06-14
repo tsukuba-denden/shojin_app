@@ -67,16 +67,29 @@ class EnhancedUpdateService {
   StreamController<UpdateProgress>? _progressController;
   
   Stream<UpdateProgress>? get progressStream => _progressController?.stream;
-  
-  // Create progress stream
+    // Create progress stream
   void _initializeProgressStream() {
+    debugPrint('[EnhancedUpdateService] Creating new progress stream controller...');
     _progressController = StreamController<UpdateProgress>.broadcast();
+    debugPrint('[EnhancedUpdateService] Progress stream controller created successfully');
   }
-  
-  // Update progress
+    // Update progress
   void _updateProgress(UpdateProgress progress) {
-    debugPrint('[EnhancedUpdateService] _updateProgress: status=${progress.status}, progress=${progress.progress}, formatted=${progress.formattedProgress}, completed=${progress.isCompleted}, error=${progress.errorMessage}');
-    _progressController?.add(progress);
+    debugPrint('[EnhancedUpdateService] _updateProgress called:');
+    debugPrint('  - status: ${progress.status}');
+    debugPrint('  - progress: ${progress.progress} (${(progress.progress * 100).toStringAsFixed(1)}%)');
+    debugPrint('  - formatted: ${progress.formattedProgress}');
+    debugPrint('  - completed: ${progress.isCompleted}');
+    debugPrint('  - error: ${progress.errorMessage}');
+    debugPrint('  - stream controller exists: ${_progressController != null}');
+    debugPrint('  - stream controller closed: ${_progressController?.isClosed ?? true}');
+    
+    if (_progressController != null && !_progressController!.isClosed) {
+      _progressController!.add(progress);
+      debugPrint('  - Progress added to stream successfully');
+    } else {
+      debugPrint('  - WARNING: Progress NOT added to stream (controller null or closed)');
+    }
   }
   
   // Dispose progress stream
@@ -231,8 +244,7 @@ class EnhancedUpdateService {
         if (asset is Map && asset.containsKey('name') && asset.containsKey('browser_download_url')) {
           String name = asset['name'].toLowerCase();
           if (name.endsWith('.zip') || name.endsWith('.tar.gz')) {
-            return {
-              'url': asset['browser_download_url'],
+            return {              'url': asset['browser_download_url'],
               'name': asset['name'],
               'size': asset['size']
             };
@@ -241,7 +253,9 @@ class EnhancedUpdateService {
       }
     }
     return null;
-  }  // Enhanced download with streaming progress (ReVanced Manager inspired)
+  }
+  
+  // Enhanced download with streaming progress (ReVanced Manager inspired)
   // キャッシュ機能付きでダウンロード（権限不要）
   Future<String?> downloadUpdateWithProgress(EnhancedAppUpdateInfo releaseInfo) async {
     if (releaseInfo.downloadUrl == null || releaseInfo.downloadUrl!.isEmpty) {
@@ -251,20 +265,42 @@ class EnhancedUpdateService {
         errorMessage: 'Download URL is null or empty',
       ));
       return null;
-    }
-
-    // Initialize progress stream if needed
+    }    // Initialize progress stream if needed
     if (_progressController == null || _progressController!.isClosed) {
+      debugPrint('[EnhancedUpdateService] Initializing progress stream...');
       _initializeProgressStream();
     }
-      try {
+    
+    // 初期状態を確実に通知
+    _updateProgress(UpdateProgress(
+      progress: 0.0,
+      status: 'ダウンロード準備中...',
+    ));
+    
+    // 少し待機してUIが更新されるのを確実にする
+    await Future.delayed(Duration(milliseconds: 200));
+    
+    // ダウンロード開始状態を通知
+    _updateProgress(UpdateProgress(
+      progress: 0.0,
+      status: 'ダウンロード開始...',
+    ));
+    
+    try {
       // CachedDownloadService の静的メソッドを正しく呼び出す
       final String? result = await CachedDownloadService.downloadUpdateWithCache(
         releaseInfo,
         (UpdateProgress progress) {
           // EnhancedUpdateService のストリームに進捗を中継
-          debugPrint('[EnhancedUpdateService] Progress relay: ${progress.status} (${(progress.progress * 100).toStringAsFixed(1)}%)');
+          debugPrint('[EnhancedUpdateService] Progress relay: ${progress.status} (${(progress.progress * 100).toStringAsFixed(1)}%) - bytes: ${progress.bytesDownloaded}/${progress.totalBytes}');
+          
+          // プログレス情報をそのまま中継（遅延なし）
           _updateProgress(progress);
+          
+          // 完了時の追加ログ
+          if (progress.isCompleted) {
+            debugPrint('[EnhancedUpdateService] Download completed successfully');
+          }
         },
       );
       
@@ -474,15 +510,21 @@ class EnhancedUpdateService {
       // 例外発生時のエラーハンドリング
     }
   }
-
   Future<void> applyUpdate(String apkPath, BuildContext context) async {
     _initializeProgressStream();
+    
+    // 初期状態を確実に通知
+    _updateProgress(UpdateProgress(progress: 0.0, status: 'インストール開始...'));
+    
+    // 少し待機してUIが更新されるのを確実にする
+    await Future.delayed(Duration(milliseconds: 100));
+    
     try {
-      _updateProgress(UpdateProgress(progress: 0.0, status: 'インストールの準備中...'));
+      _updateProgress(UpdateProgress(progress: 0.1, status: 'APKファイルを確認中...'));
       
       if (!await File(apkPath).exists()) {
         _updateProgress(UpdateProgress(
-          progress: 1.0,
+          progress: 0.0,
           status: 'エラー: APKファイルが見つかりません。',
           isCompleted: true,
           errorMessage: 'APKファイルが見つかりません: $apkPath',
@@ -490,6 +532,9 @@ class EnhancedUpdateService {
         return;
       }
 
+      _updateProgress(UpdateProgress(progress: 0.3, status: 'インストールの準備中...'));
+      await Future.delayed(Duration(milliseconds: 200));
+      
       _updateProgress(UpdateProgress(progress: 0.5, status: 'インストーラーを起動しています...'));
 
       debugPrint('Attempting to install APK at path: $apkPath');
