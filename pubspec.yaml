@@ -69,6 +69,7 @@ flutter:
   assets:
     - assets/icon/twitter_logo.svg
     - assets/icon/youtube_logo.svg
+    - assets/icon/github_logo.svg
 
 flutter_launcher_icons:
   android: true
