@@ -26,7 +26,7 @@ dependencies:
   dynamic_color: ^1.6.9
   google_fonts: ^6.1.0
   flutter_svg: ^2.0.9
-  flutter_local_notifications: ^13.0.0
+  flutter_local_notifications: ^19.2.1
 
   # AtCoder問題のスクレイピングに必要なパッケージ
   http: ^1.4.0
@@ -54,6 +54,7 @@ dependencies:
     git:
       url: https://github.com/ImranR98/android_package_manager
       ref: master
+  timezone: ^0.10.0
 
 dev_dependencies:
   flutter_test:

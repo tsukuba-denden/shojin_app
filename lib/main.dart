@@ -12,6 +12,8 @@ import 'screens/browser_screen.dart'; // Import the new browser screen
 import 'providers/theme_provider.dart';
 import 'providers/template_provider.dart';
 import 'providers/contest_provider.dart';
+import 'providers/reminder_settings_provider.dart'; // 追加
+import 'services/contest_reminder_service.dart'; // 追加
 import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // 追加
@@ -21,15 +23,22 @@ import 'services/auto_update_manager.dart'; // Add auto update manager
 void main() async {
   // Flutter Engineの初期化を保証
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // リマインダーサービスの初期化
+  final contestReminderService = ContestReminderService();
+  await contestReminderService.initialize();
+  
   // Providerのインスタンスを作成
   final themeProvider = ThemeProvider();
   final templateProvider = TemplateProvider();
   final contestProvider = ContestProvider();
+  final reminderSettingsProvider = ReminderSettingsProvider();
 
   // 非同期でテーマとテンプレートの読み込みが完了するのを待つ
   // 各プロバイダー内の_loadFromPrefsの完了を待つため、
   // isLoadingがfalseになるまで短い遅延を入れて待機する
-  while (themeProvider.isLoading || templateProvider.isLoading) {
+  await reminderSettingsProvider.initialize(); // リマインダー設定の初期化
+  while (themeProvider.isLoading || templateProvider.isLoading || reminderSettingsProvider.isLoading) {
     await Future.delayed(const Duration(milliseconds: 10));
   }
 
@@ -38,6 +47,7 @@ void main() async {
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: templateProvider),
         ChangeNotifierProvider.value(value: contestProvider),
+        ChangeNotifierProvider.value(value: reminderSettingsProvider), // 追加
       ],
       child: const MyApp(),
     ),
