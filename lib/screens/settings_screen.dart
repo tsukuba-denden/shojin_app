@@ -523,9 +523,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onCopy: _copyAllAppInfo,
       ),];
   }
-
   Widget _DeveloperSection() {
-    return ExpansionTile(      title: Text(
+    return ExpansionTile(
+      title: Text(
         '開発者',
         style: GoogleFonts.notoSansJp(
           fontSize: 16,
@@ -534,6 +534,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       subtitle: const Text('筑波大学附属中学校 電子電脳技術研究会'),
       leading: const Icon(Icons.code),
+      shape: const Border(), // 白い線を非表示にする
+      collapsedShape: const Border(), // 折りたたみ時の白い線も非表示にする
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -544,10 +546,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Website',
                 subtitle: 'tsukuba-denden.github.io',
                 url: 'https://tsukuba-denden.github.io/',
-              ),
-              _SocialMediaItem(
-                icon: Icons.alternate_email,
-                title: 'X (Twitter)',
+              ),              _SocialMediaItem(
+                icon: Icons.chat,
+                title: 'Twitter',
                 subtitle: '@Tsukuba_Denden',
                 url: 'https://twitter.com/Tsukuba_Denden',
               ),
