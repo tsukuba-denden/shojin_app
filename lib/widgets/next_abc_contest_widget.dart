@@ -155,12 +155,11 @@ class _NextABCContestWidgetState extends State<NextABCContestWidget> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              const SizedBox(height: 12),
-              _buildInfoRow(
+              const SizedBox(height: 12),              _buildInfoRow(
                 context,
                 Icons.event,
                 '開始時刻',
-                contest.startTimeJapanese,
+                contest.startTimeWithWeekday,
               ),
               const SizedBox(height: 8),
               _buildInfoRow(

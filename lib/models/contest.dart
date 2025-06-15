@@ -51,18 +51,24 @@ class Contest {
   bool get isUpcoming {
     return status == 'Upcoming';
   }
-
-  // 開始時刻の日本語表示
+  // 開始時刻の日本語表示（端末のタイムゾーンで表示）
   String get startTimeJapanese {
-    return '${startTime.year}年${startTime.month}月${startTime.day}日 ${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
+    final localTime = startTime.toLocal();
+    return '${localTime.year}年${localTime.month}月${localTime.day}日 ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
+  }
+  // 開始時刻の詳細な日本語表示（曜日付き）
+  String get startTimeWithWeekday {
+    final localTime = startTime.toLocal();
+    final weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    final weekday = weekdays[localTime.weekday % 7];
+    return '${localTime.year}年${localTime.month}月${localTime.day}日（$weekday） ${localTime.hour.toString().padLeft(2, '0')}:${localTime.minute.toString().padLeft(2, '0')}';
   }
 
   // 時間の表示（例：1時間40分）
   String get durationString {
     final hours = durationMin ~/ 60;
     final minutes = durationMin % 60;
-    
-    if (hours == 0) {
+      if (hours == 0) {
       return '${minutes}分';
     } else if (minutes == 0) {
       return '${hours}時間';

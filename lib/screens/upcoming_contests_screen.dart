@@ -215,11 +215,10 @@ class _UpcomingContestsScreenState extends State<UpcomingContestsScreen>
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              const SizedBox(height: 12),
-              _buildInfoRow(
+              const SizedBox(height: 12),              _buildInfoRow(
                 context,
                 Icons.event,
-                contest.startTimeJapanese,
+                contest.startTimeWithWeekday,
               ),
               const SizedBox(height: 8),
               _buildInfoRow(
