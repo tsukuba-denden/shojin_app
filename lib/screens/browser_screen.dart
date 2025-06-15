@@ -18,7 +18,7 @@ class BrowserScreen extends StatefulWidget {
   State<BrowserScreen> createState() => _BrowserScreenState();
 }
 
-class _BrowserScreenState extends State<BrowserScreen> {
+class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveClientMixin {
   late WebViewController _controller;
   List<BrowserSite> _sites = [];
   bool _isControllerReady = false;
@@ -490,7 +490,11 @@ class _BrowserScreenState extends State<BrowserScreen> {
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context); // AutomaticKeepAliveClientMixin を使うために必要
     return Column(
       children: [
         SizedBox(

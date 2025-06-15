@@ -322,24 +322,9 @@ class _MainScreenState extends State<MainScreen> {
         extendBody: true, // Allow body to extend behind BottomNavigationBar for backdrop blur
         body: SafeArea(
           bottom: false, // allow content under BottomNavigationBar for BackdropFilter
-          child: PageTransitionSwitcher(
-            duration: const Duration(milliseconds: 400),
-            transitionBuilder: (
-              Widget child,
-              Animation<double> animation,
-              Animation<double> secondaryAnimation,
-            ) {
-              return FadeThroughTransition(
-                animation: animation,
-                secondaryAnimation: secondaryAnimation,
-                fillColor: Theme.of(context).colorScheme.surface,
-                child: child,
-              );
-            },
-            child: KeyedSubtree(
-              key: ValueKey(_selectedIndex),
-              child: screens[_selectedIndex],
-            ),
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: screens,
           ),
         ),
         bottomNavigationBar: ClipRect(
