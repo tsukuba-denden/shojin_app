@@ -240,24 +240,39 @@ class _UpcomingContestsScreenState extends State<UpcomingContestsScreen>
         ),
       ),
     );
-  }
-
-  Widget _buildContestTypeChip(BuildContext context, Contest contest) {
+  }  Widget _buildContestTypeChip(BuildContext context, Contest contest) {
     final theme = Theme.of(context);
     
     String type = 'その他';
     Color color = theme.colorScheme.outline;
     
-    if (contest.isABC) {
+    // より確実な文字列マッチング
+    final nameJa = contest.nameJa;
+    final nameEn = contest.nameEn;
+    
+    if (contest.isABC || 
+        nameJa.contains('Beginner Contest') || 
+        nameEn.contains('Beginner Contest') ||
+        nameJa.contains('AtCoder Beginner Contest') || 
+        nameEn.contains('AtCoder Beginner Contest')) {
       type = 'ABC';
       color = Colors.green;
-    } else if (contest.nameJa.contains('ARC') || contest.nameEn.contains('ARC')) {
+    } else if (nameJa.contains('Regular Contest') || 
+               nameEn.contains('Regular Contest') ||
+               nameJa.contains('AtCoder Regular Contest') || 
+               nameEn.contains('AtCoder Regular Contest')) {
       type = 'ARC';
       color = Colors.orange;
-    } else if (contest.nameJa.contains('AGC') || contest.nameEn.contains('AGC')) {
+    } else if (nameJa.contains('Grand Contest') || 
+               nameEn.contains('Grand Contest') ||
+               nameJa.contains('AtCoder Grand Contest') || 
+               nameEn.contains('AtCoder Grand Contest')) {
       type = 'AGC';
       color = Colors.red;
-    } else if (contest.nameJa.contains('AHC') || contest.nameEn.contains('AHC')) {
+    } else if (nameJa.contains('Heuristic Contest') || 
+               nameEn.contains('Heuristic Contest') ||
+               nameJa.contains('AtCoder Heuristic Contest') || 
+               nameEn.contains('AtCoder Heuristic Contest')) {
       type = 'AHC';
       color = Colors.purple;
     }
