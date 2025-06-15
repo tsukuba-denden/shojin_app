@@ -10,6 +10,13 @@ class ReminderSettingsScreen extends StatefulWidget {
   State<ReminderSettingsScreen> createState() => _ReminderSettingsScreenState();
 }
 
+class _NotificationTimeOption {
+  final String label;
+  final int? value; // null の場合はカスタム入力を示す
+
+  const _NotificationTimeOption(this.label, this.value);
+}
+
 class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
   final ReminderStorageService _storageService = ReminderStorageService();
   List<ReminderSetting> _reminderSettings = [];
@@ -22,7 +29,17 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
     ContestType.ahc: 'AtCoder Heuristic Contest',
   };
 
-  // final List<int> _notificationMinutesOptions = [5, 10, 15, 30, 60]; // 固定オプションは不要に
+  static const List<_NotificationTimeOption> _timeOptions = [
+    _NotificationTimeOption('0分前', 0),
+    _NotificationTimeOption('5分前', 5),
+    _NotificationTimeOption('10分前', 10),
+    _NotificationTimeOption('15分前', 15),
+    _NotificationTimeOption('30分前', 30),
+    _NotificationTimeOption('1時間前', 60),
+    _NotificationTimeOption('2時間前', 120),
+    _NotificationTimeOption('カスタム...', null), // カスタム入力用
+  ];
+
 
   @override
   void initState() {
@@ -39,7 +56,7 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
       if (!loadedSettings.any((s) => s.contestType == type)) {
         loadedSettings.add(ReminderSetting(
           contestType: type,
-          minutesBefore: [15], // デフォルトをリストに変更
+          minutesBefore: [15],
           isEnabled: true,
         ));
       }
@@ -55,10 +72,9 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
   }
 
   Future<void> _saveSettings() async {
-    // 空のminutesBeforeを持つ設定をフィルタリングまたはデフォルト値を設定
     for (var setting in _reminderSettings) {
       if (setting.minutesBefore.isEmpty) {
-        setting.minutesBefore = [15]; // もし空ならデフォルト値を設定
+        setting.minutesBefore = [15];
       }
     }
     await _storageService.saveReminderSettings(_reminderSettings);
@@ -69,12 +85,12 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
     }
   }
 
-  Future<void> _addNotificationTime(int settingIndex) async {
+  Future<void> _showCustomTimeInputDialog(int settingIndex) async {
     final TextEditingController controller = TextEditingController();
     final newTime = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('通知時間を追加 (分前)'),
+        title: const Text('通知時間を入力 (分前)'),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
@@ -89,16 +105,15 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
           TextButton(
             onPressed: () {
               final value = int.tryParse(controller.text);
-              if (value != null && value > 0) {
+              if (value != null && value >= 0) { // 0分前も許可
                 Navigator.of(context).pop(value);
               } else {
-                // エラー表示など
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('有効な数値を入力してください')),
                 );
               }
             },
-            child: const Text('追加'),
+            child: const Text('決定'),
           ),
         ],
       ),
@@ -108,9 +123,43 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
       setState(() {
         if (!_reminderSettings[settingIndex].minutesBefore.contains(newTime)) {
           _reminderSettings[settingIndex].minutesBefore.add(newTime);
-          _reminderSettings[settingIndex].minutesBefore.sort(); // 時間をソート
+          _reminderSettings[settingIndex].minutesBefore.sort();
         }
       });
+    }
+  }
+
+  Future<void> _addNotificationTime(int settingIndex) async {
+    final selectedOption = await showDialog<_NotificationTimeOption>(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          title: const Text('通知時間を選択'),
+          children: _timeOptions.map((option) {
+            return SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context, option);
+              },
+              child: Text(option.label),
+            );
+          }).toList(),
+        );
+      },
+    );
+
+    if (selectedOption != null) {
+      if (selectedOption.value != null) {
+        // 事前定義された時間
+        setState(() {
+          if (!_reminderSettings[settingIndex].minutesBefore.contains(selectedOption.value!)) {
+            _reminderSettings[settingIndex].minutesBefore.add(selectedOption.value!);
+            _reminderSettings[settingIndex].minutesBefore.sort();
+          }
+        });
+      } else {
+        // カスタム入力
+        await _showCustomTimeInputDialog(settingIndex);
+      }
     }
   }
 
