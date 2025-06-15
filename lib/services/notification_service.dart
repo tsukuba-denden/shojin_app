@@ -1,4 +1,3 @@
-
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -51,10 +50,16 @@ class NotificationService {
   // void onDidReceiveLocalNotification(
   //     int id, String? title, String? body, String? payload) async {
   //   // display a dialog with the notification details, tap ok to go to another page
-  // }  Future<void> requestPermissions() async {
-    // Android の通知許可は通常、初期化時に自動的に処理されるか、
-    // アプリがフォアグラウンドで通知を送信しようとしたときに処理される
-    
+  // }
+
+  Future<void> requestPermissions() async {
+    // Android 13 以降の通知許可
+    final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
+        flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+    // await androidImplementation?.requestExactAlarmsPermission(); // 必要に応じて別途対応
+    await androidImplementation?.requestPermission(); // Android 13+ の標準的な通知許可リクエスト
+
     // iOS の通知許可
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
@@ -81,37 +86,35 @@ class NotificationService {
     required String body,
     required DateTime scheduledTime,
     String? payload,
-  }) async {    await flutterLocalNotificationsPlugin.zonedSchedule(
+  }) async {
+    await flutterLocalNotificationsPlugin.zonedSchedule(
       id,
       title,
       body,
-      tz.TZDateTime.from(scheduledTime, tz.local), // デバイスのローカルタイムゾーンを使用
+      tz.TZDateTime.from(scheduledTime, tz.local),
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'shojin_app_channel_id', // チャンネルID
-          'Shojin App Notifications', // チャンネル名
-          channelDescription: 'Notifications for Shojin App contests', // チャンネルの説明
+          'shojin_app_channel_id',
+          'Shojin App Notifications',
+          channelDescription: 'Notifications for Shojin App contests',
           importance: Importance.max,
           priority: Priority.high,
-          // sound: RawResourceAndroidNotificationSound('notification_sound'), // カスタムサウンド (res/raw に配置)
-          // styleInformation: BigTextStyleInformation(''), // 長いテキスト用
         ),
         iOS: DarwinNotificationDetails(
-          // sound: 'notification_sound.aiff', // カスタムサウンド (Runner/Resources に配置)
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
         ),
         macOS: DarwinNotificationDetails(
-          // sound: 'notification_sound.aiff', // カスタムサウンド
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
         ),
       ),
-      androidAllowWhileIdle: true, // アイドル時でも通知を許可
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // アイドル時でも正確な時間に通知
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
       payload: payload,
-      // matchDateTimeComponents: DateTimeComponents.time, // 毎日同じ時間に繰り返す場合など
     );
   }
 
