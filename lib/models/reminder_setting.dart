@@ -1,4 +1,3 @@
-
 enum ContestType {
   abc,
   arc,
@@ -9,7 +8,7 @@ enum ContestType {
 
 class ReminderSetting {
   final ContestType contestType;
-  final int minutesBefore; // 何分前に通知するか
+  int minutesBefore; // 何分前に通知するか
   bool isEnabled; // このリマインダーが有効か
 
   ReminderSetting({
