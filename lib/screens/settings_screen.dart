@@ -4,6 +4,7 @@ import 'package:flutter/services.dart'; // For haptic feedback
 import 'package:google_fonts/google_fonts.dart'; // Add Google Fonts
 import 'package:shared_preferences/shared_preferences.dart'; // For settings persistence
 import 'package:url_launcher/url_launcher.dart'; // For launching URLs
+import 'package:flutter_svg/flutter_svg.dart'; // For SVG icons
 import '../providers/theme_provider.dart';
 import '../providers/template_provider.dart';
 import 'template_edit_screen.dart';
@@ -547,7 +548,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: 'tsukuba-denden.github.io',
                 url: 'https://tsukuba-denden.github.io/',
               ),              _SocialMediaItem(
-                icon: Icons.chat,
+                icon: SvgPicture.asset(
+                  'assets/icon/twitter_logo.svg',
+                  width: 24,
+                  height: 24,
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).colorScheme.primary,
+                    BlendMode.srcIn,
+                  ),
+                ),
                 title: 'Twitter',
                 subtitle: '@Tsukuba_Denden',
                 url: 'https://twitter.com/Tsukuba_Denden',
@@ -878,7 +887,7 @@ class _CopyableListTile extends StatelessWidget {
 
 // ソーシャルメディアアイテム
 class _SocialMediaItem extends StatelessWidget {
-  final IconData icon;
+  final dynamic icon; // IconData or Widget
   final String title;
   final String subtitle;
   final String url;
@@ -934,12 +943,14 @@ class _SocialMediaItem extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return ListTile(
+  Widget build(BuildContext context) {    return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
-      leading: Icon(
-        icon,        color: Theme.of(context).colorScheme.primary,
-      ),
+      leading: icon is IconData 
+        ? Icon(
+            icon as IconData,
+            color: Theme.of(context).colorScheme.primary,
+          )
+        : icon as Widget,
       title: Text(
         title,
         style: GoogleFonts.notoSansJp(

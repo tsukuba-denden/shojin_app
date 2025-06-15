@@ -22,12 +22,13 @@ dependencies:
   permission_handler: ^12.0.0+1
   archive: ^4.0.7
   crypto: ^3.0.5
-
   cupertino_icons: ^1.0.8
   dynamic_color: ^1.6.9
   google_fonts: ^6.1.0
+  flutter_svg: ^2.0.9
   
-  # AtCoder問題のスクレイピングに必要なパッケージ  http: ^1.4.0
+  # AtCoder問題のスクレイピングに必要なパッケージ
+  http: ^1.4.0
   html: ^0.15.6
   flutter_markdown: ^0.7.1
   flutter_code_editor: ^0.3.1
@@ -64,6 +65,9 @@ dev_dependencies:
 flutter:
   generate: true
   uses-material-design: true
+  
+  assets:
+    - assets/icon/twitter_logo.svg
 
 flutter_launcher_icons:
   android: true
