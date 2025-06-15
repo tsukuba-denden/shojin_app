@@ -560,9 +560,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Twitter',
                 subtitle: '@Tsukuba_Denden',
                 url: 'https://twitter.com/Tsukuba_Denden',
-              ),
-              _SocialMediaItem(
-                icon: Icons.play_arrow,
+              ),              _SocialMediaItem(
+                icon: SvgPicture.asset(
+                  'assets/icon/youtube_logo.svg',
+                  width: 24,
+                  height: 24,
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).colorScheme.primary,
+                    BlendMode.srcIn,
+                  ),
+                ),
                 title: 'YouTube',
                 subtitle: '@Tsukuba-DenDen',
                 url: 'https://www.youtube.com/@Tsukuba-DenDen',
