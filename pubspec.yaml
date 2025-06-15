@@ -27,6 +27,7 @@ dependencies:
   google_fonts: ^6.1.0
   flutter_svg: ^2.0.9
   flutter_local_notifications: ^19.2.1
+  timezone: ^0.10.0 # flutter_local_notifications の依存関係に合わせて修正
 
   # AtCoder問題のスクレイピングに必要なパッケージ
   http: ^1.4.0

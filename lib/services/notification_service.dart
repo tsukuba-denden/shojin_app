@@ -1,8 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
-// import '../models/contest.dart'; // 必要に応じて Contest モデルをインポート
-// import '../models/reminder_setting.dart'; // 必要に応じて ReminderSetting モデルをインポート
 
 class NotificationService {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -33,7 +31,7 @@ class NotificationService {
     );
 
     // タイムゾーンの初期化
-    tz.initializeTimeZones();
+    tz_data.initializeTimeZones(); // tz.initializeTimeZones(); から変更
     // tz.setLocalLocation(tz.getLocation('Asia/Tokyo')); // 必要に応じてデフォルトのタイムゾーンを設定
   }
 
@@ -53,12 +51,10 @@ class NotificationService {
   // }
 
   Future<void> requestPermissions() async {
-    // Android 13 以降の通知許可
     final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
         flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
-    // await androidImplementation?.requestExactAlarmsPermission(); // 必要に応じて別途対応
-    await androidImplementation?.requestPermission(); // Android 13+ の標準的な通知許可リクエスト
+    await androidImplementation?.requestNotificationsPermission(); // requestPermission から requestNotificationsPermission に修正
 
     // iOS の通知許可
     await flutterLocalNotificationsPlugin
@@ -92,7 +88,7 @@ class NotificationService {
       title,
       body,
       tz.TZDateTime.from(scheduledTime, tz.local),
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
           'shojin_app_channel_id',
           'Shojin App Notifications',
@@ -111,9 +107,7 @@ class NotificationService {
           presentSound: true,
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // アイドル時でも正確な時間に通知
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       payload: payload,
     );
   }
