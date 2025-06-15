@@ -27,15 +27,13 @@ dependencies:
   dynamic_color: ^1.6.9
   google_fonts: ^6.1.0
   
-  # AtCoder問題のスクレイピングに必要なパッケージ
-  http: ^1.4.0
-  html: ^0.15.6  
+  # AtCoder問題のスクレイピングに必要なパッケージ  http: ^1.4.0
+  html: ^0.15.6
   flutter_markdown: ^0.7.1
   flutter_code_editor: ^0.3.1
   code_text_field: ^1.1.0
   highlight: ^0.7.0
-  flutter_highlight: ^0.7.0
-  
+  flutter_highlight: ^0.7.0  
   # 設定の保存に必要
   shared_preferences: ^2.2.3
   provider: ^6.1.5
@@ -45,6 +43,7 @@ dependencies:
   open_file: ^3.5.10
   intl: ^0.20.2
   animations: ^2.0.11
+  yaml: ^3.1.2
   android_package_installer:
     git:
       url: https://github.com/ImranR98/android_package_installer

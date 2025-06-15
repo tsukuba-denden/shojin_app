@@ -11,6 +11,7 @@ import 'screens/home_screen_new.dart'; // Import new home screen
 import 'screens/browser_screen.dart'; // Import the new browser screen
 import 'providers/theme_provider.dart';
 import 'providers/template_provider.dart';
+import 'providers/contest_provider.dart';
 import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // 追加
@@ -20,10 +21,10 @@ import 'services/auto_update_manager.dart'; // Add auto update manager
 void main() async {
   // Flutter Engineの初期化を保証
   WidgetsFlutterBinding.ensureInitialized();
-
   // Providerのインスタンスを作成
   final themeProvider = ThemeProvider();
   final templateProvider = TemplateProvider();
+  final contestProvider = ContestProvider();
 
   // 非同期でテーマとテンプレートの読み込みが完了するのを待つ
   // 各プロバイダー内の_loadFromPrefsの完了を待つため、
@@ -33,10 +34,10 @@ void main() async {
   }
 
   runApp(
-    MultiProvider(
-      providers: [
+    MultiProvider(      providers: [
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: templateProvider),
+        ChangeNotifierProvider.value(value: contestProvider),
       ],
       child: const MyApp(),
     ),
