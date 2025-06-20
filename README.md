@@ -3,9 +3,12 @@
 [![Latest release](https://img.shields.io/github/v/release/tsukuba-denden/Shojin_App?include_prereleases)](https://github.com/tsukuba-denden/Shojin_App/releases)
 [![License](https://img.shields.io/github/license/tsukuba-denden/Shojin_App)](https://github.com/tsukuba-denden/shojin_app/tree/main?tab=MIT-1-ov-file)
 [![Downloads](https://img.shields.io/github/downloads/tsukuba-denden/Shojin_App/total)](https://github.com/tsukuba-denden/Shojin_App/releases)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/tsukuba-denden/shojin_app)
+![Forks](https://img.shields.io/github/forks/b-editor/beutl)
 [![GitHub Stars](https://img.shields.io/github/stars/tsukuba-denden/shojin_app)](https://github.com/tsukuba-denden/shojin_app)
 [![Android Build](https://github.com/tsukuba-denden/shojin_app/actions/workflows/build.yaml/badge.svg)](https://github.com/tsukuba-denden/shojin_app/actions/workflows/build.yaml)
+![Issues](https://img.shields.io/github/issues/b-editor/beutl)
+![Repo Size](https://img.shields.io/github/repo-size/b-editor/beutl)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/tsukuba-denden/shojin_app)
 
 [<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png"
     alt="Get it on GitHub"
