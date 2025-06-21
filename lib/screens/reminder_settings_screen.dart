@@ -78,11 +78,6 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
       }
     }
     await _storageService.saveReminderSettings(_reminderSettings);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('設定を保存しました')),
-      );
-    }
   }
 
   Future<void> _showCustomTimeInputDialog(int settingIndex) async {
@@ -126,6 +121,7 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
           _reminderSettings[settingIndex].minutesBefore.sort();
         }
       });
+      await _saveSettings();
     }
   }
 
@@ -151,11 +147,16 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
       if (selectedOption.value != null) {
         // 事前定義された時間
         setState(() {
-          if (!_reminderSettings[settingIndex].minutesBefore.contains(selectedOption.value!)) {
-            _reminderSettings[settingIndex].minutesBefore.add(selectedOption.value!);
+          if (!_reminderSettings[settingIndex]
+              .minutesBefore
+              .contains(selectedOption.value!)) {
+            _reminderSettings[settingIndex]
+                .minutesBefore
+                .add(selectedOption.value!);
             _reminderSettings[settingIndex].minutesBefore.sort();
           }
         });
+        await _saveSettings();
       } else {
         // カスタム入力
         await _showCustomTimeInputDialog(settingIndex);
@@ -167,6 +168,7 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
     setState(() {
       _reminderSettings[settingIndex].minutesBefore.remove(timeToRemove);
     });
+    _saveSettings();
   }
 
   @override
@@ -174,13 +176,6 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('リマインダー設定'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save_alt_outlined),
-            tooltip: '設定を保存',
-            onPressed: _isLoading ? null : _saveSettings,
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -199,38 +194,44 @@ class _ReminderSettingsScreenState extends State<ReminderSettingsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              contestName,
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 16),
-                            const Text('通知タイミング (分前):'),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8.0,
-                              runSpacing: 4.0,
-                              children: setting.minutesBefore.map((time) {
-                                return Chip(
-                                  label: Text('$time 分前'),
-                                  onDeleted: () => _removeNotificationTime(index, time),
-                                );
-                              }).toList(),
-                            ),
-                            TextButton.icon(
-                              icon: const Icon(Icons.add_alarm_outlined),
-                              label: const Text('時間を追加'),
-                              onPressed: () => _addNotificationTime(index),
-                            ),
-                            const SizedBox(height: 8),
                             SwitchListTile(
-                              title: const Text('リマインダーを有効にする'),
+                              title: Text(
+                                contestName,
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
                               value: setting.isEnabled,
                               onChanged: (bool value) {
                                 setState(() {
-                                  _reminderSettings[index].isEnabled = value;
+                                  setting.isEnabled = value;
                                 });
+                                _saveSettings();
                               },
-                              contentPadding: EdgeInsets.zero,
+                            ),
+                            const SizedBox(height: 8),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('通知タイミング (分前):'),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8.0,
+                                    runSpacing: 4.0,
+                                    children: setting.minutesBefore.map((time) {
+                                      return Chip(
+                                        label: Text('$time 分前'),
+                                        onDeleted: () => _removeNotificationTime(index, time),
+                                      );
+                                    }).toList(),
+                                  ),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.add_alarm_outlined),
+                                    label: const Text('時間を追加'),
+                                    onPressed: () => _addNotificationTime(index),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
