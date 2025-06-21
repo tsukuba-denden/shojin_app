@@ -17,10 +17,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // 追加
 import 'l10n/app_localizations.dart'; // 追加 (生成されるファイル)
 import 'services/auto_update_manager.dart'; // Add auto update manager
+import 'services/notification_service.dart'; // Import NotificationService
 
 void main() async {
   // Flutter Engineの初期化を保証
   WidgetsFlutterBinding.ensureInitialized();
+
+  // NotificationServiceの初期化と権限リクエスト
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+  await notificationService.requestPermissions();
+
   // Providerのインスタンスを作成
   final themeProvider = ThemeProvider();
   final templateProvider = TemplateProvider();
