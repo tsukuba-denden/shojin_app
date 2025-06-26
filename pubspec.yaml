@@ -25,7 +25,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   dynamic_color: ^1.6.9
   google_fonts: ^6.1.0
-  flutter_svg: ^2.0.9
+  flutter_svg: ^2.2.0
   flutter_local_notifications: ^19.3.0
   timezone: ^0.10.0 # flutter_local_notifications の依存関係に合わせて修正
 
