@@ -447,7 +447,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _SAboutSection() {
     return _SettingsSection(
       title: 'アプリについて',
-      icon: Icons.info_outline,      children: [        _CopyableListTile(
+      icon: Icons.info_outline,
+      children: [
+        _CopyableListTile(
           title: 'バージョン',
           subtitle: _currentVersion,
           icon: Icons.tag,
@@ -455,6 +457,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         // 開発者セクション（ソーシャルメディアリンク付き）
         _DeveloperSection(),
+        const Divider(),
+        ListTile(
+          leading: const Icon(Icons.description_outlined),
+          title: const Text('オープンソースライセンス'),
+          onTap: () {
+            showLicensePage(
+              context: context,
+              applicationName: 'Shojin App',
+              applicationVersion: _currentVersion,
+            );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.privacy_tip_outlined),
+          title: const Text('プライバシーポリシー'),
+          onTap: () {
+            launchUrl(Uri.parse('https://github.com/tsukuba-denden/shojin_app/blob/main/PRIVACY_POLICY.md'));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.article_outlined),
+          title: const Text('利用規約'),
+          onTap: () {
+            launchUrl(Uri.parse('https://github.com/tsukuba-denden/shojin_app/blob/main/TERMS_OF_USE.md'));
+          },
+        ),
         if (_aboutInfo != null) ...[
           const Divider(),
           if (_aboutInfo!['error'] != null)
@@ -463,7 +491,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: Text(_aboutInfo!['error']),
               leading: const Icon(Icons.error),
             )
-          else ..._buildAboutDetails(),
+          else
+            ..._buildAboutDetails(),
         ] else
           const ListTile(
             title: Text('情報の読み込み中...'),
