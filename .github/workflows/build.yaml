@@ -68,7 +68,7 @@ jobs:
       # Step 6: Android APK をビルド (--release オプションでリリースモード)
       # --split-per-abi をつけるとCPUアーキテクチャごとにAPKが分割されます
       - name: Build APK
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi --build-number=${{ github.run_number }}
         # 単一のAPKが必要な場合は: flutter build apk --release
 
       # Step 7: pubspec.yaml からバージョンを読み取る
