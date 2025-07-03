@@ -1,5 +1,3 @@
-# .github/workflows/build.yml
-
 name: Android Build
 
 # ワークフローが実行されるトリガーを指定
@@ -29,6 +27,14 @@ on:
         type: boolean
         required: true
         default: true
+      build_type: # <--- 変更点: ビルドタイプを選択する入力を追加
+        description: 'APK Build Type (split per ABI or single universal)'
+        type: choice
+        required: true
+        options:
+          - split
+          - single
+        default: 'split'
 
 jobs:
   build:
@@ -36,26 +42,26 @@ jobs:
     runs-on: ubuntu-latest
     outputs: # outputs を定義して他のジョブから参照可能にする
       version: ${{ steps.get_version.outputs.version }}
+      # <--- 変更点: deployジョブでビルドタイプを判定するためにoutputsを追加
+      build_type: ${{ github.event.inputs.build_type || 'split' }}
 
     steps:
       # Step 1: リポジトリのコードをチェックアウト
       - name: Checkout code
-        uses: actions/checkout@v4 # 最新バージョンを確認してください
+        uses: actions/checkout@v4
 
-      # Step 2: Java Development Kit (JDK) をセットアップ (Androidビルドに必要)
+      # Step 2: Java Development Kit (JDK) をセットアップ
       - name: Set up JDK 21
-        uses: actions/setup-java@v4 # 最新バージョンを確認してください
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin' # または他のディストリビューション
-          java-version: '21'    # プロジェクトに必要なJavaバージョンを指定
+          distribution: 'temurin'
+          java-version: '21'
 
       # Step 3: Flutter SDK をセットアップ
-      # (オプション) プロジェクトルートに .flutter-version ファイルがあればそのバージョンが使われます
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2 # 最新バージョンを確認してください
+        uses: subosito/flutter-action@v2
         with:
-          channel: 'stable' # stable, beta, dev, master から選択
-          # flutter-version: '3.x.x' # 特定のバージョンを指定する場合
+          channel: 'stable'
 
       # Step 4: Flutterの依存関係を取得
       - name: Get Flutter dependencies
@@ -65,12 +71,19 @@ jobs:
       # - name: Clean Flutter project
       #   run: flutter clean
 
-      # Step 6: Android APK をビルド (--release オプションでリリースモード)
-      # --split-per-abi をつけるとCPUアーキテクチャごとにAPKが分割されます
-      - name: Build APK
-        run: flutter build apk --release --split-per-abi --build-number=${{ github.run_number }}
-        # 単一のAPKが必要な場合は: flutter build apk --release
+      # Step 6: Android APK をビルド
+      # <--- 変更点: 以下の2つのステップでビルド方法を分岐 --- >
 
+      # 分割APKをビルド (デフォルトまたは手動で'split'を選択した場合)
+      - name: Build APK (Split per ABI)
+        if: ${{ (github.event.inputs.build_type || 'split') == 'split' }}
+        run: flutter build apk --release --split-per-abi --build-number=${{ github.run_number }}
+
+      # 単一APKをビルド (手動で'single'を選択した場合)
+      - name: Build APK (Single Universal)
+        if: ${{ github.event.inputs.build_type == 'single' }}
+        run: flutter build apk --release --build-number=${{ github.run_number }}
+        
       # Step 7: pubspec.yaml からバージョンを読み取る
       - name: Read version from pubspec.yaml
         id: get_version
@@ -78,13 +91,23 @@ jobs:
           echo "version=$(grep '^version: ' pubspec.yaml | sed 's/version: //')" >> $GITHUB_OUTPUT
 
       # Step 8: ビルドされたAPKを成果物としてアップロード
-      # --split-per-abi を使用した場合、複数のAPKが生成されるためワイルドカードを使用
-      - name: Upload APK Artifact
+      # <--- 変更点: 以下の2つのステップでアップロードするファイルを分岐 --- >
+
+      # 分割APKをアップロード
+      - name: Upload Split APKs Artifact
+        if: ${{ (github.event.inputs.build_type || 'split') == 'split' }}
         uses: actions/upload-artifact@v4
         with:
           name: release-apk # deploy ジョブで参照するアーティファクト名
           path: build/app/outputs/flutter-apk/app-*-release.apk
-          # 単一APKの場合のパス例: build/app/outputs/apk/release/app-release.apk
+
+      # 単一APKをアップロード
+      - name: Upload Single APK Artifact
+        if: ${{ github.event.inputs.build_type == 'single' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/apk/release/app-release.apk
 
   deploy:
     runs-on: ubuntu-latest
@@ -102,13 +125,26 @@ jobs:
           name: release-apk # build ジョブでアップロードされたアーティファクト名
           path: artifacts/apk/ # ダウンロード先のディレクトリ
 
-      - name: Release
+      # <--- 変更点: 以下の2つのステップでリリースするファイルを分岐 --- >
+
+      # 分割APKをリリース
+      - name: Release with Split APKs
+        if: ${{ needs.build.outputs.build_type == 'split' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.build.outputs.version }} # build ジョブからバージョンを取得
+          tag_name: ${{ needs.build.outputs.version }}
           draft: false
           prerelease: false
-          generate_release_notes: ${{ github.event.inputs.generate_release_notes }} # リリースノート生成のオプション
-          files: artifacts/apk/app-*-release.apk # ダウンロードしたAPKファイルを指定
+          generate_release_notes: ${{ github.event.inputs.generate_release_notes }}
+          files: artifacts/apk/app-*-release.apk # 分割APKのパス
 
-
+      # 単一APKをリリース
+      - name: Release with Single APK
+        if: ${{ needs.build.outputs.build_type == 'single' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: ${{ github.event.inputs.generate_release_notes }}
+          files: artifacts/apk/app-release.apk # 単一APKのパス
