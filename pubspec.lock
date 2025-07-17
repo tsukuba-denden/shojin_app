@@ -5,18 +5,18 @@ packages:
     dependency: transitive
     description:
       name: _fe_analyzer_shared
-      sha256: ef06759dc1bc07f900a323b5a4c667aaa23c62704c26d8bdd22a18fd3ec04f6a
+      sha256: f7bac1065b51df46b2291296e1c1b3616a47aeb735aea46a8ca3dcb7bb700ee7
       url: "https://pub.dev"
     source: hosted
-    version: "84.0.0"
+    version: "86.0.0"
   analyzer:
     dependency: "direct dev"
     description:
       name: analyzer
-      sha256: c1e56e205548fa834b96925837dc45d463d433a40597e7004273af5db0d4c52e
+      sha256: "4001e2de7c9d125af9504b4c4f64ebba507c9cb9c712caf02ac1d4c37824f58c"
       url: "https://pub.dev"
     source: hosted
-    version: "7.5.0"
+    version: "8.0.0"
   android_package_installer:
     dependency: "direct main"
     description:
