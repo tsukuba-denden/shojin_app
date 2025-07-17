@@ -26,7 +26,7 @@ dependencies:
   dynamic_color: ^1.6.9
   google_fonts: ^6.1.0
   flutter_svg: ^2.2.0
-  flutter_local_notifications: ^19.3.0
+  flutter_local_notifications: ^19.3.1
   timezone: ^0.10.0 # flutter_local_notifications の依存関係に合わせて修正
 
   # AtCoder問題のスクレイピングに必要なパッケージ
