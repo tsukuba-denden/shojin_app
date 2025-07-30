@@ -17,6 +17,9 @@ class AtCoderService {
         final titleElement = document.querySelector('.h2');
         final title = titleElement?.text.trim() ?? 'タイトルが見つかりません';
         
+        // コンテストIDの取得
+        final contestId = _extractContestId(url);
+
         // デバッグ: HTMLの構造を調査
         developer.log("HTML構造の分析を開始...");
         _analyzeHtmlStructure(document);
@@ -74,6 +77,7 @@ class AtCoderService {
         
         return Problem(
           title: title,
+          contestId: contestId,
           statement: statement,
           constraints: constraints,
           inputFormat: inputFormat,
@@ -88,6 +92,24 @@ class AtCoderService {
       developer.log("エラーが発生しました: $e");
       rethrow;
     }
+  }
+
+  String _extractContestId(String url) {
+    try {
+      final uri = Uri.parse(url);
+      final segments = uri.pathSegments;
+      if (segments.length >= 2 && segments[0] == 'contests') {
+        return segments[1];
+      }
+    } catch (e) {
+      // Fallback for invalid URLs
+    }
+    // Fallback if contestId cannot be determined
+    final parts = url.split('/');
+    if (parts.length > 4 && parts[2] == 'atcoder.jp' && parts[3] == 'contests') {
+      return parts[4];
+    }
+    return 'unknown_contest';
   }
   
   // 見出しタイトルからセクションの内容を抽出する
