@@ -5,18 +5,18 @@ packages:
     dependency: transitive
     description:
       name: _fe_analyzer_shared
-      sha256: ef06759dc1bc07f900a323b5a4c667aaa23c62704c26d8bdd22a18fd3ec04f6a
+      sha256: f7bac1065b51df46b2291296e1c1b3616a47aeb735aea46a8ca3dcb7bb700ee7
       url: "https://pub.dev"
     source: hosted
-    version: "84.0.0"
+    version: "86.0.0"
   analyzer:
     dependency: "direct dev"
     description:
       name: analyzer
-      sha256: c1e56e205548fa834b96925837dc45d463d433a40597e7004273af5db0d4c52e
+      sha256: "4001e2de7c9d125af9504b4c4f64ebba507c9cb9c712caf02ac1d4c37824f58c"
       url: "https://pub.dev"
     source: hosted
-    version: "7.5.0"
+    version: "8.0.0"
   android_package_installer:
     dependency: "direct main"
     description:
@@ -276,10 +276,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_code_editor
-      sha256: "18cc1200e7481fcf144bc970fdec4e75b83e3f523da60bbf55810a4e8dd6f5fb"
+      sha256: "52da5d30f14b58ebd49a7ffa9f281430899b8bd02c12bf63a68756206470d99e"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.3"
+    version: "0.3.4"
   flutter_highlight:
     dependency: "direct main"
     description:
@@ -308,10 +308,10 @@ packages:
     dependency: "direct main"
     description:
       name: flutter_local_notifications
-      sha256: edae0c34573233ab03f5ba1f07465e55c384743893042cb19e010b4ee8541c12
+      sha256: "20ca0a9c82ce0c855ac62a2e580ab867f3fbea82680a90647f7953832d0850ae"
       url: "https://pub.dev"
     source: hosted
-    version: "19.3.0"
+    version: "19.4.0"
   flutter_local_notifications_linux:
     dependency: transitive
     description:
@@ -332,10 +332,10 @@ packages:
     dependency: transitive
     description:
       name: flutter_local_notifications_windows
-      sha256: f8fc0652a601f83419d623c85723a3e82ad81f92b33eaa9bcc21ea1b94773e6e
+      sha256: ed46d7ae4ec9d19e4c8fa2badac5fe27ba87a3fe387343ce726f927af074ec98
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.0"
+    version: "1.0.2"
   flutter_localizations:
     dependency: "direct main"
     description: flutter
@@ -699,10 +699,10 @@ packages:
     dependency: "direct main"
     description:
       name: permission_handler
-      sha256: "2d070d8684b68efb580a5997eb62f675e8a885ef0be6e754fb9ef489c177470f"
+      sha256: bc917da36261b00137bbc8896bf1482169cd76f866282368948f032c8c1caae1
       url: "https://pub.dev"
     source: hosted
-    version: "12.0.0+1"
+    version: "12.0.1"
   permission_handler_android:
     dependency: transitive
     description:
@@ -960,10 +960,10 @@ packages:
     dependency: "direct main"
     description:
       name: url_launcher
-      sha256: "9d06212b1362abc2f0f0d78e6f09f726608c74e3b9462e8368bb03314aa8d603"
+      sha256: f6a7e5c4835bb4e3026a04793a4199ca2d14c739ec378fdfe23fc8075d0439f8
       url: "https://pub.dev"
     source: hosted
-    version: "6.3.1"
+    version: "6.3.2"
   url_launcher_android:
     dependency: transitive
     description:
