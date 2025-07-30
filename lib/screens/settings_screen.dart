@@ -4,6 +4,7 @@ import 'package:flutter/services.dart'; // For haptic feedback
 import 'package:google_fonts/google_fonts.dart'; // Add Google Fonts
 import 'package:shared_preferences/shared_preferences.dart'; // For settings persistence
 import 'package:url_launcher/url_launcher.dart'; // For launching URLs
+import 'package:flutter_svg/flutter_svg.dart'; // For SVG icons
 import '../providers/theme_provider.dart';
 import '../providers/template_provider.dart';
 import 'template_edit_screen.dart';
@@ -446,7 +447,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _SAboutSection() {
     return _SettingsSection(
       title: 'アプリについて',
-      icon: Icons.info_outline,      children: [        _CopyableListTile(
+      icon: Icons.info_outline,
+      children: [
+        _CopyableListTile(
           title: 'バージョン',
           subtitle: _currentVersion,
           icon: Icons.tag,
@@ -454,6 +457,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         // 開発者セクション（ソーシャルメディアリンク付き）
         _DeveloperSection(),
+        const Divider(),
+        ListTile(
+          leading: const Icon(Icons.description_outlined),
+          title: const Text('オープンソースライセンス'),
+          onTap: () {
+            showLicensePage(
+              context: context,
+              applicationName: 'Shojin App',
+              applicationVersion: _currentVersion,
+            );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.privacy_tip_outlined),
+          title: const Text('プライバシーポリシー'),
+          onTap: () {
+            launchUrl(Uri.parse('https://github.com/tsukuba-denden/shojin_app/blob/main/PRIVACY_POLICY.md'));
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.article_outlined),
+          title: const Text('利用規約'),
+          onTap: () {
+            launchUrl(Uri.parse('https://github.com/tsukuba-denden/shojin_app/blob/main/TERMS_OF_USE.md'));
+          },
+        ),
         if (_aboutInfo != null) ...[
           const Divider(),
           if (_aboutInfo!['error'] != null)
@@ -462,7 +491,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               subtitle: Text(_aboutInfo!['error']),
               leading: const Icon(Icons.error),
             )
-          else ..._buildAboutDetails(),
+          else
+            ..._buildAboutDetails(),
         ] else
           const ListTile(
             title: Text('情報の読み込み中...'),
@@ -523,9 +553,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onCopy: _copyAllAppInfo,
       ),];
   }
-
   Widget _DeveloperSection() {
-    return ExpansionTile(      title: Text(
+    return ExpansionTile(
+      title: Text(
         '開発者',
         style: GoogleFonts.notoSansJp(
           fontSize: 16,
@@ -534,6 +564,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       subtitle: const Text('筑波大学附属中学校 電子電脳技術研究会'),
       leading: const Icon(Icons.code),
+      shape: const Border(), // 白い線を非表示にする
+      collapsedShape: const Border(), // 折りたたみ時の白い線も非表示にする
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -544,21 +576,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Website',
                 subtitle: 'tsukuba-denden.github.io',
                 url: 'https://tsukuba-denden.github.io/',
-              ),
-              _SocialMediaItem(
-                icon: Icons.alternate_email,
-                title: 'X (Twitter)',
+              ),              _SocialMediaItem(
+                icon: SvgPicture.asset(
+                  'assets/icon/twitter_logo.svg',
+                  width: 24,
+                  height: 24,
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).colorScheme.primary,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                title: 'Twitter',
                 subtitle: '@Tsukuba_Denden',
                 url: 'https://twitter.com/Tsukuba_Denden',
-              ),
-              _SocialMediaItem(
-                icon: Icons.play_arrow,
+              ),              _SocialMediaItem(
+                icon: SvgPicture.asset(
+                  'assets/icon/youtube_logo.svg',
+                  width: 24,
+                  height: 24,
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).colorScheme.primary,
+                    BlendMode.srcIn,
+                  ),
+                ),
                 title: 'YouTube',
                 subtitle: '@Tsukuba-DenDen',
                 url: 'https://www.youtube.com/@Tsukuba-DenDen',
-              ),
-              _SocialMediaItem(
-                icon: Icons.code,
+              ),              _SocialMediaItem(
+                icon: SvgPicture.asset(
+                  'assets/icon/github_logo.svg',
+                  width: 24,
+                  height: 24,
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).colorScheme.primary,
+                    BlendMode.srcIn,
+                  ),
+                ),
                 title: 'GitHub',
                 subtitle: 'tsukuba-denden',
                 url: 'https://github.com/tsukuba-denden',
@@ -877,7 +930,7 @@ class _CopyableListTile extends StatelessWidget {
 
 // ソーシャルメディアアイテム
 class _SocialMediaItem extends StatelessWidget {
-  final IconData icon;
+  final dynamic icon; // IconData or Widget
   final String title;
   final String subtitle;
   final String url;
@@ -933,12 +986,14 @@ class _SocialMediaItem extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return ListTile(
+  Widget build(BuildContext context) {    return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16.0),
-      leading: Icon(
-        icon,        color: Theme.of(context).colorScheme.primary,
-      ),
+      leading: icon is IconData 
+        ? Icon(
+            icon as IconData,
+            color: Theme.of(context).colorScheme.primary,
+          )
+        : icon as Widget,
       title: Text(
         title,
         style: GoogleFonts.notoSansJp(

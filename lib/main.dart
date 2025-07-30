@@ -11,19 +11,27 @@ import 'screens/home_screen_new.dart'; // Import new home screen
 import 'screens/browser_screen.dart'; // Import the new browser screen
 import 'providers/theme_provider.dart';
 import 'providers/template_provider.dart';
+import 'providers/contest_provider.dart';
 import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart'; // 追加
 import 'l10n/app_localizations.dart'; // 追加 (生成されるファイル)
 import 'services/auto_update_manager.dart'; // Add auto update manager
+import 'services/notification_service.dart'; // Import NotificationService
 
 void main() async {
   // Flutter Engineの初期化を保証
   WidgetsFlutterBinding.ensureInitialized();
 
+  // NotificationServiceの初期化と権限リクエスト
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+  await notificationService.requestPermissions();
+
   // Providerのインスタンスを作成
   final themeProvider = ThemeProvider();
   final templateProvider = TemplateProvider();
+  final contestProvider = ContestProvider();
 
   // 非同期でテーマとテンプレートの読み込みが完了するのを待つ
   // 各プロバイダー内の_loadFromPrefsの完了を待つため、
@@ -33,10 +41,10 @@ void main() async {
   }
 
   runApp(
-    MultiProvider(
-      providers: [
+    MultiProvider(      providers: [
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: templateProvider),
+        ChangeNotifierProvider.value(value: contestProvider),
       ],
       child: const MyApp(),
     ),
@@ -321,24 +329,9 @@ class _MainScreenState extends State<MainScreen> {
         extendBody: true, // Allow body to extend behind BottomNavigationBar for backdrop blur
         body: SafeArea(
           bottom: false, // allow content under BottomNavigationBar for BackdropFilter
-          child: PageTransitionSwitcher(
-            duration: const Duration(milliseconds: 400),
-            transitionBuilder: (
-              Widget child,
-              Animation<double> animation,
-              Animation<double> secondaryAnimation,
-            ) {
-              return FadeThroughTransition(
-                animation: animation,
-                secondaryAnimation: secondaryAnimation,
-                fillColor: Theme.of(context).colorScheme.surface,
-                child: child,
-              );
-            },
-            child: KeyedSubtree(
-              key: ValueKey(_selectedIndex),
-              child: screens[_selectedIndex],
-            ),
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: screens,
           ),
         ),
         bottomNavigationBar: ClipRect(

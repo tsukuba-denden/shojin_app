@@ -4,7 +4,7 @@ homepage: https://github.com/tsukuba-denden/shojin_app
 
 publish_to: 'none'
 
-version: 0.6.0-Beta
+version: 0.6.3-Beta
 
 environment:
   sdk: ^3.8.1
@@ -15,27 +15,28 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   package_info_plus: ^8.0.0
-  device_info_plus: ^11.1.0
+  device_info_plus: ^11.5.0
   path_provider: ^2.1.3
   pub_semver: ^2.1.4
-  url_launcher: ^6.3.0
-  permission_handler: ^12.0.0+1
+  url_launcher: ^6.3.2
+  permission_handler: ^12.0.1
   archive: ^4.0.7
   crypto: ^3.0.5
-
   cupertino_icons: ^1.0.8
   dynamic_color: ^1.6.9
   google_fonts: ^6.1.0
-  
+  flutter_svg: ^2.2.0
+  flutter_local_notifications: ^19.4.0
+  timezone: ^0.10.0 # flutter_local_notifications の依存関係に合わせて修正
+
   # AtCoder問題のスクレイピングに必要なパッケージ
   http: ^1.4.0
-  html: ^0.15.6  
-  flutter_markdown: ^0.7.1
-  flutter_code_editor: ^0.3.1
+  html: ^0.15.6
+  flutter_markdown_plus: ^1.0.3
+  flutter_code_editor: ^0.3.4
   code_text_field: ^1.1.0
   highlight: ^0.7.0
   flutter_highlight: ^0.7.0
-  
   # 設定の保存に必要
   shared_preferences: ^2.2.3
   provider: ^6.1.5
@@ -45,6 +46,7 @@ dependencies:
   open_file: ^3.5.10
   intl: ^0.20.2
   animations: ^2.0.11
+  yaml: ^3.1.2
   android_package_installer:
     git:
       url: https://github.com/ImranR98/android_package_installer
@@ -58,13 +60,18 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_launcher_icons: ^0.14.4
-  analyzer: ^7.4.5
+  analyzer: ^8.0.0
   flutter_lints: ^6.0.0
   change_app_package_name: ^1.5.0
 
 flutter:
   generate: true
   uses-material-design: true
+
+  assets:
+    - assets/icon/twitter_logo.svg
+    - assets/icon/youtube_logo.svg
+    - assets/icon/github_logo.svg
 
 flutter_launcher_icons:
   android: true
