@@ -15,7 +15,15 @@ class AtCoderService {
         
         // タイトルの取得
         final titleElement = document.querySelector('.h2');
-        final title = titleElement?.text.trim() ?? 'タイトルが見つかりません';
+        final String title;
+        if (titleElement != null) {
+          // cloneして、中のaタグ（Editorialへのリンク）を削除してからtextを取得する
+          final clonedElement = titleElement.clone(true);
+          clonedElement.querySelector('a')?.remove();
+          title = clonedElement.text.trim();
+        } else {
+          title = 'タイトルが見つかりません';
+        }
         
         // コンテストIDの取得
         final contestId = _extractContestId(url);
