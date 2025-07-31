@@ -290,6 +290,17 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (problem.contestName.isNotEmpty && problem.contestName != 'コンテスト名が見つかりません')
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Text(
+                      problem.contestName,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
                 TexWidget(
                   content: problem.title,
                   textStyle: const TextStyle(

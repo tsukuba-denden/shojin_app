@@ -28,6 +28,10 @@ class AtCoderService {
         // コンテストIDの取得
         final contestId = _extractContestId(url);
 
+        // コンテスト名の取得
+        final contestTitleElement = document.querySelector('.contest-title');
+        final contestName = contestTitleElement?.text.trim() ?? 'コンテスト名が見つかりません';
+
         // デバッグ: HTMLの構造を調査
         developer.log("HTML構造の分析を開始...");
         _analyzeHtmlStructure(document);
@@ -86,6 +90,7 @@ class AtCoderService {
         return Problem(
           title: title,
           contestId: contestId,
+          contestName: contestName,
           statement: statement,
           constraints: constraints,
           inputFormat: inputFormat,
