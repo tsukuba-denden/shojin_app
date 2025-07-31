@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:developer' as developer;
 import '../models/problem.dart';
 import '../services/atcoder_service.dart';
+import '../widgets/tex_widget.dart';
 
 class ProblemDetailScreen extends StatefulWidget {
   final String? initialUrl; // Keep for potential direct URL loading
@@ -275,7 +276,12 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
   }
 
   Widget _buildProblemView(Problem problem) {
+    // MediaQueryを使用して、下部のナビゲーションバーの高さを取得
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return SingleChildScrollView(
+      // 下部にパディングを追加して、コンテンツが隠れないようにする
+      padding: EdgeInsets.only(bottom: bottomPadding > 0 ? bottomPadding : 16),
       child: Padding(
         padding: const EdgeInsets.only(top: 16),
         child: Card(
@@ -284,9 +290,9 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  problem.title,
-                  style: const TextStyle(
+                TexWidget(
+                  content: problem.title,
+                  textStyle: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -321,10 +327,10 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
         if (parts[i].trim().isEmpty) continue;
         
         if (i % 2 == 0) {
-          // 通常テキスト部分 (通常のTextウィジェットに戻す)
-          contentWidgets.add(Text(
-            _replaceTexCommands(parts[i].trim()), // TeXコマンドを置換
-            style: Theme.of(context).textTheme.bodyMedium,
+          // 通常テキスト部分 - TeXレンダリングを使用
+          contentWidgets.add(TexWidget(
+            content: parts[i].trim(),
+            textStyle: Theme.of(context).textTheme.bodyMedium,
           ));
         } else {
           // コードブロック部分
@@ -349,10 +355,10 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
         }
       }
     } else {
-      // コードブロックがない場合は通常のTextウィジェットに戻す
-      contentWidgets.add(Text(
-        _replaceTexCommands(content), // TeXコマンドを置換
-        style: Theme.of(context).textTheme.bodyMedium,
+      // コードブロックがない場合もTeXレンダリングを使用
+      contentWidgets.add(TexWidget(
+        content: content,
+        textStyle: Theme.of(context).textTheme.bodyMedium,
       ));
     }
     
@@ -448,16 +454,5 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
         ),
       ],
     );
-  }
-
-  // TeXコマンドを対応するUnicode文字に置換するヘルパーメソッド
-  String _replaceTexCommands(String input) {
-    return input
-        .replaceAll(r'\leq', '≤')
-        .replaceAll(r'\geq', '≥')
-        .replaceAll(r'\times', '×')
-        .replaceAll(r'\dots', '…')
-        // 必要に応じて他の置換ルールを追加
-        ;
   }
 }

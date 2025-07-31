@@ -47,6 +47,8 @@ dependencies:
   intl: ^0.20.2
   animations: ^2.0.11
   yaml: ^3.1.2
+  # LaTeX/TeX数式レンダリング用
+  flutter_math_fork: ^0.7.3
   android_package_installer:
     git:
       url: https://github.com/ImranR98/android_package_installer

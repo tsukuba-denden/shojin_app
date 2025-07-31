@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart'; // For SVG icons
 import '../providers/theme_provider.dart';
 import '../providers/template_provider.dart';
 import 'template_edit_screen.dart';
+import 'tex_test_screen.dart'; // TeX表示テスト画面をインポート
 import '../services/enhanced_update_service.dart'; // Use enhanced service
 import '../services/auto_update_manager.dart'; // Import auto update manager
 import '../services/about_info.dart'; // Import AboutInfo
@@ -481,6 +482,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: const Text('利用規約'),
           onTap: () {
             launchUrl(Uri.parse('https://github.com/tsukuba-denden/shojin_app/blob/main/TERMS_OF_USE.md'));
+          },
+        ),
+        const Divider(),
+        ListTile(
+          leading: const Icon(Icons.functions),
+          title: const Text('TeX表示テスト'),
+          subtitle: const Text('LaTeX数式レンダリングの動作確認'),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TexTestScreen(),
+              ),
+            );
           },
         ),
         if (_aboutInfo != null) ...[

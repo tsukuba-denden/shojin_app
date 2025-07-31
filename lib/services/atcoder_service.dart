@@ -160,8 +160,9 @@ class AtCoderService {
           contentBuffer.write(currentElement.text.trim());
           contentBuffer.write('\n```\n\n');
         } else {
-          // テキストノードの内容を追加
-          contentBuffer.write(currentElement.text);
+          // テキストノードの内容を追加し、数式を自動検出
+          final text = _processTextWithMath(currentElement);
+          contentBuffer.write(text);
           contentBuffer.write('\n');
         }
         
@@ -223,6 +224,70 @@ class AtCoderService {
       developer.log("セクション内容抽出中にエラーが発生しました: $e");
       return '';
     }
+  }
+  
+  /// HTMLテキストから数式を検出し、適切に$で囲む
+  String _processTextWithMath(Element element) {
+    String text = '';
+    
+    // 子ノードを再帰的に処理
+    for (var node in element.nodes) {
+      if (node.nodeType == Node.TEXT_NODE) {
+        text += _wrapMathExpressions(node.text ?? '');
+      } else if (node.nodeType == Node.ELEMENT_NODE) {
+        final childElement = node as Element;
+        if (childElement.localName == 'var') {
+          // varタグの内容は数式として扱う
+          text += '\$${childElement.text}\$';
+        } else {
+          // 他の要素は再帰的に処理
+          text += _processTextWithMath(childElement);
+        }
+      }
+    }
+    
+    return text;
+  }
+  
+  /// テキスト内の数式表現を自動検出して$で囲む
+  String _wrapMathExpressions(String text) {
+    // 添字表記（例：S_i, T_{i+1}, A_j）を検出
+    text = text.replaceAllMapped(
+      RegExp(r'([A-Za-z])_(\{[^}]+\}|[A-Za-z0-9]+)'),
+      (match) => '\$${match.group(0)}\$',
+    );
+    
+    // 上付き表記（例：10^5, 2^n）を検出
+    text = text.replaceAllMapped(
+      RegExp(r'([0-9A-Za-z]+)\^(\{[^}]+\}|[A-Za-z0-9]+)'),
+      (match) => '\$${match.group(0)}\$',
+    );
+    
+    // 分数表記（例：T_i=T_j= o）を検出
+    text = text.replaceAllMapped(
+      RegExp(r'([A-Za-z])_([A-Za-z0-9]+)=([A-Za-z])_([A-Za-z0-9]+)=\s*([A-Za-z])'),
+      (match) => '\$${match.group(0)}\$',
+    );
+    
+    // 区間表記（例：T_{i+1},...,T_{j-1}）を検出
+    text = text.replaceAllMapped(
+      RegExp(r'([A-Za-z])_\{[^}]+\}[,…\.]+([A-Za-z])_\{[^}]+\}'),
+      (match) => '\$${match.group(0)}\$',
+    );
+    
+    // 不等式（例：i < j）を検出
+    text = text.replaceAllMapped(
+      RegExp(r'([A-Za-z0-9]+)\s*([<>≤≥])\s*([A-Za-z0-9]+)'),
+      (match) => '\$${match.group(0)}\$',
+    );
+    
+    // 合計記号付きの表記（例：Σ A_i）を検出
+    text = text.replaceAllMapped(
+      RegExp(r'([∑Σ])\s*([A-Za-z])_([A-Za-z0-9]+)'),
+      (match) => '\$${match.group(0)}\$',
+    );
+    
+    return text;
   }
   
   // varタグとサンプルから問題内容を推測する
@@ -305,7 +370,6 @@ class AtCoderService {
       
       // 入力行から形式を推測
       for (int i = 0; i < inputLines.length; i++) {
-        final line = inputLines[i].trim();
         if (i == 0) {
           inputFormatBuilder.write('a\n');
         } else if (i == 1) {
