@@ -163,15 +163,36 @@ class AtCoderService {
           break;
         }
         
+        // divやsectionでサンプル系の要素があればそこで終了
+        if (currentElement.localName == 'div' || currentElement.localName == 'section') {
+          // クラス名やidに「sample」や「example」が含まれていればセクション終了
+          final className = currentElement.className.toLowerCase();
+          final id = currentElement.id.toLowerCase();
+          if (className.contains('sample') || className.contains('example') ||
+              id.contains('sample') || id.contains('example')) {
+            break;
+          }
+        }
+        
         // preタグの場合は特別処理（入力形式のフォーマットなど）
         if (currentElement.localName == 'pre') {
           // preタグの内容をログ出力する
           developer.log("preタグの内容: ${currentElement.text}");
           
-          // preタグの内容をそのまま追加
-          contentBuffer.write('\n\n```\n');
-          contentBuffer.write(currentElement.text.trim());
-          contentBuffer.write('\n```\n\n');
+          // 入力セクションの場合はTeX形式で表示、それ以外はコードブロック
+          if (headingTexts.contains('入力') || headingTexts.contains('Input')) {
+            // 入力形式の場合はTeX表示（コードブロック化しない）
+            // preタグ内のテキストも数式として処理
+            final processedText = _processTextWithMath(currentElement);
+            contentBuffer.write('\n\n');
+            contentBuffer.write(processedText);
+            contentBuffer.write('\n\n');
+          } else {
+            // その他（出力形式など）の場合はコードブロック
+            contentBuffer.write('\n\n```\n');
+            contentBuffer.write(currentElement.text.trim());
+            contentBuffer.write('\n```\n\n');
+          }
         } else {
           // テキストノードの内容を追加し、数式を自動検出
           final text = _processTextWithMath(currentElement);
@@ -184,9 +205,14 @@ class AtCoderService {
       
       // 特定のセクションの追加処理（入力形式の場合）
       String content = contentBuffer.toString().trim();
+      
+      // 入力セクションの場合の追加処理とクリーンアップ
       if (headingTexts.contains('入力') || headingTexts.contains('Input')) {
+        // 不要な数値のみの行や入力例データを除去
+        content = _cleanInputSectionContent(content);
+        
         // 「入力は以下の形式で与えられる」のような文言だけで、実際のフォーマットがない場合
-        if (!content.contains('```')) {
+        if (!content.contains('```') && !content.contains('\$')) {
           developer.log("入力形式の例がないため、preタグを直接探す");
           
           // 入力例から入力形式を推測
@@ -207,9 +233,11 @@ class AtCoderService {
             
             if (examplePre != null) {
               developer.log("入力例から形式を推測: ${examplePre.text}");
-              contentBuffer.write('\n\n```\n');
-              contentBuffer.write(examplePre.text.trim());
-              contentBuffer.write('\n```\n\n');
+              // 入力形式はTeX表示（コードブロック化しない）
+              final processedText = _processTextWithMath(examplePre);
+              contentBuffer.write('\n\n');
+              contentBuffer.write(processedText);
+              contentBuffer.write('\n\n');
               
               // 入力形式の説明も追加
               contentBuffer.write('\n\n1行目は整数aが与えられる。');
@@ -222,9 +250,11 @@ class AtCoderService {
               final preText = pre.text.trim();
               if (preText.contains('a') && preText.contains('b c') && preText.contains('s')) {
                 developer.log("入力形式のpreタグを直接発見: $preText");
-                contentBuffer.write('\n\n```\n');
-                contentBuffer.write(preText);
-                contentBuffer.write('\n```\n\n');
+                // 入力形式はTeX表示（コードブロック化しない）
+                final processedText = _processTextWithMath(pre);
+                contentBuffer.write('\n\n');
+                contentBuffer.write(processedText);
+                contentBuffer.write('\n\n');
                 break;
               }
             }
@@ -232,11 +262,60 @@ class AtCoderService {
         }
       }
       
-      return contentBuffer.toString().trim();
+      // すべてのセクションで余分な改行を削除
+      content = _removeExcessiveNewlines(content);
+      
+      return content;
     } catch (e) {
       developer.log("セクション内容抽出中にエラーが発生しました: $e");
       return '';
     }
+  }
+  
+  /// 入力セクションの内容をクリーンアップする
+  String _cleanInputSectionContent(String content) {
+    final lines = content.split('\n');
+    final cleanedLines = <String>[];
+    
+    for (var line in lines) {
+      final trimmedLine = line.trim();
+      
+      // 空行をスキップ
+      if (trimmedLine.isEmpty) {
+        continue;
+      }
+      
+      // 単純な数値のみの行をスキップ（入力例のデータの可能性）
+      if (RegExp(r'^\d+$').hasMatch(trimmedLine)) {
+        continue;
+      }
+      
+      // 入力例のパターンをスキップ（例：#..#.）
+      if (RegExp(r'^[.#]+$').hasMatch(trimmedLine)) {
+        continue;
+      }
+      
+      // 不要な「整数aが与えられる」などの汎用的な説明をスキップ
+      if (trimmedLine.contains('行目は整数') && trimmedLine.contains('が与えられる')) {
+        continue;
+      }
+      
+      cleanedLines.add(line);
+    }
+    
+    return cleanedLines.join('\n').trim();
+  }
+  
+  /// 余分な改行を削除する
+  String _removeExcessiveNewlines(String content) {
+    // 3つ以上連続する改行を2つに制限
+    content = content.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    
+    // 行末の空白を削除
+    final lines = content.split('\n');
+    final trimmedLines = lines.map((line) => line.trimRight()).toList();
+    
+    return trimmedLines.join('\n').trim();
   }
   
   /// HTMLテキストから数式を検出し、適切に$で囲む
