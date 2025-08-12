@@ -324,27 +324,42 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
 
   Widget _buildSection(String title, String content) {
     if (content.isEmpty) return const SizedBox.shrink();
-    
-    // デバッグ情報
+
     developer.log('セクション[$title]の内容: $content');
-    
-    // 入力形式のフォーマット処理
+
     List<Widget> contentWidgets = [];
     final parts = content.split(RegExp(r'```'));
-    
-    // パートが複数ある場合（コードブロックが含まれている場合） 
-    if (parts.length > 1) {
+
+    // 「入力」セクションで、かつコードブロックがない場合の特別処理
+    if (title == '入力' && parts.length <= 1) {
+      contentWidgets.add(
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+          ),
+          // TexWidgetを使い、フォントスタイルを維持
+          child: TexWidget(
+            content: content,
+            textStyle: Theme.of(context).textTheme.bodyMedium,
+          ),
+        )
+      );
+    } else if (parts.length > 1) {
+      // コードブロックが含まれている場合の通常の処理
       for (int i = 0; i < parts.length; i++) {
         if (parts[i].trim().isEmpty) continue;
         
         if (i % 2 == 0) {
-          // 通常テキスト部分 - TeXレンダリングを使用
           contentWidgets.add(TexWidget(
             content: parts[i].trim(),
             textStyle: Theme.of(context).textTheme.bodyMedium,
           ));
         } else {
-          // コードブロック部分
           contentWidgets.add(
             Container(
               width: double.infinity,
@@ -366,14 +381,13 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
         }
       }
     } else {
-      // コードブロックがない場合もTeXレンダリングを使用
+      // 「入力」セクション以外でコードブロックがない場合の通常の処理
       contentWidgets.add(TexWidget(
         content: content,
         textStyle: Theme.of(context).textTheme.bodyMedium,
       ));
     }
     
-    // セクション全体の構築
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
