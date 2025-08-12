@@ -23,7 +23,7 @@ dependencies:
   archive: ^4.0.7
   crypto: ^3.0.5
   cupertino_icons: ^1.0.8
-  dynamic_color: ^1.6.9
+  dynamic_color: ^1.8.1
   google_fonts: ^6.3.0
   flutter_svg: ^2.2.0
   flutter_local_notifications: ^19.4.0
