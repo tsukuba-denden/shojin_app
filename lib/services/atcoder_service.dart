@@ -179,20 +179,10 @@ class AtCoderService {
           // preタグの内容をログ出力する
           developer.log("preタグの内容: ${currentElement.text}");
           
-          // 入力セクションの場合はTeX形式で表示、それ以外はコードブロック
-          if (headingTexts.contains('入力') || headingTexts.contains('Input')) {
-            // 入力形式の場合はTeX表示（コードブロック化しない）
-            // preタグ内のテキストも数式として処理
-            final processedText = _processTextWithMath(currentElement);
-            contentBuffer.write('\n\n');
-            contentBuffer.write(processedText);
-            contentBuffer.write('\n\n');
-          } else {
-            // その他（出力形式など）の場合はコードブロック
-            contentBuffer.write('\n\n```\n');
-            contentBuffer.write(currentElement.text.trim());
-            contentBuffer.write('\n```\n\n');
-          }
+          // すべてのpreタグをコードブロックとして扱うように修正
+          contentBuffer.write('\n\n```\n');
+          contentBuffer.write(currentElement.text.trim());
+          contentBuffer.write('\n```\n\n');
         } else {
           // テキストノードの内容を追加し、数式を自動検出
           final text = _processTextWithMath(currentElement);
