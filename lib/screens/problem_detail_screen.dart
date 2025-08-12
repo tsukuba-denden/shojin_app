@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:developer' as developer;
 import '../models/problem.dart';
 import '../services/atcoder_service.dart';
+import '../widgets/tex_widget.dart';
 
 class ProblemDetailScreen extends StatefulWidget {
   final String? initialUrl; // Keep for potential direct URL loading
@@ -275,7 +276,12 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
   }
 
   Widget _buildProblemView(Problem problem) {
+    // MediaQueryを使用して、下部のナビゲーションバーの高さを取得
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return SingleChildScrollView(
+      // 下部にパディングを追加して、コンテンツが隠れないようにする
+      padding: EdgeInsets.only(bottom: bottomPadding > 0 ? bottomPadding : 16),
       child: Padding(
         padding: const EdgeInsets.only(top: 16),
         child: Card(
@@ -284,9 +290,20 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  problem.title,
-                  style: const TextStyle(
+                if (problem.contestName.isNotEmpty && problem.contestName != 'コンテスト名が見つかりません')
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Text(
+                      problem.contestName,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                TexWidget(
+                  content: problem.title,
+                  textStyle: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -307,27 +324,42 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
 
   Widget _buildSection(String title, String content) {
     if (content.isEmpty) return const SizedBox.shrink();
-    
-    // デバッグ情報
+
     developer.log('セクション[$title]の内容: $content');
-    
-    // 入力形式のフォーマット処理
+
     List<Widget> contentWidgets = [];
     final parts = content.split(RegExp(r'```'));
-    
-    // パートが複数ある場合（コードブロックが含まれている場合） 
-    if (parts.length > 1) {
+
+    // 「入力」セクションで、かつコードブロックがない場合の特別処理
+    if (title == '入力' && parts.length <= 1) {
+      contentWidgets.add(
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
+          ),
+          // TexWidgetを使い、フォントスタイルを維持
+          child: TexWidget(
+            content: content,
+            textStyle: Theme.of(context).textTheme.bodyMedium,
+          ),
+        )
+      );
+    } else if (parts.length > 1) {
+      // コードブロックが含まれている場合の通常の処理
       for (int i = 0; i < parts.length; i++) {
         if (parts[i].trim().isEmpty) continue;
         
         if (i % 2 == 0) {
-          // 通常テキスト部分 (通常のTextウィジェットに戻す)
-          contentWidgets.add(Text(
-            _replaceTexCommands(parts[i].trim()), // TeXコマンドを置換
-            style: Theme.of(context).textTheme.bodyMedium,
+          contentWidgets.add(TexWidget(
+            content: parts[i].trim(),
+            textStyle: Theme.of(context).textTheme.bodyMedium,
           ));
         } else {
-          // コードブロック部分
           contentWidgets.add(
             Container(
               width: double.infinity,
@@ -349,14 +381,13 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
         }
       }
     } else {
-      // コードブロックがない場合は通常のTextウィジェットに戻す
-      contentWidgets.add(Text(
-        _replaceTexCommands(content), // TeXコマンドを置換
-        style: Theme.of(context).textTheme.bodyMedium,
+      // 「入力」セクション以外でコードブロックがない場合の通常の処理
+      contentWidgets.add(TexWidget(
+        content: content,
+        textStyle: Theme.of(context).textTheme.bodyMedium,
       ));
     }
     
-    // セクション全体の構築
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -448,16 +479,5 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
         ),
       ],
     );
-  }
-
-  // TeXコマンドを対応するUnicode文字に置換するヘルパーメソッド
-  String _replaceTexCommands(String input) {
-    return input
-        .replaceAll(r'\leq', '≤')
-        .replaceAll(r'\geq', '≥')
-        .replaceAll(r'\times', '×')
-        .replaceAll(r'\dots', '…')
-        // 必要に応じて他の置換ルールを追加
-        ;
   }
 }

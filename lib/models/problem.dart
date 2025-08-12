@@ -1,5 +1,7 @@
 class Problem {
   final String title;
+  final String contestId;
+  final String contestName;
   final String statement;
   final String constraints;
   final String inputFormat;
@@ -9,6 +11,8 @@ class Problem {
 
   Problem({
     required this.title,
+    required this.contestId,
+    required this.contestName,
     required this.statement,
     required this.constraints,
     required this.inputFormat,

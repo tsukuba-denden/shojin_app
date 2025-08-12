@@ -1,5 +1,7 @@
 import 'dart:async'; // TimeoutExceptionのために追加
 import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Clipboardのために追加
 import 'package:share_plus/share_plus.dart'; // コード共有用
@@ -14,7 +16,6 @@ import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:flutter_highlight/themes/github.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http; // HTTPリクエスト用
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/problem.dart';
 import '../models/test_result.dart';
 import '../services/atcoder_service.dart';
@@ -78,16 +79,49 @@ class _EditorScreenState extends State<EditorScreen> {
     super.dispose();
   }
 
+  Future<String> _getFilePath() async {
+    if (_currentProblem == null) {
+      // 問題がロードされていない場合はデフォルトのパスを返す
+      return '';
+    }
+    final directory = await getApplicationDocumentsDirectory();
+    final contestId = _currentProblem!.contestId;
+    // 問題タイトルからファイル名として不適切な文字を削除・置換
+    final problemTitle = _currentProblem!.title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+    final extension = _getExtension(_selectedLanguage);
+    final path = '${directory.path}/$contestId/$problemTitle/main.$extension';
+    return path;
+  }
+
+  String _getExtension(String language) {
+    switch (language) {
+      case 'Python':
+        return 'py';
+      case 'C++':
+        return 'cpp';
+      case 'Rust':
+        return 'rs';
+      case 'Java':
+        return 'java';
+      default:
+        return 'txt';
+    }
+  }
+
   // 保存されたコードを読み込む関数
   Future<void> _loadSavedCode() async {
     setState(() {
       _isLoadingCode = true;
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedCode = prefs.getString('code_${widget.problemId}_$_selectedLanguage');
-      // ★★★ ここで _codeController にアクセスする前に初期化されている必要がある ★★★
-      if (savedCode != null) {
+      final filePath = await _getFilePath();
+      if (filePath.isEmpty) {
+        _codeController.text = _getTemplateForLanguage(_selectedLanguage);
+        return;
+      }
+      final file = File(filePath);
+      if (await file.exists()) {
+        final savedCode = await file.readAsString();
         _codeController.text = savedCode;
       } else {
         _codeController.text = _getTemplateForLanguage(_selectedLanguage);
@@ -106,10 +140,19 @@ class _EditorScreenState extends State<EditorScreen> {
   // 現在のコードを保存する関数
   Future<void> _saveCode() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('code_${widget.problemId}_$_selectedLanguage', _codeController.text);
+      final filePath = await _getFilePath();
+      if (filePath.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('問題がロードされていないため保存できません')),
+        );
+        return;
+      }
+      final file = File(filePath);
+      // ディレクトリが存在しない場合は作成
+      await file.parent.create(recursive: true);
+      await file.writeAsString(_codeController.text);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$_selectedLanguage のコードを保存しました')),
+        SnackBar(content: Text('コードを $filePath に保存しました')),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -263,9 +306,16 @@ public class Main {
   // 現在のコードを復元する関数
   Future<void> _restoreCode() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedCode = prefs.getString('code_${widget.problemId}_$_selectedLanguage');
-      if (savedCode != null) {
+      final filePath = await _getFilePath();
+      if (filePath.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('問題がロードされていないため復元できません')),
+        );
+        return;
+      }
+      final file = File(filePath);
+      if (await file.exists()) {
+        final savedCode = await file.readAsString();
         setState(() {
           _codeController.text = savedCode;
         });
