@@ -42,7 +42,7 @@ dependencies:
   provider: ^6.1.5
   webview_flutter: ^4.7.0
   favicon: ^1.1.0
-  share_plus: ^11.0.0
+  share_plus: ^11.1.0
   open_file: ^3.5.10
   intl: ^0.20.2
   animations: ^2.0.11
