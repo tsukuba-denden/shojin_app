@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 const String _navOpacityKey = 'nav_opacity'; // Key for bottom nav opacity
 const String _useMaterialYouKey = 'use_material_you'; // Key for Material You setting
+const String _codeFontFamilyKey = 'code_font_family'; // Key for code font family
+
+// List of supported fonts
+const List<String> codeFontFamilies = [
+  'Source Code Pro',
+  'Fira Code',
+  'Inconsolata',
+  'JetBrains Mono',
+  'Roboto Mono',
+  'monospace', // Generic fallback
+];
 
 class ThemeProvider extends ChangeNotifier {
   final String _prefsKey = 'theme_mode';
   double _navBarOpacity = 0.5; // Default bottom nav opacity
   ThemeModeOption _themeMode = ThemeModeOption.system;
   bool _useMaterialYou = true; // Default to true
+  String _codeFontFamily = codeFontFamilies.first; // Default font
   bool _isLoading = true;
 
   ThemeProvider() {
@@ -16,26 +29,29 @@ class ThemeProvider extends ChangeNotifier {
 
   // 現在のテーマモード
   ThemeModeOption get themeMode => _themeMode;
-  
+
   // BottomNavigationBar transparency
   double get navBarOpacity => _navBarOpacity;
 
   // Material Youを使用するかどうか
   bool get useMaterialYou => _useMaterialYou;
 
+  // Code block font family
+  String get codeFontFamily => _codeFontFamily;
+
   // ローディング状態
   bool get isLoading => _isLoading;
-  
+
   // テーマモードがピュアブラックかどうか
   bool get isPureBlack => _themeMode == ThemeModeOption.pureBlack;
-  
+
   // テーマモードをFlutterのThemeModeに変換
   ThemeMode get themeModeForFlutter => _themeMode.toThemeMode();
 
   // テーマモードを変更
   Future<void> setThemeMode(ThemeModeOption mode) async {
     if (_themeMode == mode) return;
-    
+
     _themeMode = mode;
     await _saveToPrefs();
     notifyListeners();
@@ -50,10 +66,21 @@ class ThemeProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Set code font family
+  Future<void> setCodeFontFamily(String fontFamily) async {
+    if (!codeFontFamilies.contains(fontFamily) || _codeFontFamily == fontFamily) {
+      return;
+    }
+    _codeFontFamily = fontFamily;
+    await _saveToPrefs();
+    notifyListeners();
+  }
+
   // テーマモードを設定から読み込む
   Future<void> _loadFromPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     final themeModeIndex = prefs.getInt(_prefsKey);
+
     // Load saved nav opacity if exists
     final savedOpacity = prefs.getDouble(_navOpacityKey);
     if (savedOpacity != null) {
@@ -63,6 +90,11 @@ class ThemeProvider extends ChangeNotifier {
     final savedUseMaterialYou = prefs.getBool(_useMaterialYouKey);
     if (savedUseMaterialYou != null) {
       _useMaterialYou = savedUseMaterialYou;
+    }
+    // Load code font family if exists
+    final savedFontFamily = prefs.getString(_codeFontFamilyKey);
+    if (savedFontFamily != null && codeFontFamilies.contains(savedFontFamily)) {
+      _codeFontFamily = savedFontFamily;
     }
 
     if (themeModeIndex != null &&
@@ -80,8 +112,9 @@ class ThemeProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_prefsKey, _themeMode.index);
     await prefs.setBool(_useMaterialYouKey, _useMaterialYou); // Save Material You setting
+    await prefs.setString(_codeFontFamilyKey, _codeFontFamily); // Save font family
   }
-  
+
   // Set bottom nav opacity and persist
   Future<void> setNavBarOpacity(double opacity) async {
     _navBarOpacity = opacity;

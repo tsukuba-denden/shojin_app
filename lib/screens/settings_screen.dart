@@ -233,11 +233,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.color_lens_outlined,
             ),
             const Divider(),
+            // Font Family Selector
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 8.0),
+              child: DropdownButtonFormField<String>(
+                value: themeProvider.codeFontFamily,
+                decoration: InputDecoration(
+                  labelText: 'コードブロックのフォント',
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  prefixIcon: const Icon(Icons.font_download_outlined),
+                ),
+                items: codeFontFamilies.map((String fontFamily) {
+                  return DropdownMenuItem<String>(
+                    value: fontFamily,
+                    child: Text(fontFamily, style: GoogleFonts.getFont(fontFamily)),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    HapticFeedback.lightImpact();
+                    themeProvider.setCodeFontFamily(newValue);
+                  }
+                },
+              ),
+            ),
+            const Divider(),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [                  Text(
+                children: [
+                  Text(
                     'ナビゲーションバーの透明度',
                     style: GoogleFonts.notoSansJp(
                       fontSize: 16,
