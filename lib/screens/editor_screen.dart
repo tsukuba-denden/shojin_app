@@ -21,6 +21,7 @@ import '../models/problem.dart';
 import '../models/test_result.dart';
 import '../services/atcoder_service.dart';
 import '../providers/theme_provider.dart';
+import '../utils/text_style_helper.dart';
 import 'dart:developer' as developer; // developerログのために追加
 import 'submit_screen.dart'; // 提出画面を表示するWebViewスクリーン
 
@@ -704,7 +705,7 @@ public class Main {
             child: SingleChildScrollView( // 内容が長い場合にスクロール可能に
               child: SelectableText(
                 content.isEmpty ? '(空)' : content,
-                style: GoogleFonts.getFont(
+                style: getMonospaceTextStyle(
                   themeProvider.codeFontFamily,
                   fontSize: 13,
                   color: isError ? Colors.red : null,
@@ -870,7 +871,7 @@ public class Main {
                   child: SingleChildScrollView(
                     child: CodeField(
                       controller: _codeController,
-                      textStyle: GoogleFonts.getFont(codeFontFamily),
+                      textStyle: getMonospaceTextStyle(codeFontFamily),
                       gutterStyle: const GutterStyle(
                         width: 32,
                         textAlign: TextAlign.right,
@@ -905,7 +906,7 @@ public class Main {
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
-                    style: GoogleFonts.getFont(codeFontFamily, fontSize: 13),
+                    style: getMonospaceTextStyle(codeFontFamily, fontSize: 13),
                   ),
                 ),
                 const SizedBox(width: 8), // フィールドとボタンの間隔
@@ -954,7 +955,7 @@ public class Main {
                       if (_output.isNotEmpty)
                         SelectableText(
                           _output,
-                          style: GoogleFonts.getFont(codeFontFamily, fontSize: 13),
+                          style: getMonospaceTextStyle(codeFontFamily, fontSize: 13),
                         ),
 
                       // --- Error Output Display ---
@@ -984,7 +985,7 @@ public class Main {
                       if (_error.isNotEmpty)
                         SelectableText(
                           _error,
-                          style: GoogleFonts.getFont(codeFontFamily, fontSize: 13, color: Colors.red),
+                          style: getMonospaceTextStyle(codeFontFamily, fontSize: 13, color: Colors.red),
                         ),
 
                       // --- Placeholder Text ---

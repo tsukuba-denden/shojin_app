@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../models/problem.dart';
 import '../services/atcoder_service.dart';
 import '../providers/theme_provider.dart';
+import '../utils/text_style_helper.dart';
 import '../widgets/tex_widget.dart';
 
 class ProblemDetailScreen extends StatefulWidget {
@@ -242,7 +243,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                         width: double.infinity,
                         child: SelectableText(
                           _errorMessage!,
-                          style: GoogleFonts.getFont(
+                          style: getMonospaceTextStyle(
                             Provider.of<ThemeProvider>(context, listen: false).codeFontFamily,
                             color: Colors.red[900],
                           ),
@@ -375,7 +376,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
               ),
               child: Text(
                 parts[i].trim(),
-                style: GoogleFonts.getFont(codeFontFamily),
+                style: getMonospaceTextStyle(codeFontFamily),
               ),
             )
           );
@@ -441,7 +442,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
           ),
-          child: Text(sample.input, style: GoogleFonts.getFont(codeFontFamily)),
+          child: Text(sample.input, style: getMonospaceTextStyle(codeFontFamily)),
         ),
         const SizedBox(height: 8),
         Row(
@@ -474,7 +475,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
           ),
-          child: Text(sample.output, style: GoogleFonts.getFont(codeFontFamily)),
+          child: Text(sample.output, style: getMonospaceTextStyle(codeFontFamily)),
         ),
       ],
     );
