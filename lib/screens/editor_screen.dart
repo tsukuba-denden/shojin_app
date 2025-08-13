@@ -772,8 +772,15 @@ public class Main {
     // ★★★ デバッグログ追加 ★★★
 
 
+    // Material 3 の NavigationBar はデフォルトで高さが 80px 程度あるため、
+    // 従来の kBottomNavigationBarHeight(56) だと下部が隠れることがある。
+    // 端末のボトムインセットも考慮して余白を動的に算出する。
+    final double systemBottomInset = MediaQuery.of(context).padding.bottom;
+    final bool isM3 = Theme.of(context).useMaterial3;
+    final double navBarHeight = isM3 ? 80.0 : kBottomNavigationBarHeight; // カスタムバーの場合は適宜調整
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: kBottomNavigationBarHeight + 8),
+      padding: EdgeInsets.only(bottom: systemBottomInset + navBarHeight + 8),
       child: Column(
       children: [
         Padding(
