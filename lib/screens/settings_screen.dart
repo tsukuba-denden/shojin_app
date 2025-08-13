@@ -12,6 +12,7 @@ import 'tex_test_screen.dart'; // TeX表示テスト画面をインポート
 import '../services/enhanced_update_service.dart'; // Use enhanced service
 import '../services/auto_update_manager.dart'; // Import auto update manager
 import '../services/about_info.dart'; // Import AboutInfo
+import '../utils/text_style_helper.dart';
 import '../widgets/shared/custom_sliver_app_bar.dart'; // Import CustomSliverAppBar
 
 class SettingsScreen extends StatefulWidget {
@@ -247,7 +248,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 items: codeFontFamilies.map((String fontFamily) {
                   return DropdownMenuItem<String>(
                     value: fontFamily,
-                    child: Text(fontFamily, style: GoogleFonts.getFont(fontFamily)),
+                    child: Text(fontFamily, style: getMonospaceTextStyle(fontFamily)),
                   );
                 }).toList(),
                 onChanged: (String? newValue) {
