@@ -245,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                   prefixIcon: const Icon(Icons.font_download_outlined),
                 ),
-                items: codeFontFamilies.map((String fontFamily) {
+                items: themeProvider.availableCodeFontFamilies.map((String fontFamily) {
                   return DropdownMenuItem<String>(
                     value: fontFamily,
                     child: Text(fontFamily, style: getMonospaceTextStyle(fontFamily)),

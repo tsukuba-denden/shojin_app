@@ -19,10 +19,20 @@ TextStyle getMonospaceTextStyle(
       fontWeight: fontWeight,
     );
   }
-  return GoogleFonts.getFont(
-    fontFamily,
-    fontSize: fontSize,
-    color: color,
-    fontWeight: fontWeight,
-  );
+  // Try Google Fonts first; if unavailable, fall back to asset/system font family
+  try {
+    return GoogleFonts.getFont(
+      fontFamily,
+      fontSize: fontSize,
+      color: color,
+      fontWeight: fontWeight,
+    );
+  } catch (_) {
+    return TextStyle(
+      fontFamily: fontFamily,
+      fontSize: fontSize,
+      color: color,
+      fontWeight: fontWeight,
+    );
+  }
 }
