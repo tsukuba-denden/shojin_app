@@ -777,7 +777,7 @@ public class Main {
     // 端末のボトムインセットも考慮して余白を動的に算出する。
     final double systemBottomInset = MediaQuery.of(context).padding.bottom;
     final bool isM3 = Theme.of(context).useMaterial3;
-    final double navBarHeight = isM3 ? 80.0 : kBottomNavigationBarHeight; // カスタムバーの場合は適宜調整
+    final double navBarHeight = isM3 ? 0.0 : kBottomNavigationBarHeight; // カスタムバーの場合は適宜調整
 
     return Padding(
       padding: EdgeInsets.only(bottom: systemBottomInset + navBarHeight + 8),
