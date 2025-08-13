@@ -1058,19 +1058,19 @@ public class Main {
                         ),
 
                       // --- Error Output Display ---
-                      if (_error.isNotEmpty)
+                      if (_error.isNotEmpty) ...[
                         Padding(
                           padding: EdgeInsets.only(top: _output.isNotEmpty ? 8.0 : 0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'エラー出力 (stderr):',
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.red),
-                              ),
-                            ],
+                          child: Text(
+                            'エラー出力 (stderr):',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.red),
                           ),
-                          ),
+                        ),
+                        SelectableText(
+                          _error,
+                          style: getMonospaceTextStyle(codeFontFamily, fontSize: 13, color: Colors.red),
+                        ),
+                      ],
                         // --- stdin input ---
                         const SizedBox(height: 12),
                         Text('標準入力 (stdin)', style: Theme.of(context).textTheme.titleSmall),
