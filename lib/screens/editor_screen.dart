@@ -16,9 +16,12 @@ import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:flutter_highlight/themes/github.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http; // HTTPリクエスト用
+import 'package:provider/provider.dart';
 import '../models/problem.dart';
 import '../models/test_result.dart';
 import '../services/atcoder_service.dart';
+import '../providers/theme_provider.dart';
+import '../utils/text_style_helper.dart';
 import 'dart:developer' as developer; // developerログのために追加
 import 'submit_screen.dart'; // 提出画面を表示するWebViewスクリーン
 import '../services/code_history_service.dart';
@@ -711,34 +714,36 @@ public class Main {
   }
 
   Widget _buildDetailSection(String title, String content, {bool isError = false}) {
-     return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Column(
-           crossAxisAlignment: CrossAxisAlignment.start,
-           children: [
-              Text(title, style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 4),
-              Container(
-                 padding: const EdgeInsets.all(8),
-                 width: double.infinity,
-                 constraints: const BoxConstraints(maxHeight: 150), // 高さに制限
-                 decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(4),
-                 ),
-                 child: SingleChildScrollView( // 内容が長い場合にスクロール可能に
-                    child: SelectableText(
-                       content.isEmpty ? '(空)' : content,
-                       style: GoogleFonts.sourceCodePro(
-                          fontSize: 13,
-                          color: isError ? Colors.red : null,
-                       ),
-                    ),
-                 ),
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.all(8),
+            width: double.infinity,
+            constraints: const BoxConstraints(maxHeight: 150), // 高さに制限
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: SingleChildScrollView( // 内容が長い場合にスクロール可能に
+              child: SelectableText(
+                content.isEmpty ? '(空)' : content,
+                style: getMonospaceTextStyle(
+                  themeProvider.codeFontFamily,
+                  fontSize: 13,
+                  color: isError ? Colors.red : null,
+                ),
               ),
-           ],
-        ),
-     );
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
 
@@ -757,52 +762,16 @@ public class Main {
 
   @override
   Widget build(BuildContext context) {
-    final bool isLoadingProblem = _isLoadingCode || (widget.problemId != 'default_problem' && _currentProblem == null);
-
-    // ★★★ デバッグログ追加 ★★★
-    final bool isButtonDisabled = isLoadingProblem || _isTesting || _currentProblem == null || (_currentProblem?.samples.isEmpty ?? true);
-    // _currentProblemがnullの場合にsamplesにアクセスしないように修正
-    print("--- Test Button State ---");
-    print("isLoadingProblem: $isLoadingProblem (_isLoadingCode: $_isLoadingCode, _currentProblem == null: ${_currentProblem == null}) (problemId: ${widget.problemId})");
-    print("_isTesting: $_isTesting");
-    print("_currentProblem == null: ${_currentProblem == null}");
-    print("_currentProblem?.samples.isEmpty: ${_currentProblem?.samples.isEmpty}"); // nullの場合はnullが出力される
-    print("Button disabled: $isButtonDisabled");
-    print("-------------------------");
-    // ★★★ デバッグログ追加 ★★★
-
-
-    // Material 3 の NavigationBar はデフォルトで高さが 80px 程度あるため、
-    // 従来の kBottomNavigationBarHeight(56) だと下部が隠れることがある。
-    // 端末のボトムインセットも考慮して余白を動的に算出する。
-    final double systemBottomInset = MediaQuery.of(context).padding.bottom;
-    final bool isM3 = Theme.of(context).useMaterial3;
-    final double navBarHeight = isM3 ? 0.0 : kBottomNavigationBarHeight; // カスタムバーの場合は適宜調整
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: systemBottomInset + navBarHeight + 8),
-      child: Column(
-      children: [
-        if (_currentProblem != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-            child: Row(
-              children: [
-                const Icon(Icons.assignment, size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${_currentProblem!.contestName} · ${_currentProblem!.title}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
-          child: Row(
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final codeFontFamily = themeProvider.codeFontFamily;
+        final bool isLoadingProblem = _isLoadingCode || (widget.problemId != 'default_problem' && _currentProblem == null);
+        final bool isButtonDisabled = isLoadingProblem || _isTesting || _currentProblem == null || (_currentProblem?.samples.isEmpty ?? true);
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+              child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // 言語選択 Dropdown
@@ -957,7 +926,7 @@ public class Main {
                   child: SingleChildScrollView(
                     child: CodeField(
                       controller: _codeController,
-                      textStyle: GoogleFonts.sourceCodePro(),
+                      textStyle: getMonospaceTextStyle(codeFontFamily),
                       gutterStyle: const GutterStyle(
                         width: 32,
                         textAlign: TextAlign.right,
@@ -1067,118 +1036,72 @@ public class Main {
           // 左右分割の入出力パネル
           Expanded(
             flex: 2,
-            child: Row(
-              children: [
-                // 左: 標準入力（デザイン統一）
-                Expanded(
-                  child: Card(
-                    elevation: 1,
-                    margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('標準入力 (stdin)', style: Theme.of(context).textTheme.titleSmall),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.5)),
-                              ),
-                              padding: const EdgeInsets.all(8),
-                              child: TextField(
-                                controller: _stdinController,
-                                expands: true,
-                                maxLines: null,
-                                decoration: const InputDecoration(
-                                  hintText: 'プログラムへの入力をここに入力します',
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                ),
-                                style: GoogleFonts.sourceCodePro(fontSize: 13),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                // 右: 実行結果 (stdout/stderr)（デザイン統一）
-                Expanded(
-                  child: Card(
-                    elevation: 1,
-                    margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // stdout セクション
-                          Text('標準出力 (stdout)', style: Theme.of(context).textTheme.titleSmall),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.5)),
-                              ),
-                              padding: const EdgeInsets.all(8),
-                              child: Scrollbar(
-                                thumbVisibility: true,
-                                child: SingleChildScrollView(
-                                  child: SelectableText(
-                                    _output.isEmpty && _error.isEmpty && !_isRunning
-                                      ? '実行ボタンを押すと、ここに結果が表示されます。'
-                                      : (_output.isEmpty ? '(空)' : _output),
-                                    style: GoogleFonts.sourceCodePro(fontSize: 13),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+            child: Card(
+              elevation: 1,
+              margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // --- Standard Output Display ---
+                      if (_output.isNotEmpty)
+                        Text(
+                          '実行結果 (stdout):',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      if (_output.isNotEmpty)
+                        SelectableText(
+                          _output,
+                          style: getMonospaceTextStyle(codeFontFamily, fontSize: 13),
+                        ),
 
-                          // stderr セクション
-                          if (_error.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            Text('エラー出力 (stderr)', style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.red)),
-                            const SizedBox(height: 8),
-                            Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.5)),
+                      // --- Error Output Display ---
+                      if (_error.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.only(top: _output.isNotEmpty ? 8.0 : 0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'エラー出力 (stderr):',
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.red),
                               ),
-                              padding: const EdgeInsets.all(8),
-                              child: Scrollbar(
-                                thumbVisibility: true,
-                                child: SingleChildScrollView(
-                                  child: SelectableText(
-                                    _error,
-                                    style: GoogleFonts.sourceCodePro(fontSize: 13, color: Colors.red),
-                                  ),
-                                ),
-                              ),
+                            ],
+                          ),
+                          ),
+                        // --- stdin input ---
+                        const SizedBox(height: 12),
+                        Text('標準入力 (stdin)', style: Theme.of(context).textTheme.titleSmall),
+                        const SizedBox(height: 8),
+                        Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.5)),
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          child: TextField(
+                            controller: _stdinController,
+                            maxLines: null,
+                            decoration: const InputDecoration(
+                              hintText: 'プログラムへの入力をここに入力します',
+                              border: InputBorder.none,
+                              isDense: true,
                             ),
-                          ],
-                        ],
-                      ),
-                    ),
+                            style: GoogleFonts.sourceCodePro(fontSize: 13),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
           ),
-        ],
-      ],
-    )
+          ],
+        );
+      },
     );
   }
 }

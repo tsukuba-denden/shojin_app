@@ -12,6 +12,7 @@ import 'tex_test_screen.dart'; // TeX表示テスト画面をインポート
 import '../services/enhanced_update_service.dart'; // Use enhanced service
 import '../services/auto_update_manager.dart'; // Import auto update manager
 import '../services/about_info.dart'; // Import AboutInfo
+import '../utils/text_style_helper.dart';
 import '../widgets/shared/custom_sliver_app_bar.dart'; // Import CustomSliverAppBar
 
 class SettingsScreen extends StatefulWidget {
@@ -233,11 +234,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.color_lens_outlined,
             ),
             const Divider(),
+            // Font Family Selector
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 8.0),
+              child: DropdownButtonFormField<String>(
+                value: themeProvider.codeFontFamily,
+                decoration: InputDecoration(
+                  labelText: 'コードブロックのフォント',
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  prefixIcon: const Icon(Icons.font_download_outlined),
+                ),
+                items: themeProvider.availableCodeFontFamilies.map((String fontFamily) {
+                  return DropdownMenuItem<String>(
+                    value: fontFamily,
+                    child: Text(fontFamily, style: getMonospaceTextStyle(fontFamily)),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  if (newValue != null) {
+                    HapticFeedback.lightImpact();
+                    themeProvider.setCodeFontFamily(newValue);
+                  }
+                },
+              ),
+            ),
+            const Divider(),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [                  Text(
+                children: [
+                  Text(
                     'ナビゲーションバーの透明度',
                     style: GoogleFonts.notoSansJp(
                       fontSize: 16,
