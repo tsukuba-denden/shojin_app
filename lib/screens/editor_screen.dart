@@ -16,9 +16,12 @@ import 'package:flutter_highlight/themes/monokai-sublime.dart';
 import 'package:flutter_highlight/themes/github.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http; // HTTPリクエスト用
+import 'package:provider/provider.dart';
 import '../models/problem.dart';
 import '../models/test_result.dart';
 import '../services/atcoder_service.dart';
+import '../providers/theme_provider.dart';
+import '../utils/text_style_helper.dart';
 import 'dart:developer' as developer; // developerログのために追加
 import 'submit_screen.dart'; // 提出画面を表示するWebViewスクリーン
 
@@ -683,34 +686,36 @@ public class Main {
   }
 
   Widget _buildDetailSection(String title, String content, {bool isError = false}) {
-     return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Column(
-           crossAxisAlignment: CrossAxisAlignment.start,
-           children: [
-              Text(title, style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 4),
-              Container(
-                 padding: const EdgeInsets.all(8),
-                 width: double.infinity,
-                 constraints: const BoxConstraints(maxHeight: 150), // 高さに制限
-                 decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(4),
-                 ),
-                 child: SingleChildScrollView( // 内容が長い場合にスクロール可能に
-                    child: SelectableText(
-                       content.isEmpty ? '(空)' : content,
-                       style: GoogleFonts.sourceCodePro(
-                          fontSize: 13,
-                          color: isError ? Colors.red : null,
-                       ),
-                    ),
-                 ),
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Container(
+            padding: const EdgeInsets.all(8),
+            width: double.infinity,
+            constraints: const BoxConstraints(maxHeight: 150), // 高さに制限
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: SingleChildScrollView( // 内容が長い場合にスクロール可能に
+              child: SelectableText(
+                content.isEmpty ? '(空)' : content,
+                style: getMonospaceTextStyle(
+                  themeProvider.codeFontFamily,
+                  fontSize: 13,
+                  color: isError ? Colors.red : null,
+                ),
               ),
-           ],
-        ),
-     );
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
 
@@ -730,26 +735,17 @@ public class Main {
 
   @override
   Widget build(BuildContext context) {
-    final bool isLoadingProblem = _isLoadingCode || (widget.problemId != 'default_problem' && _currentProblem == null);
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        final codeFontFamily = themeProvider.codeFontFamily;
+        final bool isLoadingProblem = _isLoadingCode || (widget.problemId != 'default_problem' && _currentProblem == null);
+        final bool isButtonDisabled = isLoadingProblem || _isTesting || _currentProblem == null || (_currentProblem?.samples.isEmpty ?? true);
 
-    // ★★★ デバッグログ追加 ★★★
-    final bool isButtonDisabled = isLoadingProblem || _isTesting || _currentProblem == null || (_currentProblem?.samples.isEmpty ?? true);
-    // _currentProblemがnullの場合にsamplesにアクセスしないように修正
-    print("--- Test Button State ---");
-    print("isLoadingProblem: $isLoadingProblem (_isLoadingCode: $_isLoadingCode, _currentProblem == null: ${_currentProblem == null}) (problemId: ${widget.problemId})");
-    print("_isTesting: $_isTesting");
-    print("_currentProblem == null: ${_currentProblem == null}");
-    print("_currentProblem?.samples.isEmpty: ${_currentProblem?.samples.isEmpty}"); // nullの場合はnullが出力される
-    print("Button disabled: $isButtonDisabled");
-    print("-------------------------");
-    // ★★★ デバッグログ追加 ★★★
-
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
-          child: Row(
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+              child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // 言語選択 Dropdown
@@ -875,7 +871,7 @@ public class Main {
                   child: SingleChildScrollView(
                     child: CodeField(
                       controller: _codeController,
-                      textStyle: GoogleFonts.sourceCodePro(),
+                      textStyle: getMonospaceTextStyle(codeFontFamily),
                       gutterStyle: const GutterStyle(
                         width: 32,
                         textAlign: TextAlign.right,
@@ -910,7 +906,7 @@ public class Main {
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
-                    style: GoogleFonts.sourceCodePro(fontSize: 13),
+                    style: getMonospaceTextStyle(codeFontFamily, fontSize: 13),
                   ),
                 ),
                 const SizedBox(width: 8), // フィールドとボタンの間隔
@@ -959,7 +955,7 @@ public class Main {
                       if (_output.isNotEmpty)
                         SelectableText(
                           _output,
-                          style: GoogleFonts.sourceCodePro(fontSize: 13),
+                          style: getMonospaceTextStyle(codeFontFamily, fontSize: 13),
                         ),
 
                       // --- Error Output Display ---
@@ -989,24 +985,24 @@ public class Main {
                       if (_error.isNotEmpty)
                         SelectableText(
                           _error,
-                          style: GoogleFonts.sourceCodePro(fontSize: 13, color: Colors.red),
+                          style: getMonospaceTextStyle(codeFontFamily, fontSize: 13, color: Colors.red),
                         ),
 
                       // --- Placeholder Text ---
                       if (_output.isEmpty && _error.isEmpty && !_isRunning)
-                         const Text(
-                           '実行ボタンを押すと、ここに結果が表示されます。',
-                           style: TextStyle(color: Colors.grey),
-                         ),
+                        const Text(
+                          '実行ボタンを押すと、ここに結果が表示されます。',
+                          style: TextStyle(color: Colors.grey),
+                        ),
                     ],
                   ),
                 ),
               ),
             ),
           ),
-      ],
+          ],
+        );
+      },
     );
   }
-
-  // ... other methods (_runCode, _runTests, etc.) ...
 }
