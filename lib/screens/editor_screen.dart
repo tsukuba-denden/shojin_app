@@ -24,6 +24,9 @@ import 'submit_screen.dart'; // 提出画面を表示するWebViewスクリー�
 import '../services/code_history_service.dart';
 import 'code_history_screen.dart';
 
+// 3点メニュー用のアクション列挙体（トップレベルに定義）
+enum _ToolbarAction { runTests, save, history, restore, reset, share }
+
 class EditorScreen extends StatefulWidget {
   final String problemId; // 問題IDを追加
 
@@ -752,7 +755,6 @@ public class Main {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final bool isLoadingProblem = _isLoadingCode || (widget.problemId != 'default_problem' && _currentProblem == null);
@@ -795,56 +797,27 @@ public class Main {
                   ),
                 ],
               ),
-              // ツールバーボタン (実行ボタンは削除)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // ... other buttons ...
-                  IconButton( // テスト実行ボタン
-                    icon: _isTesting
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.checklist_rtl),
-                    tooltip: 'テスト実行 (サンプルケース)',
-                    onPressed: isButtonDisabled
-                        ? null
-                        : () { // onPressedがnullでない場合の処理
-                            print("★★★ Test Button Pressed! ★★★"); // このログが出るか確認
-                            _runTests();
-                          },
-                  ),
-                  IconButton( // 提出ボタン
-                    icon: const Icon(Icons.cloud_upload),
-                    tooltip: '提出',
-                    onPressed: () {
-                      final parts = widget.problemId.split('_');
-                      final contestId = parts.isNotEmpty ? parts[0] : widget.problemId;
-                      final url = 'https://atcoder.jp/contests/$contestId/submit?taskScreenName=${widget.problemId}';
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SubmitScreen(
-                            url: url,
-                            initialCode: _codeController.text,
-                            initialLanguage: _selectedLanguage,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  IconButton( // 保存ボタン
-                    icon: const Icon(Icons.save_alt),
-                    tooltip: '保存',
-                    onPressed: _saveCode,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.history),
-                    tooltip: 'コード履歴',
-                    onPressed: () async {
+              // 3点メニュー（オーバーフローメニュー）
+              PopupMenuButton<_ToolbarAction>(
+                icon: const Icon(Icons.more_vert),
+                tooltip: 'その他',
+                onSelected: (action) async {
+                  switch (action) {
+                    case _ToolbarAction.runTests:
+                      if (!isButtonDisabled) {
+                        print("★★★ Test Menu Selected! ★★★");
+                        _runTests();
+                      }
+                      break;
+                    case _ToolbarAction.save:
+                      _saveCode();
+                      break;
+                    case _ToolbarAction.history:
                       if (widget.problemId.isEmpty || widget.problemId == 'default_problem') {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('No problem selected.')),
                         );
-                        return;
+                        break;
                       }
                       final restoredCode = await Navigator.push(
                         context,
@@ -860,47 +833,79 @@ public class Main {
                           const SnackBar(content: Text('Code restored from history.')),
                         );
                       }
-                    },
-                  ),
-                  IconButton( // 復元ボタン
-                    icon: const Icon(Icons.settings_backup_restore),
-                    tooltip: '復元',
-                    onPressed: _restoreCode,
-                  ),
-                  IconButton( // リセットボタン
-                    icon: const Icon(Icons.replay),
-                    tooltip: 'リセット',
-                    onPressed: () {
+                      break;
+                    case _ToolbarAction.restore:
+                      _restoreCode();
+                      break;
+                    case _ToolbarAction.reset:
                       _codeController.text = _getTemplateForLanguage(_selectedLanguage);
                       _stdinController.clear();
                       setState(() {
-                         _output = '';
-                         _error = '';
+                        _output = '';
+                        _error = '';
                       });
-                    },
-                  ),
-                  IconButton( // 共有ボタン
-                    icon: const Icon(Icons.share),
-                    tooltip: 'コード共有',
-                    onPressed: () {
+                      break;
+                    case _ToolbarAction.share:
                       final code = _codeController.text;
                       if (code.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('共有するコードがありません')),
                         );
-                        return;
+                        break;
                       }
                       String textToShare = code;
                       if (_currentProblem != null) {
-                        // textToShare に問題のタイトルと言語を追加
                         textToShare = '${_currentProblem!.title} ($_selectedLanguage)\n\n$code';
                       }
-                      // SharePlus.instance.share を使用するように変更
-                      // 共有するテキストを ShareParams の text パラメータに渡す
                       SharePlus.instance.share(
                         ShareParams(text: textToShare),
                       );
-                    },
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem<_ToolbarAction>(
+                    value: _ToolbarAction.runTests,
+                    enabled: !isButtonDisabled,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.checklist_rtl),
+                        const SizedBox(width: 8),
+                        Text(_isTesting ? 'テスト実行中…' : 'テスト実行 (サンプルケース)'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem<_ToolbarAction>(
+                    value: _ToolbarAction.save,
+                    child: Row(
+                      children: const [Icon(Icons.save_alt), SizedBox(width: 8), Text('保存')],
+                    ),
+                  ),
+                  PopupMenuItem<_ToolbarAction>(
+                    value: _ToolbarAction.history,
+                    child: Row(
+                      children: const [Icon(Icons.history), SizedBox(width: 8), Text('コード履歴')],
+                    ),
+                  ),
+                  PopupMenuItem<_ToolbarAction>(
+                    value: _ToolbarAction.restore,
+                    child: Row(
+                      children: const [Icon(Icons.settings_backup_restore), SizedBox(width: 8), Text('復元')],
+                    ),
+                  ),
+                  PopupMenuItem<_ToolbarAction>(
+                    value: _ToolbarAction.reset,
+                    child: Row(
+                      children: const [Icon(Icons.replay), SizedBox(width: 8), Text('リセット')],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem<_ToolbarAction>(
+                    value: _ToolbarAction.share,
+                    child: Row(
+                      children: const [Icon(Icons.share), SizedBox(width: 8), Text('コード共有')],
+                    ),
                   ),
                 ],
               ),
@@ -965,24 +970,55 @@ public class Main {
                   ),
                 ),
                 const SizedBox(width: 8), // フィールドとボタンの間隔
-                // 実行ボタン (ElevatedButtonに変更)
-                ElevatedButton.icon(
-                  icon: _isRunning
-                      ? SizedBox( // 実行中はインジケーター
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Theme.of(context).colorScheme.onPrimary, // ボタン色に合わせた色
+                // 右側に 提出/実行 の縦並びボタン
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // 提出ボタン
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.cloud_upload),
+                      label: const Text('提出'),
+                      onPressed: () {
+                        final parts = widget.problemId.split('_');
+                        final contestId = parts.isNotEmpty ? parts[0] : widget.problemId;
+                        final url = 'https://atcoder.jp/contests/$contestId/submit?taskScreenName=${widget.problemId}';
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => SubmitScreen(
+                              url: url,
+                              initialCode: _codeController.text,
+                              initialLanguage: _selectedLanguage,
+                            ),
                           ),
-                        )
-                      : const Icon(Icons.play_arrow),
-                  label: const Text('実行'),
-                  onPressed: _isRunning ? null : _runCode, // 実行中は無効
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // 少し大きめに
-                    textStyle: const TextStyle(fontSize: 14),
-                  ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        textStyle: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // 実行ボタン (ElevatedButtonに変更)
+                    ElevatedButton.icon(
+                      icon: _isRunning
+                          ? SizedBox( // 実行中はインジケーター
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Theme.of(context).colorScheme.onPrimary, // ボタン色に合わせた色
+                              ),
+                            )
+                          : const Icon(Icons.play_arrow),
+                      label: const Text('実行'),
+                      onPressed: _isRunning ? null : _runCode, // 実行中は無効
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // 少し大きめに
+                        textStyle: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
