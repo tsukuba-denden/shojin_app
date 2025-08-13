@@ -783,6 +783,23 @@ public class Main {
       padding: EdgeInsets.only(bottom: systemBottomInset + navBarHeight + 8),
       child: Column(
       children: [
+        if (_currentProblem != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            child: Row(
+              children: [
+                const Icon(Icons.assignment, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '${_currentProblem!.contestName} · ${_currentProblem!.title}',
+                    style: Theme.of(context).textTheme.titleMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
           child: Row(
