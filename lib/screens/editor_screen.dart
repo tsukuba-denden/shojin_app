@@ -949,148 +949,190 @@ public class Main {
             ),
           ),
 
-        // 標準入力フィールドと実行ボタン
-        if (!isLoadingProblem)
+        // 入出力エリア: ボタン行 + 左右分割 (stdin | stdout/stderr)
+        if (!isLoadingProblem) ...[
+          // ボタンを一列に配置（実行、サンプル、提出）
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
-            child: Row( // RowでTextFieldとButtonを囲む
-              crossAxisAlignment: CrossAxisAlignment.end, // ボタンとフィールドの高さを揃える
+            child: Row(
               children: [
-                Expanded( // TextFieldが可能な限り幅を取るように
-                  child: TextField(
-                    controller: _stdinController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: '標準入力 (stdin)',
-                      hintText: 'プログラムへの入力をここに入力します',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    style: GoogleFonts.sourceCodePro(fontSize: 13),
+                // 実行
+                ElevatedButton.icon(
+                  icon: _isRunning
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          ),
+                        )
+                      : const Icon(Icons.play_arrow),
+                  label: const Text('実行'),
+                  onPressed: _isRunning ? null : _runCode,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    textStyle: const TextStyle(fontSize: 14),
                   ),
                 ),
-                const SizedBox(width: 8), // フィールドとボタンの間隔
-                // 右側に 提出/実行 の縦並びボタン
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    // 提出ボタン
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.cloud_upload),
-                      label: const Text('提出'),
-                      onPressed: () {
-                        final parts = widget.problemId.split('_');
-                        final contestId = parts.isNotEmpty ? parts[0] : widget.problemId;
-                        final url = 'https://atcoder.jp/contests/$contestId/submit?taskScreenName=${widget.problemId}';
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => SubmitScreen(
-                              url: url,
-                              initialCode: _codeController.text,
-                              initialLanguage: _selectedLanguage,
-                            ),
+                const SizedBox(width: 8),
+                // サンプル
+                ElevatedButton.icon(
+                  icon: _isTesting
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Theme.of(context).colorScheme.onPrimary,
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        textStyle: const TextStyle(fontSize: 14),
+                        )
+                      : const Icon(Icons.checklist_rtl),
+                  label: Text(_isTesting ? 'サンプルテスト中…' : 'サンプル'),
+                  onPressed: isButtonDisabled
+                      ? null
+                      : () {
+                          print('★★★ Test Button Pressed! ★★★');
+                          _runTests();
+                        },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    textStyle: const TextStyle(fontSize: 14),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // 提出
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.cloud_upload),
+                  label: const Text('提出'),
+                  onPressed: () {
+                    final parts = widget.problemId.split('_');
+                    final contestId = parts.isNotEmpty ? parts[0] : widget.problemId;
+                    final url = 'https://atcoder.jp/contests/$contestId/submit?taskScreenName=${widget.problemId}';
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SubmitScreen(
+                          url: url,
+                          initialCode: _codeController.text,
+                          initialLanguage: _selectedLanguage,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    // 実行ボタン (ElevatedButtonに変更)
-                    ElevatedButton.icon(
-                      icon: _isRunning
-                          ? SizedBox( // 実行中はインジケーター
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Theme.of(context).colorScheme.onPrimary, // ボタン色に合わせた色
-                              ),
-                            )
-                          : const Icon(Icons.play_arrow),
-                      label: const Text('実行'),
-                      onPressed: _isRunning ? null : _runCode, // 実行中は無効
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // 少し大きめに
-                        textStyle: const TextStyle(fontSize: 14),
-                      ),
-                    ),
-                  ],
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    textStyle: const TextStyle(fontSize: 14),
+                  ),
                 ),
               ],
             ),
           ),
 
-        // 実行結果表示エリア
-        if (!isLoadingProblem)
+          // 左右分割の入出力パネル
           Expanded(
             flex: 2,
-            child: Card(
-              elevation: 1,
-              margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // --- Standard Output Display ---
-                      if (_output.isNotEmpty)
-                        Text(
-                          '実行結果 (stdout):',
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                      if (_output.isNotEmpty)
-                        SelectableText(
-                          _output,
-                          style: GoogleFonts.sourceCodePro(fontSize: 13),
-                        ),
-
-                      // --- Error Output Display ---
-                      if (_error.isNotEmpty)
-                        Padding(
-                          padding: EdgeInsets.only(top: _output.isNotEmpty ? 8.0 : 0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'エラー出力 (stderr):',
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.red),
+            child: Row(
+              children: [
+                // 左: 標準入力
+                Expanded(
+                  child: Card(
+                    elevation: 1,
+                    margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('標準入力 (stdin)', style: Theme.of(context).textTheme.titleSmall),
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _stdinController,
+                              expands: true,
+                              maxLines: null,
+                              decoration: const InputDecoration(
+                                hintText: 'プログラムへの入力をここに入力します',
+                                border: OutlineInputBorder(),
+                                isDense: true,
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.copy, size: 18),
-                                tooltip: 'エラーをコピー',
-                                onPressed: () {
-                                  Clipboard.setData(ClipboardData(text: _error));
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('エラー出力をコピーしました')),
-                                  );
-                                },
-                              ),
-                            ],
+                              style: GoogleFonts.sourceCodePro(fontSize: 13),
+                            ),
                           ),
-                        ),
-                      if (_error.isNotEmpty)
-                        SelectableText(
-                          _error,
-                          style: GoogleFonts.sourceCodePro(fontSize: 13, color: Colors.red),
-                        ),
-
-                      // --- Placeholder Text ---
-                      if (_output.isEmpty && _error.isEmpty && !_isRunning)
-                         const Text(
-                           '実行ボタンを押すと、ここに結果が表示されます。',
-                           style: TextStyle(color: Colors.grey),
-                         ),
-                    ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                // 右: 実行結果 (stdout/stderr)
+                Expanded(
+                  child: Card(
+                    elevation: 1,
+                    margin: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // --- Standard Output Display ---
+                            if (_output.isNotEmpty)
+                              Text(
+                                '実行結果 (stdout):',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                            if (_output.isNotEmpty)
+                              SelectableText(
+                                _output,
+                                style: GoogleFonts.sourceCodePro(fontSize: 13),
+                              ),
+
+                            // --- Error Output Display ---
+                            if (_error.isNotEmpty)
+                              Padding(
+                                padding: EdgeInsets.only(top: _output.isNotEmpty ? 8.0 : 0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'エラー出力 (stderr):',
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(color: Colors.red),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.copy, size: 18),
+                                      tooltip: 'エラーをコピー',
+                                      onPressed: () {
+                                        Clipboard.setData(ClipboardData(text: _error));
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('エラー出力をコピーしました')),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (_error.isNotEmpty)
+                              SelectableText(
+                                _error,
+                                style: GoogleFonts.sourceCodePro(fontSize: 13, color: Colors.red),
+                              ),
+
+                            // --- Placeholder Text ---
+                            if (_output.isEmpty && _error.isEmpty && !_isRunning)
+                               const Text(
+                                 '実行ボタンを押すと、ここに結果が表示されます。',
+                                 style: TextStyle(color: Colors.grey),
+                               ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+        ],
       ],
     );
   }
