@@ -74,6 +74,32 @@ flutter:
     - assets/icon/twitter_logo.svg
     - assets/icon/youtube_logo.svg
     - assets/icon/github_logo.svg
+  fonts:
+    - family: HackGen
+      fonts:
+        - asset: assets/fonts/HackGen-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/HackGen-Bold.ttf
+          weight: 700
+    - family: HackGen35
+      fonts:
+        - asset: assets/fonts/HackGen35-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/HackGen35-Bold.ttf
+          weight: 700
+    - family: HackGenConsole
+      fonts:
+        - asset: assets/fonts/HackGenConsole-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/HackGenConsole-Bold.ttf
+          weight: 700
+    - family: HackGen35Console
+      fonts:
+        - asset: assets/fonts/HackGen35Console-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/HackGen35Console-Bold.ttf
+          weight: 700
+  
 
 flutter_launcher_icons:
   android: true
