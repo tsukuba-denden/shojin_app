@@ -18,7 +18,10 @@ const List<String> defaultCodeFontFamilies = [
 
 // Add your asset-based font family names here (must match pubspec.yaml fonts.family)
 const List<String> assetCodeFontFamilies = [
-  // e.g. 'MyCodeFont', 'SFMono'
+  'HackGen',
+  'HackGen35',
+  'HackGenConsole',
+  'HackGen35Console',
 ];
 
 class ThemeProvider extends ChangeNotifier {
