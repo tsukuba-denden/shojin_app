@@ -25,11 +25,17 @@ class CodeHistoryService {
     final historyFile = File('$historyDirectoryPath/$id.txt');
 
     // To avoid saving too many identical versions, check the latest history
-    final history = await getHistory(problemId);
-    if (history.isNotEmpty) {
-      final latestHistory = history.first;
-      if (latestHistory.content.trim() == code.trim()) {
-        return; // Don't save if the content is the same as the latest
+    // To avoid saving too many identical versions, check the latest history
+    final historyDirectory = Directory(historyDirectoryPath);
+    final files = await historyDirectory.list().toList();
+    if (files.isNotEmpty) {
+      files.sort((a, b) => b.path.compareTo(a.path));
+      final latestFile = files.first;
+      if (latestFile is File) {
+        final latestContent = await latestFile.readAsString();
+        if (latestContent.trim() == code.trim()) {
+          return; // Don't save if the content is the same as the latest
+        }
       }
     }
 
