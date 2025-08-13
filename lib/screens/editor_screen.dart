@@ -21,6 +21,8 @@ import '../models/test_result.dart';
 import '../services/atcoder_service.dart';
 import 'dart:developer' as developer; // developerログのために追加
 import 'submit_screen.dart'; // 提出画面を表示するWebViewスクリーン
+import '../services/code_history_service.dart';
+import 'code_history_screen.dart';
 
 class EditorScreen extends StatefulWidget {
   final String problemId; // 問題IDを追加
@@ -47,6 +49,8 @@ class _EditorScreenState extends State<EditorScreen> {
   List<TestResult> _testResults = []; // テスト結果リスト
   Problem? _currentProblem; // 現在の問題データ
   final AtCoderService _atcoderService = AtCoderService(); // AtCoderServiceインスタンス
+  final CodeHistoryService _codeHistoryService = CodeHistoryService();
+  Timer? _debounce;
   // ダイアログの状態更新用 GlobalKey (StatefulBuilder を使う場合)
   final GlobalKey<State> _testResultsDialogKey = GlobalKey<State>();
 
@@ -70,13 +74,34 @@ class _EditorScreenState extends State<EditorScreen> {
     );
     _loadSavedCode();
     _loadProblemData(); // 問題データを読み込む
+    _codeController.addListener(_onCodeChanged);
   }
 
   @override
   void dispose() {
+    _codeController.removeListener(_onCodeChanged);
+    _debounce?.cancel();
     _codeController.dispose();
     _stdinController.dispose();
     super.dispose();
+  }
+
+  void _onCodeChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(seconds: 2), () {
+      _saveHistory();
+    });
+  }
+
+  Future<void> _saveHistory() async {
+    if (widget.problemId.isEmpty || widget.problemId == 'default_problem') {
+      return;
+    }
+    await _codeHistoryService.saveHistory(widget.problemId, _codeController.text);
+    // Optional: Show a subtle feedback to the user
+    // ScaffoldMessenger.of(context).showSnackBar(
+    //   const SnackBar(content: Text('History saved'), duration: Duration(seconds: 1)),
+    // );
   }
 
   Future<String> _getFilePath() async {
@@ -810,6 +835,32 @@ public class Main {
                     icon: const Icon(Icons.save_alt),
                     tooltip: '保存',
                     onPressed: _saveCode,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.history),
+                    tooltip: 'コード履歴',
+                    onPressed: () async {
+                      if (widget.problemId.isEmpty || widget.problemId == 'default_problem') {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('No problem selected.')),
+                        );
+                        return;
+                      }
+                      final restoredCode = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CodeHistoryScreen(problemId: widget.problemId),
+                        ),
+                      );
+                      if (restoredCode != null && restoredCode is String) {
+                        setState(() {
+                          _codeController.text = restoredCode;
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Code restored from history.')),
+                        );
+                      }
+                    },
                   ),
                   IconButton( // 復元ボタン
                     icon: const Icon(Icons.settings_backup_restore),
