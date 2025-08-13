@@ -965,73 +965,82 @@ public class Main {
             padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
             child: Row(
               children: [
-                // 実行
-                ElevatedButton.icon(
-                  icon: _isRunning
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                          ),
-                        )
-                      : const Icon(Icons.play_arrow),
-                  label: const Text('実行'),
-                  onPressed: _isRunning ? null : _runCode,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    textStyle: const TextStyle(fontSize: 14),
+                // 実行（横幅1/3）
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: _isRunning
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                            ),
+                          )
+                        : const Icon(Icons.play_arrow),
+                    label: const Text('実行'),
+                    onPressed: _isRunning ? null : _runCode,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      textStyle: const TextStyle(fontSize: 14),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // サンプル
-                ElevatedButton.icon(
-                  icon: _isTesting
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Theme.of(context).colorScheme.onPrimary,
-                          ),
-                        )
-                      : const Icon(Icons.checklist_rtl),
-                  label: Text(_isTesting ? 'サンプルテスト中…' : 'サンプル'),
-                  onPressed: isButtonDisabled
-                      ? null
-                      : () {
-                          print('★★★ Test Button Pressed! ★★★');
-                          _runTests();
-                        },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    textStyle: const TextStyle(fontSize: 14),
+                // サンプル（横幅1/3）
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: _isTesting
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Theme.of(context).colorScheme.onPrimary,
+                            ),
+                          )
+                        : const Icon(Icons.checklist_rtl),
+                    label: Text(_isTesting ? 'サンプルテスト中…' : 'サンプル'),
+                    onPressed: isButtonDisabled
+                        ? null
+                        : () {
+                            print('★★★ Test Button Pressed! ★★★');
+                            _runTests();
+                          },
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      textStyle: const TextStyle(fontSize: 14),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
-                // 提出
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.cloud_upload),
-                  label: const Text('提出'),
-                  onPressed: () {
-                    final parts = widget.problemId.split('_');
-                    final contestId = parts.isNotEmpty ? parts[0] : widget.problemId;
-                    final url = 'https://atcoder.jp/contests/$contestId/submit?taskScreenName=${widget.problemId}';
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => SubmitScreen(
-                          url: url,
-                          initialCode: _codeController.text,
-                          initialLanguage: _selectedLanguage,
+                // 提出（横幅1/3）
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.cloud_upload),
+                    label: const Text('提出'),
+                    onPressed: () {
+                      final parts = widget.problemId.split('_');
+                      final contestId = parts.isNotEmpty ? parts[0] : widget.problemId;
+                      final url = 'https://atcoder.jp/contests/$contestId/submit?taskScreenName=${widget.problemId}';
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SubmitScreen(
+                            url: url,
+                            initialCode: _codeController.text,
+                            initialLanguage: _selectedLanguage,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    textStyle: const TextStyle(fontSize: 14),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      textStyle: const TextStyle(fontSize: 14),
+                    ),
                   ),
                 ),
               ],
