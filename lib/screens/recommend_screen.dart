@@ -17,6 +17,19 @@ class _RecommendScreenState extends State<RecommendScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   String? _savedUsername; // 設定済みユーザー名
+  int? _currentRating; // 取得したレート
+
+  // AtCoder カラー判定
+  Color _ratingColor(int rating) {
+    if (rating >= 2800) return const Color(0xFFFF0000); // 赤
+    if (rating >= 2400) return const Color(0xFFFF8000); // 橙
+    if (rating >= 2000) return const Color(0xFFC0C000); // 黄
+    if (rating >= 1600) return const Color(0xFF0000FF); // 青
+    if (rating >= 1200) return const Color(0xFF00C0C0); // 水
+    if (rating >= 800) return const Color(0xFF008000);  // 緑
+    if (rating >= 400) return const Color(0xFF804000); // 茶
+    return const Color(0xFF808080); // 灰
+  }
 
   @override
   void initState() {
@@ -60,6 +73,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
       _isLoading = true;
       _errorMessage = null;
       _recommendedProblems = [];
+      _currentRating = null;
     });
 
     try {
@@ -74,6 +88,13 @@ class _RecommendScreenState extends State<RecommendScreen> {
       final rating = await _atcoderService.fetchAtCoderRate(username);
       if (rating == null) {
         throw Exception('ユーザーが見つからないか、レーティングがありません');
+      }
+
+      // レートを保存してUIに表示
+      if (mounted) {
+        setState(() {
+          _currentRating = rating;
+        });
       }
 
       final allProblems = await _atcoderService.fetchProblemDifficulties();
@@ -137,6 +158,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                       setState(() {
                         _savedUsername = null;
                         _usernameController.clear();
+                        _currentRating = null;
                       });
                     },
                     child: const Text('変更'),
@@ -149,6 +171,19 @@ class _RecommendScreenState extends State<RecommendScreen> {
               ElevatedButton(
                 onPressed: _isLoading ? null : _getRecommendations,
                 child: const Text('おすすめを取得'),
+              ),
+            const SizedBox(height: 8),
+            if (_currentRating != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '現在のレート: $_currentRating',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: _ratingColor(_currentRating!),
+                  ),
+                ),
               ),
             const SizedBox(height: 16),
             if (_isLoading)
