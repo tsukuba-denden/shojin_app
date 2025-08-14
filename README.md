@@ -1,21 +1,21 @@
 # Shojin_App
 
-[![Latest release](https://img.shields.io/github/v/release/tsukuba-denden/Shojin_App?include_prereleases)](https://github.com/tsukuba-denden/Shojin_App/releases)
-[![License](https://img.shields.io/github/license/tsukuba-denden/Shojin_App)](https://github.com/tsukuba-denden/shojin_app/tree/main?tab=MIT-1-ov-fil)
-[![Downloads](https://img.shields.io/github/downloads/tsukuba-denden/Shojin_App/total)](https://github.com/tsukuba-denden/Shojin_App/releases)
-![Forks](https://img.shields.io/github/forks/tsukuba-denden/Shojin_App)
+[![Latest release](https://img.shields.io/github/v/release/yuubinnkyoku/Shojin_App?include_prereleases)](https://github.com/yuubinnkyoku/Shojin_App/releases)
+[![License](https://img.shields.io/github/license/yuubinnkyoku/Shojin_App)](https://github.com/yuubinnkyoku/shojin_app/tree/main?tab=MIT-1-ov-fil)
+[![Downloads](https://img.shields.io/github/downloads/yuubinnkyoku/Shojin_App/total)](https://github.com/yuubinnkyoku/Shojin_App/releases)
+![Forks](https://img.shields.io/github/forks/yuubinnkyoku/Shojin_App)
 ![code-size](https://img.shields.io/github/languages/code-size/yuubinnkyoku/yuubinnkyoku.github.io)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/tsukuba-denden/shojin_app)
-[![GitHub Stars](https://img.shields.io/github/stars/tsukuba-denden/shojin_app)](https://github.com/tsukuba-denden/shojin_app)
-[![Android Build](https://github.com/tsukuba-denden/shojin_app/actions/workflows/build.yaml/badge.svg)](https://github.com/tsukuba-denden/shojin_app/actions/workflows/build.yaml)
-![Issues](https://img.shields.io/github/issues/tsukuba-denden/Shojin_App)
-![Repo Size](https://img.shields.io/github/repo-size/tsukuba-denden/Shojin_App)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/tsukuba-denden/shojin_app)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yuubinnkyoku/shojin_app)
+[![GitHub Stars](https://img.shields.io/github/stars/yuubinnkyoku/shojin_app)](https://github.com/yuubinnkyoku/shojin_app)
+[![Android Build](https://github.com/yuubinnkyoku/shojin_app/actions/workflows/build.yaml/badge.svg)](https://github.com/yuubinnkyoku/shojin_app/actions/workflows/build.yaml)
+![Issues](https://img.shields.io/github/issues/yuubinnkyoku/Shojin_App)
+![Repo Size](https://img.shields.io/github/repo-size/yuubinnkyoku/Shojin_App)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yuubinnkyoku/shojin_app)
 
 
 [<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png"
     alt="Get it on GitHub"
-    height="80">](https://github.com/tsukuba-denden/shojin_app/releases)
+    height="80">](https://github.com/yuubinnkyoku/shojin_app/releases)
 
 AtCoderの精進をスマホでも。
 
@@ -60,7 +60,7 @@ AtCoderの精進をスマホでも。
 
 ### GitHubリリーズから
 
-ビルド済みのバイナリ（APKなど）は[GitHubリリーズページ](https://github.com/tsukuba-denden/Shojin_App/releases)からダウンロードできます。これが最も簡単な開始方法です。
+ビルド済みのバイナリ（APKなど）は[GitHubリリーズページ](https://github.com/yuubinnkyoku/Shojin_App/releases)からダウンロードできます。これが最も簡単な開始方法です。
 
 ### ソースからビルド
 
@@ -70,7 +70,7 @@ AtCoderの精進をスマホでも。
     まず、Flutter開発環境がセットアップされていることを確認してください。まだの場合は、[Flutter公式インストールガイド](https://flutter.dev/docs/get-started/install)に従ってください。
 2.  **リポジトリをクローン:**
     ```bash
-    git clone https://github.com/tsukuba-denden/Shojin_App.git
+    git clone https://github.com/yuubinnkyoku/Shojin_App.git
     ```
 3.  **プロジェクトディレクトリに移動:**
     ```bash
@@ -97,7 +97,7 @@ AtCoderの精進をスマホでも。
 
 ### バグ報告や機能要望
 
-*   バグ報告や機能要望は、GitHubの[Issuesページ](https://github.com/tsukuba-denden/Shojin_App/issues)を利用して報告してください。
+*   バグ報告や機能要望は、GitHubの[Issuesページ](https://github.com/yuubinnkyoku/Shojin_App/issues)を利用して報告してください。
 
 ### 開発への参加
 
