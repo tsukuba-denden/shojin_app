@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:developer' as developer;
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../models/problem.dart';
 import '../services/atcoder_service.dart';
+import '../providers/theme_provider.dart';
+import '../utils/text_style_helper.dart';
 import '../widgets/tex_widget.dart';
 
 class ProblemDetailScreen extends StatefulWidget {
@@ -239,8 +243,8 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                         width: double.infinity,
                         child: SelectableText(
                           _errorMessage!,
-                          style: TextStyle(
-                            fontFamily: 'monospace',
+                          style: getMonospaceTextStyle(
+                            Provider.of<ThemeProvider>(context, listen: false).codeFontFamily,
                             color: Colors.red[900],
                           ),
                         ),
@@ -276,11 +280,11 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
   }
 
   Widget _buildProblemView(Problem problem) {
-    // MediaQueryを使用して、下部のナビゲーションバーの高さを取得
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final codeFontFamily = themeProvider.codeFontFamily;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return SingleChildScrollView(
-      // 下部にパディングを追加して、コンテンツが隠れないようにする
       padding: EdgeInsets.only(bottom: bottomPadding > 0 ? bottomPadding : 16),
       child: Padding(
         padding: const EdgeInsets.only(top: 16),
@@ -309,11 +313,11 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                   ),
                 ),
                 const Divider(),
-                _buildSection('問題文', problem.statement),
-                _buildSection('制約', problem.constraints),
-                _buildSection('入力', problem.inputFormat),
-                _buildSection('出力', problem.outputFormat),
-                ...problem.samples.map((sample) => _buildSampleIO(sample)),
+                _buildSection('問題文', problem.statement, codeFontFamily),
+                _buildSection('制約', problem.constraints, codeFontFamily),
+                _buildSection('入力', problem.inputFormat, codeFontFamily),
+                _buildSection('出力', problem.outputFormat, codeFontFamily),
+                ...problem.samples.map((sample) => _buildSampleIO(sample, codeFontFamily)),
               ],
             ),
           ),
@@ -322,7 +326,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
     );
   }
 
-  Widget _buildSection(String title, String content) {
+  Widget _buildSection(String title, String content, String codeFontFamily) {
     if (content.isEmpty) return const SizedBox.shrink();
 
     developer.log('セクション[$title]の内容: $content');
@@ -371,10 +375,8 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
                 border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
               ),
               child: Text(
-                parts[i].trim(), 
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                ),
+                parts[i].trim(),
+                style: getMonospaceTextStyle(codeFontFamily),
               ),
             )
           );
@@ -405,7 +407,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
     );
   }
 
-  Widget _buildSampleIO(SampleIO sample) {
+  Widget _buildSampleIO(SampleIO sample, String codeFontFamily) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -440,8 +442,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
           ),
-          // サンプル入力は通常のTextで表示 (LaTeXとして解釈させない)
-          child: Text(sample.input, style: const TextStyle(fontFamily: 'monospace')),
+          child: Text(sample.input, style: getMonospaceTextStyle(codeFontFamily)),
         ),
         const SizedBox(height: 8),
         Row(
@@ -474,8 +475,7 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.3)),
           ),
-          // サンプル出力は通常のTextで表示 (LaTeXとして解釈させない)
-          child: Text(sample.output, style: const TextStyle(fontFamily: 'monospace')),
+          child: Text(sample.output, style: getMonospaceTextStyle(codeFontFamily)),
         ),
       ],
     );
