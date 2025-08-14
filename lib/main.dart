@@ -195,14 +195,14 @@ class MyApp extends StatelessWidget {
               surfaceTintColor: Colors.transparent,
               elevation: 0,
               indicatorColor: lightColorScheme.primary.withOpacity(0.20),
-              iconTheme: MaterialStateProperty.resolveWith((states) {
-                final color = states.contains(MaterialState.selected)
+              iconTheme: WidgetStateProperty.resolveWith((states) {
+                final color = states.contains(WidgetState.selected)
                     ? lightColorScheme.primary
                     : lightColorScheme.onSurfaceVariant;
                 return IconThemeData(color: color);
               }),
-              labelTextStyle: MaterialStateProperty.resolveWith((states) {
-                final color = states.contains(MaterialState.selected)
+              labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                final color = states.contains(WidgetState.selected)
                     ? lightColorScheme.primary
                     : lightColorScheme.onSurfaceVariant;
                 return TextStyle(color: color);
@@ -232,14 +232,14 @@ class MyApp extends StatelessWidget {
               surfaceTintColor: Colors.transparent,
               elevation: 0,
               indicatorColor: darkColorScheme.primary.withOpacity(0.20),
-              iconTheme: MaterialStateProperty.resolveWith((states) {
-                final color = states.contains(MaterialState.selected)
+              iconTheme: WidgetStateProperty.resolveWith((states) {
+                final color = states.contains(WidgetState.selected)
                     ? darkColorScheme.primary
                     : darkColorScheme.onSurfaceVariant;
                 return IconThemeData(color: color);
               }),
-              labelTextStyle: MaterialStateProperty.resolveWith((states) {
-                final color = states.contains(MaterialState.selected)
+              labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                final color = states.contains(WidgetState.selected)
                     ? darkColorScheme.primary
                     : darkColorScheme.onSurfaceVariant;
                 return TextStyle(color: color);
