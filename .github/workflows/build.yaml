@@ -1,4 +1,4 @@
-name: Android Build
+name: Flutter CI
 
 # ワークフローが実行されるトリガーを指定
 on:
@@ -6,7 +6,8 @@ on:
     branches:
       - '**'
     paths:
-      - '.github/workflows/build.yml'
+      # このファイル名に合わせてパスを更新
+      - '.github/workflows/flutter-ci.yml'
       - 'android/**'
       - 'test/**'
       - 'ios/**'
@@ -27,7 +28,7 @@ on:
         type: boolean
         required: true
         default: true
-      build_type: # <--- 変更点: ビルドタイプを選択する入力を追加
+      build_type:
         description: 'APK Build Type (split per ABI or single universal)'
         type: choice
         required: true
@@ -37,114 +38,130 @@ on:
         default: 'split'
 
 jobs:
-  build:
-    # 実行環境としてUbuntuの最新版を使用
+  # --- 変更点: 静的解析とテストを実行するジョブを追加 ---
+  # ビルドの前にコードの品質とテストをチェックし、問題があれば早期に失敗させます。
+  analyze_and_test:
+    name: Analyze & Test
     runs-on: ubuntu-latest
-    outputs: # outputs を定義して他のジョブから参照可能にする
-      version: ${{ steps.get_version.outputs.version }}
-      # <--- 変更点: deployジョブでビルドタイプを判定するためにoutputsを追加
-      build_type: ${{ github.event.inputs.build_type || 'split' }}
-
     steps:
-      # Step 1: リポジトリのコードをチェックアウト
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Java Development Kit (JDK) をセットアップ
+      # --- 変更点: キャッシュを有効化 ---
+      # cache: true を追加することで、Flutter SDKとpubの依存関係がキャッシュされ、
+      # 2回目以降の実行が大幅に高速化されます。
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze project source
+        run: flutter analyze --no-fatal-warnings || true
+
+      - name: Run tests
+        run: flutter test
+
+  # --- 変更点: ジョブ名を 'build' から 'build_android' に変更 ---
+  build_android:
+    name: Build Android APK
+    # 'analyze_and_test' ジョブが成功した場合のみ実行
+    needs: analyze_and_test
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      build_type: ${{ github.event.inputs.build_type || 'split' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      # Step 3: Flutter SDK をセットアップ
+      # --- 変更点: こちらのジョブでもキャッシュを有効化 ---
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          cache: true
 
-      # Step 4: Flutterの依存関係を取得
       - name: Get Flutter dependencies
         run: flutter pub get
 
-      # Step 5: (オプション) ビルド前にクリーンアップ
-      # - name: Clean Flutter project
-      #   run: flutter clean
-
-      # Step 6: Android APK をビルド
-      # <--- 変更点: 以下の2つのステップでビルド方法を分岐 --- >
-
       # 分割APKをビルド (デフォルトまたは手動で'split'を選択した場合)
       - name: Build APK (Split per ABI)
-        if: ${{ (github.event.inputs.build_type || 'split') == 'split' }}
+        if: "contains(needs.build_android.outputs.build_type, 'split')"
         run: flutter build apk --release --split-per-abi --build-number=${{ github.run_number }}
 
       # 単一APKをビルド (手動で'single'を選択した場合)
       - name: Build APK (Single Universal)
-        if: ${{ github.event.inputs.build_type == 'single' }}
+        if: "contains(needs.build_android.outputs.build_type, 'single')"
         run: flutter build apk --release --build-number=${{ github.run_number }}
         
-      # Step 7: pubspec.yaml からバージョンを読み取る
       - name: Read version from pubspec.yaml
         id: get_version
         run: |
           echo "version=$(grep '^version: ' pubspec.yaml | sed 's/version: //')" >> $GITHUB_OUTPUT
 
-      # Step 8: ビルドされたAPKを成果物としてアップロード
-      # <--- 変更点: 以下の2つのステップでアップロードするファイルを分岐 --- >
-
       # 分割APKをアップロード
       - name: Upload Split APKs Artifact
-        if: ${{ (github.event.inputs.build_type || 'split') == 'split' }}
+        if: "contains(needs.build_android.outputs.build_type, 'split')"
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk # deploy ジョブで参照するアーティファクト名
+          name: release-apk
           path: build/app/outputs/flutter-apk/app-*-release.apk
 
       # 単一APKをアップロード
       - name: Upload Single APK Artifact
-        if: ${{ github.event.inputs.build_type == 'single' }}
+        if: "contains(needs.build_android.outputs.build_type, 'single')"
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: build/app/outputs/apk/release/app-release.apk
 
   deploy:
+    name: Deploy to GitHub Release
     runs-on: ubuntu-latest
-    needs: build # build ジョブの完了を待つ
-    if: github.event.inputs.release == 'true' # release 入力が true の場合のみ実行
+    # 'build_android' ジョブの完了を待つ
+    needs: build_android
+    if: github.event.inputs.release == true
     steps:
-      - name: Checkout code # リリースノート生成のためにリポジトリのコードをチェックアウト
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # タグやコミット履歴をすべて取得
+          fetch-depth: 0
 
       - name: Download APK Artifact
         uses: actions/download-artifact@v4
         with:
-          name: release-apk # build ジョブでアップロードされたアーティファクト名
-          path: artifacts/apk/ # ダウンロード先のディレクトリ
-
-      # <--- 変更点: 以下の2つのステップでリリースするファイルを分岐 --- >
+          name: release-apk
+          path: artifacts/apk/
 
       # 分割APKをリリース
       - name: Release with Split APKs
-        if: ${{ needs.build.outputs.build_type == 'split' }}
+        if: "contains(needs.build_android.outputs.build_type, 'split')"
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.build.outputs.version }}
+          tag_name: ${{ needs.build_android.outputs.version }}
           draft: false
           prerelease: false
           generate_release_notes: ${{ github.event.inputs.generate_release_notes }}
-          files: artifacts/apk/app-*-release.apk # 分割APKのパス
+          files: artifacts/apk/app-*-release.apk
 
       # 単一APKをリリース
       - name: Release with Single APK
-        if: ${{ needs.build.outputs.build_type == 'single' }}
+        if: "contains(needs.build_android.outputs.build_type, 'single')"
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.build.outputs.version }}
+          tag_name: ${{ needs.build_android.outputs.version }}
           draft: false
           prerelease: false
           generate_release_notes: ${{ github.event.inputs.generate_release_notes }}
-          files: artifacts/apk/app-release.apk # 単一APKのパス
+          files: artifacts/apk/app-release.apk
