@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/problem_difficulty.dart';
 import '../services/atcoder_service.dart';
+import 'problem_detail_screen.dart';
 
 class RecommendScreen extends StatefulWidget {
   const RecommendScreen({super.key});
@@ -31,6 +32,34 @@ class _RecommendScreenState extends State<RecommendScreen> {
     if (rating >= 800) return const Color(0xFF008000);  // 緑
     if (rating >= 400) return const Color(0xFF804000); // 茶
     return const Color(0xFF808080); // 灰
+  }
+
+  // レート表示用バッジ
+  Widget _ratingBadge(int rating) {
+    final color = _ratingColor(rating);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        border: Border.all(color: color, width: 1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.emoji_events, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            rating.toString(),
+            style: TextStyle(
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -200,13 +229,15 @@ class _RecommendScreenState extends State<RecommendScreen> {
             if (_currentRating != null)
               Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  '現在のレート: $_currentRating',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _ratingColor(_currentRating!),
-                  ),
+                child: Row(
+                  children: [
+                    const Text(
+                      '現在のレート:',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(width: 8),
+                    _ratingBadge(_currentRating!),
+                  ],
                 ),
               ),
             const SizedBox(height: 8),
@@ -258,7 +289,20 @@ class _RecommendScreenState extends State<RecommendScreen> {
                     return ListTile(
                       title: Text(problem.key),
                       subtitle: Text(
-                          '難易度: ${problem.value.difficulty ?? "なし"}'),
+                          'Difficulty: ${problem.value.difficulty ?? "なし"}'),
+                      trailing: const Icon(Icons.open_in_new),
+                      onTap: () {
+                        // 問題詳細へ遷移（WebView連携と同様にIDからページを開く）
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProblemDetailScreen(
+                              problemIdToLoad: problem.key,
+                              onProblemChanged: (_) {},
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 ),

@@ -146,135 +146,138 @@ class _ProblemDetailScreenState extends State<ProblemDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column( // Consider using ListView for better scrolling if content overflows
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Form(
-            key: _formKey, // Keep form key for manual input validation
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _urlController, // Controller is updated automatically now
-                    decoration: const InputDecoration(
-                      labelText: 'AtCoder 問題URL',
-                      hintText: 'https://atcoder.jp/contests/コンテスト名/tasks/問題名',
-                      border: OutlineInputBorder(),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('問題詳細'),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Form(
+                key: _formKey, // Keep form key for manual input validation
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _urlController, // Controller is updated automatically now
+                        decoration: const InputDecoration(
+                          labelText: 'AtCoder 問題URL',
+                          hintText: 'https://atcoder.jp/contests/コンテスト名/tasks/問題名',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) { // Validator for manual input
+                          if (value == null || value.isEmpty) {
+                            return 'URLを入力してください';
+                          }
+                          if (!_atCoderService.isValidAtCoderUrl(value)) {
+                            return '正しいAtCoderの問題URLを入力してください';
+                          }
+                          return null;
+                        },
+                      ),
                     ),
-                    validator: (value) { // Validator for manual input
-                      if (value == null || value.isEmpty) {
-                        return 'URLを入力してください';
-                      }
-                      if (!_atCoderService.isValidAtCoderUrl(value)) {
-                        return '正しいAtCoderの問題URLを入力してください';
-                      }
-                      return null;
-                    },
-                  ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      // Trigger manual fetch using the current text in the controller
+                      onPressed: _isLoading ? null : () {
+                          // Manually trigger fetch only if form is valid
+                          if (_formKey.currentState!.validate()) {
+                              _lastLoadedProblemId = null; // Reset auto-load tracking for manual fetch
+                             _fetchProblem();
+                          }
+                      },
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('取得'),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  // Trigger manual fetch using the current text in the controller
-                  onPressed: _isLoading ? null : () {
-                      // Manually trigger fetch only if form is valid
-                      if (_formKey.currentState!.validate()) {
-                          _lastLoadedProblemId = null; // Reset auto-load tracking for manual fetch
-                         _fetchProblem();
-                      }
-                  },
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('取得'),
-                ),
-              ],
-            ),
-          ),
-          if (_errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Card(
-                color: Colors.red[50],
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+              ),
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Card(
+                    color: Colors.red[50],
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.error_outline, color: Colors.red[700]),
-                          const SizedBox(width: 8),
-                          Text(
-                            'エラーが発生しました',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.red[700],
+                          Row(
+                            children: [
+                              Icon(Icons.error_outline, color: Colors.red[700]),
+                              const SizedBox(width: 8),
+                              Text(
+                                'エラーが発生しました',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.red[700],
+                                ),
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                icon: Icon(Icons.copy, color: Colors.red[700]),
+                                tooltip: 'エラーメッセージをコピー',
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: _errorMessage!));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('エラーメッセージをコピーしました'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.red[100],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            width: double.infinity,
+                            child: SelectableText(
+                              _errorMessage!,
+                              style: getMonospaceTextStyle(
+                                Provider.of<ThemeProvider>(context, listen: false).codeFontFamily,
+                                color: Colors.red[900],
+                              ),
                             ),
                           ),
-                          const Spacer(),
-                          IconButton(
-                            icon: Icon(Icons.copy, color: Colors.red[700]),
-                            tooltip: 'エラーメッセージをコピー',
-                            onPressed: () {
-                              Clipboard.setData(ClipboardData(text: _errorMessage!));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('エラーメッセージをコピーしました'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
-                            },
+                          const SizedBox(height: 8),
+                          Text(
+                            'URLが正しいことを確認し、もう一度お試しください。',
+                            style: TextStyle(
+                              color: Colors.red[700],
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.red[100],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        width: double.infinity,
-                        child: SelectableText(
-                          _errorMessage!,
-                          style: getMonospaceTextStyle(
-                            Provider.of<ThemeProvider>(context, listen: false).codeFontFamily,
-                            color: Colors.red[900],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'URLが正しいことを確認し、もう一度お試しください。',
-                        style: TextStyle(
-                          color: Colors.red[700],
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : (_problem != null
+                        ? _buildProblemView(_problem!)
+                        : const Center(child: Text('問題URLを入力またはWebViewから選択してください。'))),
               ),
-            ),
-          if (_isLoading)
-            const Expanded( // Use Expanded if inside Column
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_problem != null)
-             Expanded( // Use Expanded if inside Column
-               child: _buildProblemView(_problem!),
-             )
-          else if (!_isLoading && _errorMessage == null)
-             const Expanded(
-               child: Center(child: Text('問題URLを入力またはWebViewから選択してください。')),
-             ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
