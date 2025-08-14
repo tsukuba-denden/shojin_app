@@ -137,7 +137,7 @@ jobs:
     runs-on: ubuntu-latest
     # 'build_android' ジョブの完了を待つ
     needs: build_android
-    if: github.event.inputs.release == true
+    if: github.event.inputs.release == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
