@@ -103,9 +103,10 @@ class MyApp extends StatelessWidget {
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        // Material Youを使用するかどうかでカラースキームを決定
+        // Material You / Custom theme 基本スキーム決定
         ColorScheme lightColorScheme;
-        ColorScheme darkColorScheme;        if (themeProvider.useMaterialYou) {
+        ColorScheme darkColorScheme;
+        if (themeProvider.useMaterialYou) {
           lightColorScheme = lightDynamic ?? _defaultLightColorScheme;
           darkColorScheme = themeProvider.isPureBlack
               ? _pureBlackColorScheme
@@ -115,6 +116,38 @@ class MyApp extends StatelessWidget {
           darkColorScheme = themeProvider.isPureBlack
               ? _pureBlackColorScheme
               : _darkCustomTheme;
+        }
+
+        // AtCoderレーティング色をそのままテーマの主色に適用（ハーモナイズなしで忠実に）
+        if (themeProvider.useAtcoderRatingColor &&
+            themeProvider.atcoderAccentColor != null) {
+          final seed = themeProvider.atcoderAccentColor!;
+          final onPrimary = seed.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+
+          lightColorScheme = lightColorScheme.copyWith(
+            primary: seed,
+            onPrimary: onPrimary,
+            primaryContainer: seed,
+            onPrimaryContainer: onPrimary,
+            surfaceTint: Colors.transparent,
+          );
+
+          final baseDark = darkColorScheme;
+          final darkAdjusted = baseDark.copyWith(
+            primary: seed,
+            onPrimary: onPrimary,
+            primaryContainer: seed,
+            onPrimaryContainer: onPrimary,
+            surfaceTint: Colors.transparent,
+          );
+          darkColorScheme = themeProvider.isPureBlack
+              ? darkAdjusted.copyWith(
+                  surface: Colors.black,
+                  surfaceContainerHighest: Colors.black,
+                  onSurface: Colors.white,
+                  surfaceTint: Colors.transparent,
+                )
+              : darkAdjusted;
         }
 
         // Noto Sans JPフォントをテキストテーマに適用

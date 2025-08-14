@@ -83,6 +83,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'atcoder_username',
         _atcoderUsernameController.text.trim(),
       );
+      // If theme uses AtCoder accent, refresh it
+      try {
+        final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+        if (themeProvider.useAtcoderRatingColor) {
+          await themeProvider.refreshAtcoderAccentColor();
+        }
+      } catch (_) {
+        // ignore UI refresh errors
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('AtCoderユーザー名を保存しました')),
@@ -331,6 +340,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: themeProvider.useMaterialYou,
               onChanged: themeProvider.setUseMaterialYou,
               icon: Icons.color_lens_outlined,
+            ),
+            _HapticSwitchListTile(
+              title: 'AtCoderの色をテーマに使う',
+              subtitle: '保存したユーザーのレート色をアクセントに適用します',
+              value: themeProvider.useAtcoderRatingColor,
+              onChanged: (v) async {
+                await themeProvider.setUseAtcoderRatingColor(v);
+                if (v) {
+                  await themeProvider.refreshAtcoderAccentColor();
+                }
+              },
+              icon: Icons.emoji_events_outlined,
             ),
             const Divider(),
             // Font Family Selector
