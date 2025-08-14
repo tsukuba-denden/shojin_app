@@ -13,6 +13,8 @@ class RecommendScreen extends StatefulWidget {
 class _RecommendScreenState extends State<RecommendScreen> {
   final _atcoderService = AtCoderService();
   final _usernameController = TextEditingController();
+  final _lowerDeltaController = TextEditingController();
+  final _upperDeltaController = TextEditingController();
   List<MapEntry<String, ProblemDifficulty>> _recommendedProblems = [];
   bool _isLoading = false;
   String? _errorMessage;
@@ -34,6 +36,9 @@ class _RecommendScreenState extends State<RecommendScreen> {
   @override
   void initState() {
     super.initState();
+    // 推薦条件のデフォルト（±100）
+    _lowerDeltaController.text = '-100';
+    _upperDeltaController.text = '100';
     _loadSavedUsername();
   }
 
@@ -65,6 +70,8 @@ class _RecommendScreenState extends State<RecommendScreen> {
   @override
   void dispose() {
     _usernameController.dispose();
+    _lowerDeltaController.dispose();
+    _upperDeltaController.dispose();
     super.dispose();
   }
 
@@ -77,6 +84,16 @@ class _RecommendScreenState extends State<RecommendScreen> {
     });
 
     try {
+      // 条件の取得とバリデーション
+      int lowerDelta = int.tryParse(_lowerDeltaController.text.trim()) ?? -100;
+      int upperDelta = int.tryParse(_upperDeltaController.text.trim()) ?? 100;
+      if (lowerDelta > upperDelta) {
+        // 入力が逆の場合は入れ替え
+        final tmp = lowerDelta;
+        lowerDelta = upperDelta;
+        upperDelta = tmp;
+      }
+
       // 事前に設定済みのユーザー名を優先
       final username = (_savedUsername != null && _savedUsername!.isNotEmpty)
           ? _savedUsername!
@@ -102,12 +119,19 @@ class _RecommendScreenState extends State<RecommendScreen> {
       final recommended = allProblems.entries.where((entry) {
         final difficulty = entry.value.difficulty;
         return difficulty != null &&
-            difficulty >= rating - 100 &&
-            difficulty <= rating + 100;
+            difficulty >= rating + lowerDelta &&
+            difficulty <= rating + upperDelta;
       }).toList();
 
-      recommended
-          .sort((a, b) => a.value.difficulty!.compareTo(b.value.difficulty!));
+      // 自分のレートに近い順に並べ替え（差の絶対値の昇順）
+      recommended.sort((a, b) {
+        final da = (a.value.difficulty! - rating).abs();
+        final db = (b.value.difficulty! - rating).abs();
+        final cmp = da.compareTo(db);
+        if (cmp != 0) return cmp;
+        // 差が同じ場合は難易度の昇順で安定化
+        return a.value.difficulty!.compareTo(b.value.difficulty!);
+      });
 
       setState(() {
         _recommendedProblems = recommended;
@@ -185,6 +209,38 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   ),
                 ),
               ),
+            const SizedBox(height: 8),
+            // 推薦条件入力（レートとの差分の下限/上限）
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _lowerDeltaController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '下限差 (例: -100)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _upperDeltaController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '上限差 (例: 100)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _getRecommendations,
+                  child: const Text('条件で再取得'),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             if (_isLoading)
               const CircularProgressIndicator()
