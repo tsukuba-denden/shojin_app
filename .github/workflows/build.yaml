@@ -57,7 +57,7 @@ jobs:
           cache: true
 
       - name: Get Flutter dependencies
-        run: flutter pub get
+        run: flutter pub get || flutter pub get || flutter pub get
 
       - name: Analyze project source
         run: flutter analyze --no-fatal-warnings || true
@@ -93,7 +93,7 @@ jobs:
           cache: true
 
       - name: Get Flutter dependencies
-        run: flutter pub get
+        run: flutter pub get || flutter pub get || flutter pub get
 
       # 分割APKをビルド (デフォルトまたは手動で'split'を選択した場合)
       - name: Build APK (Split per ABI)
