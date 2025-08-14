@@ -28,7 +28,8 @@ class ProblemDifficulty {
       discrimination: json['discrimination']?.toDouble(),
       irtLoglikelihood: json['irt_loglikelihood']?.toDouble(),
       irtUsers: json['irt_users'],
-      isExperimental: json['is_experimental'],
+      // Some entries may omit this flag. Default to false when null.
+      isExperimental: (json['is_experimental'] as bool?) ?? false,
     );
   }
 }
