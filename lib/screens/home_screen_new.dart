@@ -45,7 +45,7 @@ class NewHomeScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     icon: const Icon(Icons.recommend),
-                    label: const Text('Recommend Problems'),
+                    label: const Text('おすすめ問題'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12.0),
                       textStyle: const TextStyle(
