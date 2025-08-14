@@ -190,6 +190,24 @@ class MyApp extends StatelessWidget {
                 elevation: 2,
               ),
             ),
+            navigationBarTheme: NavigationBarThemeData(
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              indicatorColor: lightColorScheme.primary.withOpacity(0.20),
+              iconTheme: MaterialStateProperty.resolveWith((states) {
+                final color = states.contains(MaterialState.selected)
+                    ? lightColorScheme.primary
+                    : lightColorScheme.onSurfaceVariant;
+                return IconThemeData(color: color);
+              }),
+              labelTextStyle: MaterialStateProperty.resolveWith((states) {
+                final color = states.contains(MaterialState.selected)
+                    ? lightColorScheme.primary
+                    : lightColorScheme.onSurfaceVariant;
+                return TextStyle(color: color);
+              }),
+            ),
             cardTheme: CardThemeData(
               elevation: 2,
               margin: const EdgeInsets.all(8),
@@ -208,6 +226,24 @@ class MyApp extends StatelessWidget {
               centerTitle: true,
               elevation: 2,
               backgroundColor: themeProvider.isPureBlack ? Colors.black : null,
+            ),
+            navigationBarTheme: NavigationBarThemeData(
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              indicatorColor: darkColorScheme.primary.withOpacity(0.20),
+              iconTheme: MaterialStateProperty.resolveWith((states) {
+                final color = states.contains(MaterialState.selected)
+                    ? darkColorScheme.primary
+                    : darkColorScheme.onSurfaceVariant;
+                return IconThemeData(color: color);
+              }),
+              labelTextStyle: MaterialStateProperty.resolveWith((states) {
+                final color = states.contains(MaterialState.selected)
+                    ? darkColorScheme.primary
+                    : darkColorScheme.onSurfaceVariant;
+                return TextStyle(color: color);
+              }),
             ),
             cardTheme: CardThemeData(
               elevation: 2,
