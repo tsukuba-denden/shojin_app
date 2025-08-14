@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/atcoder_service.dart';
+import '../utils/atcoder_colors.dart';
 
 const String _navOpacityKey = 'nav_opacity'; // Key for bottom nav opacity
 const String _useMaterialYouKey = 'use_material_you'; // Key for Material You setting
 const String _codeFontFamilyKey = 'code_font_family'; // Key for code font family
 const String _customCodeFontsKey = 'custom_code_fonts'; // Key for custom code fonts list
+const String _useAtcoderRatingColorKey = 'use_atcoder_rating_color'; // Key for AtCoder accent option
 
 // Built-in supported Google fonts and generic fallback
 const List<String> defaultCodeFontFamilies = [
@@ -32,6 +35,8 @@ class ThemeProvider extends ChangeNotifier {
   String _codeFontFamily = defaultCodeFontFamilies.first; // Default font
   final List<String> _customCodeFonts = []; // User-added font family names (must be declared in pubspec)
   bool _isLoading = true;
+  bool _useAtcoderRatingColor = false; // Default off
+  Color? _atcoderAccentColor; // Resolved accent color based on rating
 
   ThemeProvider() {
     _loadFromPrefs();
@@ -45,6 +50,12 @@ class ThemeProvider extends ChangeNotifier {
 
   // Material Youを使用するかどうか
   bool get useMaterialYou => _useMaterialYou;
+
+  // AtCoderレート色をアクセントとして使うか
+  bool get useAtcoderRatingColor => _useAtcoderRatingColor;
+
+  // 解決済みのアクセントカラー（nullの場合は未設定/無効）
+  Color? get atcoderAccentColor => _atcoderAccentColor;
 
   // Code block font family
   String get codeFontFamily => _codeFontFamily;
@@ -72,6 +83,20 @@ class ThemeProvider extends ChangeNotifier {
     _themeMode = mode;
     await _saveToPrefs();
     notifyListeners();
+  }
+
+  // AtCoderレート色の使用設定を変更
+  Future<void> setUseAtcoderRatingColor(bool use) async {
+    if (_useAtcoderRatingColor == use) return;
+
+    _useAtcoderRatingColor = use;
+    await _saveToPrefs();
+    if (use) {
+      await refreshAtcoderAccentColor();
+    } else {
+      _atcoderAccentColor = null;
+      notifyListeners();
+    }
   }
 
   // Material Youの使用設定を変更
@@ -131,6 +156,11 @@ class ThemeProvider extends ChangeNotifier {
     if (savedUseMaterialYou != null) {
       _useMaterialYou = savedUseMaterialYou;
     }
+    // Load AtCoder accent option
+    final savedUseAtcoder = prefs.getBool(_useAtcoderRatingColorKey);
+    if (savedUseAtcoder != null) {
+      _useAtcoderRatingColor = savedUseAtcoder;
+    }
     // Load code font family if exists
     final savedFontFamily = prefs.getString(_codeFontFamilyKey);
     // Load custom fonts list
@@ -150,6 +180,11 @@ class ThemeProvider extends ChangeNotifier {
       _themeMode = ThemeModeOption.values[themeModeIndex];
     }
 
+    // If using AtCoder accent, resolve it now
+    if (_useAtcoderRatingColor) {
+      await refreshAtcoderAccentColor();
+    }
+
     _isLoading = false;
     notifyListeners();
   }
@@ -161,6 +196,7 @@ class ThemeProvider extends ChangeNotifier {
     await prefs.setBool(_useMaterialYouKey, _useMaterialYou); // Save Material You setting
     await prefs.setString(_codeFontFamilyKey, _codeFontFamily); // Save font family
     await prefs.setStringList(_customCodeFontsKey, _customCodeFonts); // Save custom fonts
+    await prefs.setBool(_useAtcoderRatingColorKey, _useAtcoderRatingColor); // Save AtCoder accent option
   }
 
   // Set bottom nav opacity and persist
@@ -168,6 +204,32 @@ class ThemeProvider extends ChangeNotifier {
     _navBarOpacity = opacity;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_navOpacityKey, opacity);
+    notifyListeners();
+  }
+
+  /// Fetch current user's AtCoder rating and resolve accent color.
+  /// Uses 'atcoder_username' from SharedPreferences. If missing or fetch fails,
+  /// falls back to null and leaves theme unchanged.
+  Future<void> refreshAtcoderAccentColor() async {
+    if (!_useAtcoderRatingColor) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final username = prefs.getString('atcoder_username');
+      if (username == null || username.trim().isEmpty) {
+        _atcoderAccentColor = null;
+        notifyListeners();
+        return;
+      }
+      final service = AtCoderService();
+      final rating = await service.fetchAtCoderRate(username.trim());
+      if (rating == null) {
+        _atcoderAccentColor = null;
+      } else {
+        _atcoderAccentColor = atcoderRatingToColor(rating);
+      }
+    } catch (_) {
+      _atcoderAccentColor = null;
+    }
     notifyListeners();
   }
 }

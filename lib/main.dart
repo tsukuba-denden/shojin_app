@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:animations/animations.dart';
 import 'screens/problem_detail_screen.dart';
 import 'screens/editor_screen.dart';
 import 'screens/settings_screen.dart';
@@ -103,9 +102,10 @@ class MyApp extends StatelessWidget {
 
     return DynamicColorBuilder(
       builder: (ColorScheme? lightDynamic, ColorScheme? darkDynamic) {
-        // Material Youを使用するかどうかでカラースキームを決定
+        // Material You / Custom theme 基本スキーム決定
         ColorScheme lightColorScheme;
-        ColorScheme darkColorScheme;        if (themeProvider.useMaterialYou) {
+        ColorScheme darkColorScheme;
+        if (themeProvider.useMaterialYou) {
           lightColorScheme = lightDynamic ?? _defaultLightColorScheme;
           darkColorScheme = themeProvider.isPureBlack
               ? _pureBlackColorScheme
@@ -115,6 +115,38 @@ class MyApp extends StatelessWidget {
           darkColorScheme = themeProvider.isPureBlack
               ? _pureBlackColorScheme
               : _darkCustomTheme;
+        }
+
+        // AtCoderレーティング色をそのままテーマの主色に適用（ハーモナイズなしで忠実に）
+        if (themeProvider.useAtcoderRatingColor &&
+            themeProvider.atcoderAccentColor != null) {
+          final seed = themeProvider.atcoderAccentColor!;
+          final onPrimary = seed.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+
+          lightColorScheme = lightColorScheme.copyWith(
+            primary: seed,
+            onPrimary: onPrimary,
+            primaryContainer: seed,
+            onPrimaryContainer: onPrimary,
+            surfaceTint: Colors.transparent,
+          );
+
+          final baseDark = darkColorScheme;
+          final darkAdjusted = baseDark.copyWith(
+            primary: seed,
+            onPrimary: onPrimary,
+            primaryContainer: seed,
+            onPrimaryContainer: onPrimary,
+            surfaceTint: Colors.transparent,
+          );
+          darkColorScheme = themeProvider.isPureBlack
+              ? darkAdjusted.copyWith(
+                  surface: Colors.black,
+                  surfaceContainerHighest: Colors.black,
+                  onSurface: Colors.white,
+                  surfaceTint: Colors.transparent,
+                )
+              : darkAdjusted;
         }
 
         // Noto Sans JPフォントをテキストテーマに適用
@@ -144,6 +176,7 @@ class MyApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ja'),
           onGenerateTitle: (BuildContext context) => AppLocalizations.of(context)!.appTitle, // 修正
           theme: ThemeData(
             colorScheme: lightColorScheme,
@@ -156,6 +189,24 @@ class MyApp extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 elevation: 2,
               ),
+            ),
+            navigationBarTheme: NavigationBarThemeData(
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              indicatorColor: lightColorScheme.primary.withOpacity(0.20),
+              iconTheme: MaterialStateProperty.resolveWith((states) {
+                final color = states.contains(MaterialState.selected)
+                    ? lightColorScheme.primary
+                    : lightColorScheme.onSurfaceVariant;
+                return IconThemeData(color: color);
+              }),
+              labelTextStyle: MaterialStateProperty.resolveWith((states) {
+                final color = states.contains(MaterialState.selected)
+                    ? lightColorScheme.primary
+                    : lightColorScheme.onSurfaceVariant;
+                return TextStyle(color: color);
+              }),
             ),
             cardTheme: CardThemeData(
               elevation: 2,
@@ -175,6 +226,24 @@ class MyApp extends StatelessWidget {
               centerTitle: true,
               elevation: 2,
               backgroundColor: themeProvider.isPureBlack ? Colors.black : null,
+            ),
+            navigationBarTheme: NavigationBarThemeData(
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              indicatorColor: darkColorScheme.primary.withOpacity(0.20),
+              iconTheme: MaterialStateProperty.resolveWith((states) {
+                final color = states.contains(MaterialState.selected)
+                    ? darkColorScheme.primary
+                    : darkColorScheme.onSurfaceVariant;
+                return IconThemeData(color: color);
+              }),
+              labelTextStyle: MaterialStateProperty.resolveWith((states) {
+                final color = states.contains(MaterialState.selected)
+                    ? darkColorScheme.primary
+                    : darkColorScheme.onSurfaceVariant;
+                return TextStyle(color: color);
+              }),
             ),
             cardTheme: CardThemeData(
               elevation: 2,
