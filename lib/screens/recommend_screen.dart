@@ -203,6 +203,10 @@ class _RecommendScreenState extends State<RecommendScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (_currentRating != null) ...[
+                    _ratingBadge(_currentRating!),
+                    const SizedBox(width: 8),
+                  ],
                   TextButton(
                     onPressed: () async {
                       final prefs = await SharedPreferences.getInstance();
@@ -219,26 +223,11 @@ class _RecommendScreenState extends State<RecommendScreen> {
                 ],
               ),
             ],
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             if (_savedUsername == null)
               ElevatedButton(
                 onPressed: _isLoading ? null : _getRecommendations,
                 child: const Text('おすすめを取得'),
-              ),
-            const SizedBox(height: 8),
-            if (_currentRating != null)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Row(
-                  children: [
-                    const Text(
-                      '現在のレート:',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(width: 8),
-                    _ratingBadge(_currentRating!),
-                  ],
-                ),
               ),
             const SizedBox(height: 8),
             // 推薦条件入力（レートとの差分の下限/上限）
