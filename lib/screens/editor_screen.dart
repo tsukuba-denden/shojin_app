@@ -28,7 +28,7 @@ import '../services/code_history_service.dart';
 import 'code_history_screen.dart';
 
 // 3点メニュー用のアクション列挙体（トップレベルに定義）
-enum _ToolbarAction { runTests, save, history, restore, reset, share }
+enum _ToolbarAction { save, history, restore, reset, share }
 
 class EditorScreen extends StatefulWidget {
   final String problemId; // 問題IDを追加
@@ -928,12 +928,7 @@ public class Main {
                     tooltip: 'その他',
                     onSelected: (action) async {
                       switch (action) {
-                        case _ToolbarAction.runTests:
-                          if (!isButtonDisabled) {
-                            print("★★★ Test Menu Selected! ★★★");
-                            _runTests();
-                          }
-                          break;
+
                         case _ToolbarAction.save:
                           _saveCode();
                           break;
@@ -999,18 +994,7 @@ public class Main {
                       }
                     },
                     itemBuilder: (context) => [
-                      PopupMenuItem<_ToolbarAction>(
-                        value: _ToolbarAction.runTests,
-                        enabled: !isButtonDisabled,
-                        child: Row(
-                          children: [
-                            const Icon(Icons.checklist_rtl),
-                            const SizedBox(width: 8),
-                            Text(_isTesting ? 'テスト実行中…' : 'テスト実行 (サンプルケース)'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuDivider(),
+
                       PopupMenuItem<_ToolbarAction>(
                         value: _ToolbarAction.save,
                         child: Row(
