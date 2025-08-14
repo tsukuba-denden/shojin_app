@@ -31,6 +31,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _autoUpdateCheckEnabled = true;
   bool _showUpdateDialog = true; // アップデート通知の表示設定
   Map<String, dynamic>? _aboutInfo;
+  // AtCoder ユーザー名設定
+  final TextEditingController _atcoderUsernameController = TextEditingController();
   @override
   void initState() {
     super.initState();
@@ -38,6 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadAutoUpdatePreference(); // Load preference
     _loadShowUpdateDialogPreference(); // Load show update dialog preference
     _loadAboutInfo(); // Load about info
+    _loadAtCoderUsername(); // Load AtCoder username
   }
 
   Future<void> _loadCurrentVersion() async {
@@ -55,6 +58,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
         });
       }
       print('Failed to load current version: $e');
+    }
+  }
+
+  // AtCoder ユーザー名の読み込み/保存
+  Future<void> _loadAtCoderUsername() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString('atcoder_username');
+      if (mounted && saved != null) {
+        setState(() {
+          _atcoderUsernameController.text = saved;
+        });
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  Future<void> _saveAtCoderUsername() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        'atcoder_username',
+        _atcoderUsernameController.text.trim(),
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AtCoderユーザー名を保存しました')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存に失敗しました: $e')),
+      );
     }
   }
 
@@ -170,6 +207,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   @override
+  void dispose() {
+    _atcoderUsernameController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return CustomScrollView(
       slivers: [
@@ -201,6 +244,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _STemplateSection(),
             const SizedBox(height: 16),
 
+            // AtCoder 設定セクション
+            _SAtCoderSection(),
+            const SizedBox(height: 16),
+
             // 更新設定セクション
             _SUpdateSection(),
             const SizedBox(height: 16),
@@ -217,6 +264,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ],
     );
   } // 新しいセクションウィジェット群
+
+  Widget _SAtCoderSection() {
+    return _SettingsSection(
+      title: 'AtCoder設定',
+      icon: Icons.person_outline,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20.0, 12.0, 20.0, 0.0),
+          child: TextField(
+            controller: _atcoderUsernameController,
+            decoration: const InputDecoration(
+              labelText: 'AtCoderユーザー名',
+              hintText: '例: tourist',
+              border: OutlineInputBorder(),
+            ),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _saveAtCoderUsername(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _saveAtCoderUsername,
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('保存'),
+            ),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 12.0),
+          child: Text(
+            'このユーザー名はレーティング取得や問題推薦などで使用されます。',
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _SUpdateThemeUI() {
     return Consumer<ThemeProvider>(
