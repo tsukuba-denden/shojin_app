@@ -307,7 +307,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const Padding(
           padding: EdgeInsets.fromLTRB(20.0, 8.0, 20.0, 12.0),
           child: Text(
-            'このユーザー名はレーティング取得や問題推薦などで使用されます。',
+            'このユーザー名はレーティング取得やおすすめ問題などで使用されます。',
           ),
         ),
       ],
