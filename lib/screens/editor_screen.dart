@@ -878,482 +878,524 @@ public class Main {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeProvider>(
-      builder: (context, themeProvider, child) {
-        final codeFontFamily = themeProvider.codeFontFamily;
-        final bool isLoadingProblem =
-            _isLoadingCode ||
-            (widget.problemId != 'default_problem' && _currentProblem == null);
-        final bool isButtonDisabled =
-            isLoadingProblem ||
-            _isTesting ||
-            _currentProblem == null ||
-            (_currentProblem?.samples.isEmpty ?? true);
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 4.0,
-                vertical: 2.0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // 言語選択 Dropdown
-                  Row(
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final codeFontFamily = themeProvider.codeFontFamily;
+    final bool isLoadingProblem = _isLoadingCode ||
+        (widget.problemId != 'default_problem' && _currentProblem == null);
+    final bool isButtonDisabled = isLoadingProblem ||
+        _isTesting ||
+        _currentProblem == null ||
+        (_currentProblem?.samples.isEmpty ?? true);
+
+    return Scaffold(
+      appBar: _EditorAppBar(
+        selectedLanguage: _selectedLanguage,
+        languages: _languages,
+        onLanguageChanged: _onLanguageChanged,
+        onSelected: (action) async {
+          switch (action) {
+            case _ToolbarAction.save:
+              _saveCode();
+              break;
+            case _ToolbarAction.history:
+              if (widget.problemId.isEmpty ||
+                  widget.problemId == 'default_problem') {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('No problem selected.'),
+                  ),
+                );
+                break;
+              }
+              final restoredCode = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CodeHistoryScreen(
+                    problemId: widget.problemId,
+                  ),
+                ),
+              );
+              if (restoredCode != null && restoredCode is String) {
+                setState(() {
+                  _codeController.text = restoredCode;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Code restored from history.'),
+                  ),
+                );
+              }
+              break;
+            case _ToolbarAction.restore:
+              _restoreCode();
+              break;
+            case _ToolbarAction.reset:
+              _codeController.text = _getTemplateForLanguage(
+                _selectedLanguage,
+              );
+              _stdinController.clear();
+              setState(() {
+                _output = '';
+                _error = '';
+              });
+              break;
+            case _ToolbarAction.share:
+              final code = _codeController.text;
+              if (code.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('共有するコードがありません')),
+                );
+                break;
+              }
+              String textToShare = code;
+              if (_currentProblem != null) {
+                textToShare =
+                    '${_currentProblem!.title} ($_selectedLanguage)\n\n$code';
+              }
+              SharePlus.instance.share(
+                ShareParams(text: textToShare),
+              );
+              break;
+          }
+        },
+      ),
+      body: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return Column(
+            children: [
+              // ローディング表示 or コードエディタ
+              if (isLoadingProblem)
+                const Expanded(child: Center(child: CircularProgressIndicator()))
+              else
+                Expanded(
+                  flex: 3,
+                  child: _CodeEditor(
+                    codeController: _codeController,
+                    isDarkMode: _isDarkMode,
+                    codeFontFamily: codeFontFamily,
+                  ),
+                ),
+
+              // 入出力エリア: ボタン行 + 左右分割 (stdin | stdout/stderr)
+              if (!isLoadingProblem) ...[
+                // ボタンを一列に配置（実行、サンプル、提出）
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4.0,
+                    vertical: 4.0,
+                  ),
+                  child: Row(
                     children: [
-                      const Text('言語: ', style: TextStyle(fontSize: 14)),
-                      DropdownButton<String>(
-                        value: _selectedLanguage,
-                        isDense: true,
-                        underline: Container(height: 1, color: Colors.grey),
-                        onChanged: _onLanguageChanged,
-                        items: _languages.map<DropdownMenuItem<String>>((
-                          String value,
-                        ) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(
-                              value,
-                              style: const TextStyle(fontSize: 14),
+                      // 実行（横幅1/3）
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: _isRunning
+                              ? SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimary,
+                                  ),
+                                )
+                              : const Icon(Icons.play_arrow),
+                          label: const Text('実行'),
+                          onPressed: _isRunning ? null : _runCode,
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(44),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
                             ),
-                          );
-                        }).toList(),
+                            textStyle: const TextStyle(fontSize: 14),
+                          ),
+                        ),
                       ),
-                    ],
-                  ),
-                  // 3点メニュー（オーバーフローメニュー）
-                  PopupMenuButton<_ToolbarAction>(
-                    icon: const Icon(Icons.more_vert),
-                    tooltip: 'その他',
-                    onSelected: (action) async {
-                      switch (action) {
-
-                        case _ToolbarAction.save:
-                          _saveCode();
-                          break;
-                        case _ToolbarAction.history:
-                          if (widget.problemId.isEmpty ||
-                              widget.problemId == 'default_problem') {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('No problem selected.'),
-                              ),
-                            );
-                            break;
-                          }
-                          final restoredCode = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => CodeHistoryScreen(
-                                problemId: widget.problemId,
-                              ),
+                      const SizedBox(width: 8),
+                      // サンプル（横幅1/3）
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: _isTesting
+                              ? SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimary,
+                                  ),
+                                )
+                              : const Icon(Icons.checklist_rtl),
+                          label: Text(_isTesting ? 'サンプルテスト中…' : 'サンプル'),
+                          onPressed: isButtonDisabled
+                              ? null
+                              : () {
+                                  print('★★★ Test Button Pressed! ★★★');
+                                  _runTests();
+                                },
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(44),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
                             ),
-                          );
-                          if (restoredCode != null && restoredCode is String) {
-                            setState(() {
-                              _codeController.text = restoredCode;
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Code restored from history.'),
+                            textStyle: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // 提出（横幅1/3）
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.cloud_upload),
+                          label: const Text('提出'),
+                          onPressed: () {
+                            final parts = widget.problemId.split('_');
+                            final contestId =
+                                parts.isNotEmpty ? parts[0] : widget.problemId;
+                            final url =
+                                'https://atcoder.jp/contests/$contestId/submit?taskScreenName=${widget.problemId}';
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => SubmitScreen(
+                                  url: url,
+                                  initialCode: _codeController.text,
+                                  initialLanguage: _selectedLanguage,
+                                ),
                               ),
                             );
-                          }
-                          break;
-                        case _ToolbarAction.restore:
-                          _restoreCode();
-                          break;
-                        case _ToolbarAction.reset:
-                          _codeController.text = _getTemplateForLanguage(
-                            _selectedLanguage,
-                          );
-                          _stdinController.clear();
-                          setState(() {
-                            _output = '';
-                            _error = '';
-                          });
-                          break;
-                        case _ToolbarAction.share:
-                          final code = _codeController.text;
-                          if (code.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('共有するコードがありません')),
-                            );
-                            break;
-                          }
-                          String textToShare = code;
-                          if (_currentProblem != null) {
-                            textToShare =
-                                '${_currentProblem!.title} ($_selectedLanguage)\n\n$code';
-                          }
-                          SharePlus.instance.share(
-                            ShareParams(text: textToShare),
-                          );
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-
-                      PopupMenuItem<_ToolbarAction>(
-                        value: _ToolbarAction.save,
-                        child: Row(
-                          children: const [
-                            Icon(Icons.save_alt),
-                            SizedBox(width: 8),
-                            Text('保存'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem<_ToolbarAction>(
-                        value: _ToolbarAction.history,
-                        child: Row(
-                          children: const [
-                            Icon(Icons.history),
-                            SizedBox(width: 8),
-                            Text('コード履歴'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem<_ToolbarAction>(
-                        value: _ToolbarAction.restore,
-                        child: Row(
-                          children: const [
-                            Icon(Icons.settings_backup_restore),
-                            SizedBox(width: 8),
-                            Text('復元'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem<_ToolbarAction>(
-                        value: _ToolbarAction.reset,
-                        child: Row(
-                          children: const [
-                            Icon(Icons.replay),
-                            SizedBox(width: 8),
-                            Text('リセット'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      PopupMenuItem<_ToolbarAction>(
-                        value: _ToolbarAction.share,
-                        child: Row(
-                          children: const [
-                            Icon(Icons.share),
-                            SizedBox(width: 8),
-                            Text('コード共有'),
-                          ],
+                          },
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(44),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            textStyle: const TextStyle(fontSize: 14),
+                          ),
                         ),
                       ),
                     ],
                   ),
+                ),
+
+                // 左右分割の入出力パネル
+                Expanded(
+                  flex: 2,
+                  child: Card(
+                    elevation: 1,
+                    margin: const EdgeInsets.symmetric(
+                      vertical: 4.0,
+                      horizontal: 2.0,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        children: [
+                          // 左: 標準入力 (stdin)
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '標準入力 (stdin)',
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: Container(
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest
+                                          .withOpacity(0.3),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: Theme.of(
+                                          context,
+                                        ).dividerColor.withOpacity(0.5),
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.all(8),
+                                    child: Scrollbar(
+                                      controller: _stdinScrollController,
+                                      thumbVisibility: true,
+                                      child: SingleChildScrollView(
+                                        controller: _stdinScrollController,
+                                        primary: false,
+                                        child: TextField(
+                                          controller: _stdinController,
+                                          maxLines: null,
+                                          decoration: const InputDecoration(
+                                            hintText: 'プログラムへの入力をここに入力します',
+                                            border: InputBorder.none,
+                                            isDense: true,
+                                          ),
+                                          style: GoogleFonts.sourceCodePro(
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // 右: 標準出力 / エラー出力
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '実行結果 (stdout):',
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: Container(
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest
+                                          .withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: Theme.of(
+                                          context,
+                                        ).dividerColor.withOpacity(0.5),
+                                      ),
+                                    ),
+                                    padding: const EdgeInsets.all(8),
+                                    child: Scrollbar(
+                                      controller: _ioScrollController,
+                                      thumbVisibility: true,
+                                      child: SingleChildScrollView(
+                                        controller: _ioScrollController,
+                                        primary: false,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            if (_output.isNotEmpty)
+                                              SelectableText(
+                                                _output,
+                                                style: getMonospaceTextStyle(
+                                                  codeFontFamily,
+                                                  fontSize: 13,
+                                                ),
+                                              ),
+                                            if (_error.isNotEmpty) ...[
+                                              Padding(
+                                                padding: EdgeInsets.only(
+                                                  top: _output.isNotEmpty
+                                                      ? 8.0
+                                                      : 0,
+                                                ),
+                                                child: Text(
+                                                  'エラー出力 (stderr):',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleSmall
+                                                      ?.copyWith(
+                                                        color: Colors.red,
+                                                      ),
+                                                ),
+                                              ),
+                                              SelectableText(
+                                                _error,
+                                                style: getMonospaceTextStyle(
+                                                  codeFontFamily,
+                                                  fontSize: 13,
+                                                  color: Colors.red,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _EditorAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _EditorAppBar({
+    required this.selectedLanguage,
+    required this.languages,
+    required this.onLanguageChanged,
+    required this.onSelected,
+  });
+
+  final String selectedLanguage;
+  final List<String> languages;
+  final ValueChanged<String?> onLanguageChanged;
+  final PopupMenuItemSelected<_ToolbarAction> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // 言語選択 Dropdown
+          Row(
+            children: [
+              const Text('言語: ', style: TextStyle(fontSize: 14)),
+              DropdownButton<String>(
+                value: selectedLanguage,
+                isDense: true,
+                underline: Container(height: 1, color: Colors.grey),
+                onChanged: onLanguageChanged,
+                items: languages.map<DropdownMenuItem<String>>((
+                  String value,
+                ) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(
+                      value,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        // 3点メニュー（オーバーフローメニュー）
+        PopupMenuButton<_ToolbarAction>(
+          icon: const Icon(Icons.more_vert),
+          tooltip: 'その他',
+          onSelected: onSelected,
+          itemBuilder: (context) => [
+            PopupMenuItem<_ToolbarAction>(
+              value: _ToolbarAction.save,
+              child: Row(
+                children: const [
+                  Icon(Icons.save_alt),
+                  SizedBox(width: 8),
+                  Text('保存'),
                 ],
               ),
             ),
-
-            // ローディング表示 or コードエディタ
-            if (isLoadingProblem)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
-            else
-              Expanded(
-                flex: 3,
-                child: Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.symmetric(
-                    vertical: 4.0,
-                    horizontal: 2.0,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4.0),
-                    child: CodeTheme(
-                      data: CodeThemeData(
-                        styles: _isDarkMode ? monokaiSublimeTheme : githubTheme,
-                      ),
-                      child: SingleChildScrollView(
-                        child: CodeField(
-                          controller: _codeController,
-                          textStyle: getMonospaceTextStyle(codeFontFamily),
-                          gutterStyle: const GutterStyle(
-                            width: 32,
-                            textAlign: TextAlign.right,
-                          ),
-                          lineNumberStyle: LineNumberStyle(
-                            textStyle: TextStyle(
-                              color: _isDarkMode
-                                  ? Colors.grey
-                                  : Colors.grey.shade700,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+            PopupMenuItem<_ToolbarAction>(
+              value: _ToolbarAction.history,
+              child: Row(
+                children: const [
+                  Icon(Icons.history),
+                  SizedBox(width: 8),
+                  Text('コード履歴'),
+                ],
               ),
-
-            // 入出力エリア: ボタン行 + 左右分割 (stdin | stdout/stderr)
-            if (!isLoadingProblem) ...[
-              // ボタンを一列に配置（実行、サンプル、提出）
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4.0,
-                  vertical: 4.0,
-                ),
-                child: Row(
-                  children: [
-                    // 実行（横幅1/3）
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: _isRunning
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimary,
-                                ),
-                              )
-                            : const Icon(Icons.play_arrow),
-                        label: const Text('実行'),
-                        onPressed: _isRunning ? null : _runCode,
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(44),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          textStyle: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // サンプル（横幅1/3）
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: _isTesting
-                            ? SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimary,
-                                ),
-                              )
-                            : const Icon(Icons.checklist_rtl),
-                        label: Text(_isTesting ? 'サンプルテスト中…' : 'サンプル'),
-                        onPressed: isButtonDisabled
-                            ? null
-                            : () {
-                                print('★★★ Test Button Pressed! ★★★');
-                                _runTests();
-                              },
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(44),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          textStyle: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // 提出（横幅1/3）
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.cloud_upload),
-                        label: const Text('提出'),
-                        onPressed: () {
-                          final parts = widget.problemId.split('_');
-                          final contestId = parts.isNotEmpty
-                              ? parts[0]
-                              : widget.problemId;
-                          final url =
-                              'https://atcoder.jp/contests/$contestId/submit?taskScreenName=${widget.problemId}';
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => SubmitScreen(
-                                url: url,
-                                initialCode: _codeController.text,
-                                initialLanguage: _selectedLanguage,
-                              ),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(44),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          textStyle: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            PopupMenuItem<_ToolbarAction>(
+              value: _ToolbarAction.restore,
+              child: Row(
+                children: const [
+                  Icon(Icons.settings_backup_restore),
+                  SizedBox(width: 8),
+                  Text('復元'),
+                ],
               ),
-
-              // 左右分割の入出力パネル
-              Expanded(
-                flex: 2,
-                child: Card(
-                  elevation: 1,
-                  margin: const EdgeInsets.symmetric(
-                    vertical: 4.0,
-                    horizontal: 2.0,
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Row(
-                      children: [
-                        // 左: 標準入力 (stdin)
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '標準入力 (stdin)',
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                              const SizedBox(height: 8),
-                              Expanded(
-                                child: Container(
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainerHighest
-                                        .withOpacity(0.3),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                      color: Theme.of(
-                                        context,
-                                      ).dividerColor.withOpacity(0.5),
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.all(8),
-                                  child: Scrollbar(
-                                    controller: _stdinScrollController,
-                                    thumbVisibility: true,
-                                    child: SingleChildScrollView(
-                                      controller: _stdinScrollController,
-                                      primary: false,
-                                      child: TextField(
-                                        controller: _stdinController,
-                                        maxLines: null,
-                                        decoration: const InputDecoration(
-                                          hintText: 'プログラムへの入力をここに入力します',
-                                          border: InputBorder.none,
-                                          isDense: true,
-                                        ),
-                                        style: GoogleFonts.sourceCodePro(
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // 右: 標準出力 / エラー出力
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '実行結果 (stdout):',
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                              const SizedBox(height: 8),
-                              Expanded(
-                                child: Container(
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainerHighest
-                                        .withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                      color: Theme.of(
-                                        context,
-                                      ).dividerColor.withOpacity(0.5),
-                                    ),
-                                  ),
-                                  padding: const EdgeInsets.all(8),
-                                  child: Scrollbar(
-                                    controller: _ioScrollController,
-                                    thumbVisibility: true,
-                                    child: SingleChildScrollView(
-                                      controller: _ioScrollController,
-                                      primary: false,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          if (_output.isNotEmpty)
-                                            SelectableText(
-                                              _output,
-                                              style: getMonospaceTextStyle(
-                                                codeFontFamily,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          if (_error.isNotEmpty) ...[
-                                            Padding(
-                                              padding: EdgeInsets.only(
-                                                top: _output.isNotEmpty
-                                                    ? 8.0
-                                                    : 0,
-                                              ),
-                                              child: Text(
-                                                'エラー出力 (stderr):',
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleSmall
-                                                    ?.copyWith(
-                                                      color: Colors.red,
-                                                    ),
-                                              ),
-                                            ),
-                                            SelectableText(
-                                              _error,
-                                              style: getMonospaceTextStyle(
-                                                codeFontFamily,
-                                                fontSize: 13,
-                                                color: Colors.red,
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+            ),
+            PopupMenuItem<_ToolbarAction>(
+              value: _ToolbarAction.reset,
+              child: Row(
+                children: const [
+                  Icon(Icons.replay),
+                  SizedBox(width: 8),
+                  Text('リセット'),
+                ],
               ),
-            ],
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem<_ToolbarAction>(
+              value: _ToolbarAction.share,
+              child: Row(
+                children: const [
+                  Icon(Icons.share),
+                  SizedBox(width: 8),
+                  Text('コード共有'),
+                ],
+              ),
+            ),
           ],
-        );
-      },
+        ),
+      ],
+    );
+  }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+
+class _CodeEditor extends StatelessWidget {
+  const _CodeEditor({
+    required this.codeController,
+    required this.isDarkMode,
+    required this.codeFontFamily,
+  });
+
+  final CodeController codeController;
+  final bool isDarkMode;
+  final String codeFontFamily;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(
+        vertical: 4.0,
+        horizontal: 2.0,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4.0),
+        child: CodeTheme(
+          data: CodeThemeData(
+            styles: isDarkMode ? monokaiSublimeTheme : githubTheme,
+          ),
+          child: SingleChildScrollView(
+            child: CodeField(
+              controller: codeController,
+              textStyle: getMonospaceTextStyle(codeFontFamily),
+              gutterStyle: const GutterStyle(
+                width: 32,
+                textAlign: TextAlign.right,
+              ),
+              lineNumberStyle: LineNumberStyle(
+                textStyle: TextStyle(
+                  color: isDarkMode ? Colors.grey : Colors.grey.shade700,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
