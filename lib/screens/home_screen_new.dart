@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shojin_app/screens/recommend_screen.dart';
 import '../widgets/next_abc_contest_widget.dart';
 import '../widgets/shared/custom_sliver_app_bar.dart';
 import 'reminder_settings_screen.dart'; // Import reminder settings screen
@@ -35,7 +36,27 @@ class NewHomeScreen extends StatelessWidget {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const ReminderSettingsScreen()),
+                        MaterialPageRoute(
+                            builder: (context) =>
+                                const ReminderSettingsScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.recommend),
+                    label: const Text('Recommend Problems'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const RecommendScreen()),
                       );
                     },
                   ),
