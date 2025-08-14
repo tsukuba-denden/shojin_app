@@ -241,6 +241,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // 設定項目のリスト
         SliverList(
           delegate: SliverChildListDelegate([
+            // AtCoder 設定セクション（最上部）
+            _SAtCoderSection(),
+            const SizedBox(height: 16),
+
             // テーマ設定セクション
             _SUpdateThemeUI(),
             const SizedBox(height: 16),
@@ -251,10 +255,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             // テンプレート設定セクション
             _STemplateSection(),
-            const SizedBox(height: 16),
-
-            // AtCoder 設定セクション
-            _SAtCoderSection(),
             const SizedBox(height: 16),
 
             // 更新設定セクション
