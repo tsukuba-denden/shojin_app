@@ -24,7 +24,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
   final EnhancedUpdateService _updateService = EnhancedUpdateService();
   final UpdateManager _updateManager = UpdateManager();
   StreamSubscription<UpdateProgress>? _progressSubscription;
-  
+
   UpdateProgress? _currentProgress;
   bool _isDownloading = false;
   bool _isCompleted = false;
@@ -35,7 +35,9 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
   void initState() {
     super.initState();
     // Theme.of(context)を使用する処理はdidChangeDependenciesに移動
-  }  @override
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // 初回実行時のみアップデートチェックを開始
@@ -43,10 +45,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
       _isInitialized = true;
       // 初期プログレス状態を設定
       setState(() {
-        _currentProgress = UpdateProgress(
-          progress: 0.0,
-          status: '準備中...',
-        );
+        _currentProgress = UpdateProgress(progress: 0.0, status: '準備中...');
       });
       _startDownload();
     }
@@ -57,7 +56,9 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
     _progressSubscription?.cancel();
     _updateService.disposeProgressStream();
     super.dispose();
-  }  void _startDownload() async {
+  }
+
+  void _startDownload() async {
     setState(() {
       _isDownloading = true;
       _hasError = false;
@@ -69,7 +70,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
 
     // プログレスストリームを初期化
     _updateService.initializeProgressStream();
-    
+
     // Listen to progress stream
     _progressSubscription = _updateService.progressStream?.listen(
       (progress) {
@@ -103,13 +104,15 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
           });
         }
       },
-    );// Start download
+    ); // Start download
     try {
       // アップデート試行を記録
       await _updateService.markUpdateAttempt(widget.updateInfo.version);
-      
-      _downloadedFilePath = await _updateService.downloadUpdateWithProgress(widget.updateInfo);
-        if (_downloadedFilePath != null && mounted) {
+
+      _downloadedFilePath = await _updateService.downloadUpdateWithProgress(
+        widget.updateInfo,
+      );
+      if (_downloadedFilePath != null && mounted) {
         // インストール前にファイルを適切な場所に準備
         setState(() {
           _currentProgress = UpdateProgress(
@@ -118,14 +121,19 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
             isCompleted: false,
           );
         });
-        
+
         try {
-          await Future.delayed(const Duration(milliseconds: 500));          // APKインストール用にファイルを準備
+          await Future.delayed(
+            const Duration(milliseconds: 500),
+          ); // APKインストール用にファイルを準備
           debugPrint('Installing from downloaded path: $_downloadedFilePath');
-          
+
           try {
-            await _updateManager.applyUpdate(_downloadedFilePath!, widget.updateInfo.assetName);
-            
+            await _updateManager.applyUpdate(
+              _downloadedFilePath!,
+              widget.updateInfo.assetName,
+            );
+
             if (mounted) {
               setState(() {
                 _currentProgress = UpdateProgress(
@@ -135,13 +143,14 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                 );
               });
             }
-            
+
             // 手動インストールの場合はダイアログを表示せずに終了
             debugPrint('Update installation process completed');
-            
           } catch (installError) {
             // インストールエラーの場合、手動インストールガイダンスを表示
-            debugPrint('Installation failed, showing manual install guide: $installError');
+            debugPrint(
+              'Installation failed, showing manual install guide: $installError',
+            );
             if (mounted) {
               setState(() {
                 _hasError = true;
@@ -151,12 +160,13 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                   errorMessage: 'ファイルは準備できました。手動でインストールしてください。',
                 );
               });
-              
+
               // 手動インストールガイダンスを表示
               _showManualInstallDialog(installError.toString());
             }
             return; // 手動インストールガイダンス表示後は早期リターン
-          }} catch (e) {
+          }
+        } catch (e) {
           debugPrint('Installation preparation error: $e');
           if (mounted) {
             setState(() {
@@ -167,13 +177,13 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                 errorMessage: e.toString(),
               );
             });
-            
+
             // 手動インストールガイダンスを表示
             _showManualInstallDialog(e.toString());
           }
           return; // エラー時は早期リターン
         }
-        
+
         // Close dialog after successful installation
         await Future.delayed(const Duration(seconds: 2));
         if (mounted) {
@@ -195,6 +205,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
       }
     }
   }
+
   void _retryDownload() {
     _updateService.disposeProgressStream();
     setState(() {
@@ -203,13 +214,16 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
       _currentProgress = null;
     });
     _startDownload();
-  }  void _cancelDownload() {
+  }
+
+  void _cancelDownload() {
     debugPrint('[UpdateProgressDialog] Cancel download requested');
     _progressSubscription?.cancel();
     _updateService.disposeProgressStream();
     Navigator.of(context).pop();
     widget.onCancelled?.call();
   }
+
   // 手動インストールガイダンスダイアログを表示
   void _showManualInstallDialog(String errorMessage) {
     showDialog(
@@ -247,7 +261,9 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                           'アップデートファイルのダウンロードが完了しました！',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onPrimaryContainer,
                           ),
                         ),
                       ),
@@ -263,7 +279,9 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -296,7 +314,8 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),                Container(
+                const SizedBox(height: 16),
+                Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.orange.withOpacity(0.1),
@@ -344,26 +363,41 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
               onPressed: () async {
                 Navigator.of(context).pop(); // ガイダンスダイアログを閉じる
                 Navigator.of(context).pop(); // アップデートダイアログも閉じる
-                
+
                 // ファイルマネージャーを開く
                 try {
-                  final Uri directoryUri = Uri.parse('content://com.android.externalstorage.documents/document/primary:Android%2Fdata%2Fcom.example.shojin_app%2Ffiles%2Ftemp_install');
-                  final launched = await launchUrl(directoryUri, mode: LaunchMode.externalApplication);
-                  
+                  final Uri directoryUri = Uri.parse(
+                    'content://com.android.externalstorage.documents/document/primary:Android%2Fdata%2Fcom.example.shojin_app%2Ffiles%2Ftemp_install',
+                  );
+                  final launched = await launchUrl(
+                    directoryUri,
+                    mode: LaunchMode.externalApplication,
+                  );
+
                   if (!launched) {
                     // フォールバック: 一般的なファイルマネージャーを開く
-                    await launchUrl(Uri.parse('content://com.android.externalstorage.documents/document/primary:'), mode: LaunchMode.externalApplication);
+                    await launchUrl(
+                      Uri.parse(
+                        'content://com.android.externalstorage.documents/document/primary:',
+                      ),
+                      mode: LaunchMode.externalApplication,
+                    );
                   }
                 } catch (e) {
                   debugPrint('Failed to open file manager: $e');
                   // 最後の手段：設定アプリを開く
                   try {
-                    await launchUrl(Uri.parse('android.settings.APPLICATION_DETAILS_SETTINGS'), mode: LaunchMode.externalApplication);
+                    await launchUrl(
+                      Uri.parse(
+                        'android.settings.APPLICATION_DETAILS_SETTINGS',
+                      ),
+                      mode: LaunchMode.externalApplication,
+                    );
                   } catch (settingsError) {
                     debugPrint('Failed to open settings: $settingsError');
                   }
                 }
-                
+
                 widget.onCompleted?.call();
               },
               icon: const Icon(Icons.folder_open),
@@ -389,7 +423,8 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
             const SizedBox(width: 8),
             const Text('アップデートダウンロード'),
           ],
-        ),        content: SizedBox(
+        ),
+        content: SizedBox(
           width: double.maxFinite,
           height: MediaQuery.of(context).size.height * 0.6, // 画面の60%の高さに制限
           child: SingleChildScrollView(
@@ -401,7 +436,9 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -409,9 +446,8 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                     children: [
                       Text(
                         'バージョン ${widget.updateInfo.version}',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       if (widget.updateInfo.fileSize != null)
                         Text(
@@ -422,24 +458,27 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                  // Progress section
+                // Progress section
                 Text(
                   _currentProgress?.status ?? '準備中...',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),
-                
+
                 // Progress bar
-                if (_currentProgress?.progress != null && _currentProgress!.progress >= 0)
+                if (_currentProgress?.progress != null &&
+                    _currentProgress!.progress >= 0)
                   LinearProgressIndicator(
                     value: _currentProgress!.progress,
-                    backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
                   )
                 else
                   const LinearProgressIndicator(), // Indeterminate
-                
+
                 const SizedBox(height: 8),
-                
+
                 // Progress text
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -448,14 +487,15 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                       _currentProgress?.formattedProgress ?? '0.0%',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    if (_currentProgress?.progress != null && _currentProgress!.progress >= 0)
+                    if (_currentProgress?.progress != null &&
+                        _currentProgress!.progress >= 0)
                       Text(
                         '${(_currentProgress!.progress * 100).toStringAsFixed(0)}%',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                   ],
                 ),
-                
+
                 // Error message - 表示を制限
                 if (_hasError && _currentProgress?.errorMessage != null) ...[
                   const SizedBox(height: 16),
@@ -472,30 +512,40 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                           children: [
                             Icon(
                               Icons.error_outline,
-                              color: Theme.of(context).colorScheme.onErrorContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onErrorContainer,
                               size: 20,
                             ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'エラーが発生しました',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onErrorContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onErrorContainer,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Container(
-                          constraints: const BoxConstraints(maxHeight: 100), // エラーメッセージの高さを制限
+                          constraints: const BoxConstraints(
+                            maxHeight: 100,
+                          ), // エラーメッセージの高さを制限
                           child: SingleChildScrollView(
                             child: Text(
                               _currentProgress!.errorMessage!,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onErrorContainer,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onErrorContainer,
+                                  ),
                             ),
                           ),
                         ),
@@ -503,7 +553,7 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                     ),
                   ),
                 ],
-                
+
                 // Success message
                 if (_isCompleted && !_hasError) ...[
                   const SizedBox(height: 16),
@@ -517,16 +567,21 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
                       children: [
                         Icon(
                           Icons.check_circle_outline,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'ダウンロード完了！インストールを開始します。',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimaryContainer,
+                                ),
                           ),
                         ),
                       ],
@@ -536,21 +591,16 @@ class _UpdateProgressDialogState extends State<UpdateProgressDialog> {
               ],
             ),
           ),
-        ),        actions: [
+        ),
+        actions: [
           // Cancel button (always show unless completed)
           if (!_isCompleted)
-            TextButton(
-              onPressed: _cancelDownload,
-              child: const Text('キャンセル'),
-            ),
-          
+            TextButton(onPressed: _cancelDownload, child: const Text('キャンセル')),
+
           // Retry button (only show on error)
           if (_hasError)
-            TextButton(
-              onPressed: _retryDownload,
-              child: const Text('再試行'),
-            ),
-          
+            TextButton(onPressed: _retryDownload, child: const Text('再試行')),
+
           // Close button (only show when completed or error)
           if ((_isCompleted && !_isDownloading) || _hasError)
             FilledButton(
@@ -652,16 +702,17 @@ class EnhancedUpdateDialog extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Release notes
-            if (updateInfo.releaseNotes != null && updateInfo.releaseNotes!.isNotEmpty) ...[
+            if (updateInfo.releaseNotes != null &&
+                updateInfo.releaseNotes!.isNotEmpty) ...[
               Text(
                 "リリースノート",
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Container(
@@ -677,16 +728,16 @@ class EnhancedUpdateDialog extends StatelessWidget {
             ] else ...[
               Text(
                 "リリースノート",
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
                 "リリースノートはありません。",
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontStyle: FontStyle.italic,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
               ),
             ],
           ],
@@ -701,18 +752,19 @@ class EnhancedUpdateDialog extends StatelessWidget {
           },
           child: const Text('後で'),
         ),
-          // View on GitHub button
+        // View on GitHub button
         TextButton(
           onPressed: () async {
             Navigator.of(context).pop();
-            final String releaseUrl = "https://github.com/tsukuba-denden/Shojin_App/releases/tag/$versionTag";
+            final String releaseUrl =
+                "https://github.com/yuubinnkyoku/Shojin_App/releases/tag/$versionTag";
             // You can use url_launcher here if available
             // await launchUrl(Uri.parse(releaseUrl));
             debugPrint('GitHub URL: $releaseUrl');
           },
           child: const Text('GitHubで見る'),
         ),
-        
+
         // Update button
         FilledButton(
           onPressed: () {

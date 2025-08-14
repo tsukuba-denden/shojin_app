@@ -1,4 +1,4 @@
-// filepath: d:\GitHub_tsukuba-denden\shojin_app\lib\models\browser_site.dart
+// filepath: d:\GitHub_yuubinnkyoku\shojin_app\lib\models\browser_site.dart
 
 /// ブラウザで表示するサイトの情報を保持するモデル
 class BrowserSite {
@@ -43,11 +43,9 @@ class BrowserSite {
       colorHex: map['colorHex'],
     );
   }
+
   /// メタデータを更新した新しいインスタンスを作成
-  BrowserSite copyWithMetadata({
-    String? faviconUrl,
-    String? colorHex,
-  }) {
+  BrowserSite copyWithMetadata({String? faviconUrl, String? colorHex}) {
     return BrowserSite(
       title: title,
       url: url,
@@ -84,10 +82,10 @@ class BrowserSite {
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is BrowserSite &&
-           other.title == title &&
-           other.url == url &&
-           other.faviconUrl == faviconUrl &&
-           other.colorHex == colorHex;
+        other.title == title &&
+        other.url == url &&
+        other.faviconUrl == faviconUrl &&
+        other.colorHex == colorHex;
   }
 
   @override

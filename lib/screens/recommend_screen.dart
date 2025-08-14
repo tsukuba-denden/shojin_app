@@ -26,12 +26,12 @@ class _RecommendScreenState extends State<RecommendScreen> {
     try {
       final username = _usernameController.text;
       if (username.isEmpty) {
-        throw Exception('Please enter a username');
+        throw Exception('ユーザー名を入力してください');
       }
 
       final rating = await _atcoderService.fetchAtCoderRate(username);
       if (rating == null) {
-        throw Exception('User not found or has no rating');
+        throw Exception('ユーザーが見つからないか、レーティングがありません');
       }
 
       final allProblems = await _atcoderService.fetchProblemDifficulties();
@@ -64,7 +64,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recommend Problems'),
+        title: const Text('問題推薦'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -73,14 +73,14 @@ class _RecommendScreenState extends State<RecommendScreen> {
             TextField(
               controller: _usernameController,
               decoration: const InputDecoration(
-                labelText: 'AtCoder Username',
+                labelText: 'AtCoderユーザー名',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _isLoading ? null : _getRecommendations,
-              child: const Text('Get Recommendations'),
+              child: const Text('推薦を取得'),
             ),
             const SizedBox(height: 16),
             if (_isLoading)
@@ -99,7 +99,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
                     return ListTile(
                       title: Text(problem.key),
                       subtitle: Text(
-                          'Difficulty: ${problem.value.difficulty ?? "N/A"}'),
+                          '難易度: ${problem.value.difficulty ?? "なし"}'),
                     );
                   },
                 ),

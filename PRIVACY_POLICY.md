@@ -37,6 +37,6 @@
 
 本ポリシーに関するお問い合わせは、下記の連絡先までお願いいたします。
 
-[GitHub Issues](https://github.com/tsukuba-denden/shojin_app/issues)
+[GitHub Issues](https://github.com/yuubinnkyoku/shojin_app/issues)
 
 【2025年6月26日 制定】

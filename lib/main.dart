@@ -144,6 +144,7 @@ class MyApp extends StatelessWidget {
             GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('ja'),
           onGenerateTitle: (BuildContext context) => AppLocalizations.of(context)!.appTitle, // 修正
           theme: ThemeData(
             colorScheme: lightColorScheme,

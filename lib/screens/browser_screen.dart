@@ -1,4 +1,4 @@
-// filepath: d:\GitHub_tsukuba-denden\shojin_app\lib\screens\browser_screen.dart
+// filepath: d:\GitHub_yuubinnkyoku\shojin_app\lib\screens\browser_screen.dart
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -18,7 +18,8 @@ class BrowserScreen extends StatefulWidget {
   State<BrowserScreen> createState() => _BrowserScreenState();
 }
 
-class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveClientMixin {
+class _BrowserScreenState extends State<BrowserScreen>
+    with AutomaticKeepAliveClientMixin {
   late WebViewController _controller;
   List<BrowserSite> _sites = [];
   bool _isControllerReady = false;
@@ -44,28 +45,31 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
         NavigationDelegate(
           onPageStarted: (String url) {
             if (mounted) {
-              setState(() { 
-                _isLoadingWebView = true; 
-                _loadFailed = false; 
+              setState(() {
+                _isLoadingWebView = true;
+                _loadFailed = false;
               });
             }
           },
           onPageFinished: (String url) {
             if (mounted) {
-              setState(() { 
-                _isLoadingWebView = false; 
-                _loadFailed = false; 
+              setState(() {
+                _isLoadingWebView = false;
+                _loadFailed = false;
               });
             }
           },
           onWebResourceError: (WebResourceError error) {
             if (mounted) {
-              setState(() { 
-                _isLoadingWebView = false; 
-                _loadFailed = true; 
+              setState(() {
+                _isLoadingWebView = false;
+                _loadFailed = true;
               });
             }
-            developer.log('WebView load error: ${error.description}', name: 'BrowserScreenWebView');
+            developer.log(
+              'WebView load error: ${error.description}',
+              name: 'BrowserScreenWebView',
+            );
           },
           onNavigationRequest: (NavigationRequest request) {
             return _handleNavigationRequest(request);
@@ -73,12 +77,12 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
         ),
       )
       ..loadRequest(Uri.parse(BrowserConstants.defaultSites.first.url));
-    
+
     _isControllerReady = true;
     if (mounted) {
       setState(() {});
     }
-    
+
     // Update missing metadata for user-added sites
     _updateMissingMetadata();
   }
@@ -86,17 +90,28 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
   NavigationDecision _handleNavigationRequest(NavigationRequest request) {
     _currentUrl = request.url;
     final uri = Uri.parse(request.url);
-    developer.log('Navigating to: ${request.url}', name: 'BrowserScreenWebView');
+    developer.log(
+      'Navigating to: ${request.url}',
+      name: 'BrowserScreenWebView',
+    );
 
     // 1. AtCoder problem page check
-    if (uri.host == BrowserConstants.atcoderHost && 
+    if (uri.host == BrowserConstants.atcoderHost &&
         uri.pathSegments.length == BrowserConstants.atcoderProblemPathLength &&
-        uri.pathSegments[BrowserConstants.atcoderContestIndex] == BrowserConstants.atcoderProblemPathSegments[0] && 
-        uri.pathSegments[BrowserConstants.atcoderTasksIndex] == BrowserConstants.atcoderProblemPathSegments[1]) {
-      if (uri.pathSegments[BrowserConstants.atcoderProblemIndex].contains('_')) {
-        widget.navigateToProblem(uri.pathSegments[BrowserConstants.atcoderProblemIndex]);
+        uri.pathSegments[BrowserConstants.atcoderContestIndex] ==
+            BrowserConstants.atcoderProblemPathSegments[0] &&
+        uri.pathSegments[BrowserConstants.atcoderTasksIndex] ==
+            BrowserConstants.atcoderProblemPathSegments[1]) {
+      if (uri.pathSegments[BrowserConstants.atcoderProblemIndex].contains(
+        '_',
+      )) {
+        widget.navigateToProblem(
+          uri.pathSegments[BrowserConstants.atcoderProblemIndex],
+        );
         if (mounted) {
-          setState(() { _isLoadingWebView = false; });
+          setState(() {
+            _isLoadingWebView = false;
+          });
         }
         return NavigationDecision.prevent;
       }
@@ -107,12 +122,18 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
     bool isAllowedSite = _isAllowedSite(requestBaseUrl, request.url);
 
     if (isAllowedSite) {
-      developer.log('Allowing navigation within allowed sites: ${request.url}', name: 'BrowserScreenWebView');
+      developer.log(
+        'Allowing navigation within allowed sites: ${request.url}',
+        name: 'BrowserScreenWebView',
+      );
       return NavigationDecision.navigate;
     }
 
     // 3. Allow navigation to non-allowed sites within WebView
-    developer.log('Allowing navigation to non-allowed site: ${request.url}', name: 'BrowserScreenWebView');
+    developer.log(
+      'Allowing navigation to non-allowed site: ${request.url}',
+      name: 'BrowserScreenWebView',
+    );
     return NavigationDecision.navigate;
   }
 
@@ -128,19 +149,26 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
     }
 
     return false;
-  }  Future<void> _updateMissingMetadata() async {
+  }
+
+  Future<void> _updateMissingMetadata() async {
     bool needsUpdate = false;
     for (int i = 0; i < _sites.length; i++) {
       if (_sites[i].faviconUrl == null || _sites[i].colorHex == null) {
         try {
-          final metadata = await BrowserSiteService.fetchSiteMetadata(_sites[i].url);
+          final metadata = await BrowserSiteService.fetchSiteMetadata(
+            _sites[i].url,
+          );
           _sites[i] = _sites[i].copyWith(
             faviconUrl: metadata.faviconUrl,
             colorHex: metadata.colorHex,
           );
           needsUpdate = true;
         } catch (e) {
-          developer.log('Error fetching metadata for ${_sites[i].url}: $e', name: 'BrowserScreenMetadata');
+          developer.log(
+            'Error fetching metadata for ${_sites[i].url}: $e',
+            name: 'BrowserScreenMetadata',
+          );
         }
       }
     }
@@ -179,30 +207,39 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
                   keyboardType: TextInputType.url,
                   onChanged: (_) {
                     if (urlErrorText != null) {
-                      setStateDialog(() { urlErrorText = null; });
+                      setStateDialog(() {
+                        urlErrorText = null;
+                      });
                     }
                   },
                 ),
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('キャンセル')),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('キャンセル'),
+              ),
               TextButton(
                 onPressed: () async {
                   final title = titleController.text.trim();
                   final url = urlController.text.trim();
                   bool isValid = true;
 
-                  setStateDialog(() { urlErrorText = null; });
+                  setStateDialog(() {
+                    urlErrorText = null;
+                  });
 
                   if (title.isEmpty || url.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('タイトルとURLを入力してください。')),
                     );
-                    isValid = false;                  } else {
+                    isValid = false;
+                  } else {
                     // Check if site already exists
                     final existingDefault = BrowserConstants.defaultSites.any(
-                      (defaultSite) => defaultSite.title == title && defaultSite.url == url
+                      (defaultSite) =>
+                          defaultSite.title == title && defaultSite.url == url,
                     );
                     if (existingDefault) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -215,7 +252,8 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
                       final uri = Uri.tryParse(url);
                       if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
                         setStateDialog(() {
-                          urlErrorText = '有効なURLを入力してください (例: https://example.com)';
+                          urlErrorText =
+                              '有効なURLを入力してください (例: https://example.com)';
                         });
                         isValid = false;
                       }
@@ -224,30 +262,36 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
 
                   if (isValid) {
                     showDialog(
-                       context: context,
-                       barrierDismissible: false,
-                       builder: (context) => const Center(child: CircularProgressIndicator()),
-                    );                    try {
-                       final newSite = BrowserSite(title: title, url: url);
-                       final metadata = await BrowserSiteService.fetchSiteMetadata(url);
-                       final siteWithMetadata = newSite.copyWithMetadata(
-                         faviconUrl: metadata.faviconUrl,
-                         colorHex: metadata.colorHex,
-                       );
-                       Navigator.pop(context); // Dismiss loading
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) =>
+                          const Center(child: CircularProgressIndicator()),
+                    );
+                    try {
+                      final newSite = BrowserSite(title: title, url: url);
+                      final metadata =
+                          await BrowserSiteService.fetchSiteMetadata(url);
+                      final siteWithMetadata = newSite.copyWithMetadata(
+                        faviconUrl: metadata.faviconUrl,
+                        colorHex: metadata.colorHex,
+                      );
+                      Navigator.pop(context); // Dismiss loading
 
-                       _sites.add(siteWithMetadata);
-                       await BrowserSiteService.saveSites(_sites);
-                       if (mounted) {
-                         setState(() {});
-                       }
-                       Navigator.pop(context); // Close add dialog
+                      _sites.add(siteWithMetadata);
+                      await BrowserSiteService.saveSites(_sites);
+                      if (mounted) {
+                        setState(() {});
+                      }
+                      Navigator.pop(context); // Close add dialog
                     } catch (e) {
-                       Navigator.pop(context); // Dismiss loading
-                       developer.log('Error adding site $url: $e', name: 'BrowserScreenAddSite');
-                       ScaffoldMessenger.of(context).showSnackBar(
-                         SnackBar(content: Text('サイトメタデータの取得に失敗しました: $e')),
-                       );
+                      Navigator.pop(context); // Dismiss loading
+                      developer.log(
+                        'Error adding site $url: $e',
+                        name: 'BrowserScreenAddSite',
+                      );
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('サイトメタデータの取得に失敗しました: $e')),
+                      );
                     }
                   }
                 },
@@ -255,10 +299,11 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
               ),
             ],
           );
-        }
+        },
       ),
     );
   }
+
   Future<void> _removeSite(int index) async {
     bool? confirm = await showDialog<bool>(
       context: context,
@@ -267,12 +312,12 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
         content: Text('\'${_sites[index].title}\' を削除しますか？'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false), 
-            child: const Text('キャンセル')
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('キャンセル'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true), 
-            child: const Text('削除')
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('削除'),
           ),
         ],
       ),
@@ -286,12 +331,13 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
       }
     }
   }
+
   Future<void> _editSite(int index) async {
     final site = _sites[index];
     final titleController = TextEditingController(text: site.title);
     final urlController = TextEditingController(text: site.url);
     String? urlErrorText;
-    
+
     await showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -329,27 +375,27 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
                 child: const Text('削除', style: TextStyle(color: Colors.red)),
               ),
               TextButton(
-                onPressed: () => Navigator.pop(context), 
-                child: const Text('キャンセル')
+                onPressed: () => Navigator.pop(context),
+                child: const Text('キャンセル'),
               ),
               TextButton(
                 onPressed: () async {
                   final newTitle = titleController.text.trim();
                   final newUrl = urlController.text.trim();
-                  
+
                   if (newTitle.isEmpty || newUrl.isEmpty) {
-                    setStateDialog(() { 
-                      urlErrorText = 'タイトルとURLを入力してください。'; 
+                    setStateDialog(() {
+                      urlErrorText = 'タイトルとURLを入力してください。';
                     });
                     return;
                   }
-                  
+
                   final uri = Uri.tryParse(newUrl);
                   if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
                     setStateDialog(() => urlErrorText = '有効なURLを入力してください。');
                     return;
                   }
-                  
+
                   final oldUrl = site.url;
                   final updatedSite = site.copyWith(
                     title: newTitle,
@@ -358,16 +404,16 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
                     faviconUrl: newUrl != oldUrl ? null : site.faviconUrl,
                     colorHex: newUrl != oldUrl ? null : site.colorHex,
                   );
-                  
+
                   _sites[index] = updatedSite;
                   await BrowserSiteService.saveSites(_sites);
-                  
+
                   if (mounted) setState(() {});
-                  
+
                   if (newUrl != oldUrl) {
                     _updateMissingMetadata();
                   }
-                  
+
                   Navigator.pop(context);
                 },
                 child: const Text('更新'),
@@ -400,50 +446,62 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
         String hex = colorHex.replaceFirst('#', '');
         if (hex.length == 6) hex = 'FF$hex';
         if (hex.length == 8) {
-           backgroundColor = Color(int.parse('0x$hex'));
-           textColor = _getTextColorForBackground(backgroundColor);
+          backgroundColor = Color(int.parse('0x$hex'));
+          textColor = _getTextColorForBackground(backgroundColor);
         } else {
-           throw const FormatException("Invalid hex color format");
-        }      } catch (e) {
-        developer.log('Error parsing color hex $colorHex: $e', name: 'BrowserScreenButton');
+          throw const FormatException("Invalid hex color format");
+        }
+      } catch (e) {
+        developer.log(
+          'Error parsing color hex $colorHex: $e',
+          name: 'BrowserScreenButton',
+        );
         backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
         textColor = Theme.of(context).colorScheme.onSurfaceVariant;
       }
     } else {
-       // デフォルトの背景色とテキスト色を設定
-       backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
-       textColor = Theme.of(context).colorScheme.onSurfaceVariant;
-       
-       // MaterialYou使用時はプライマリカラーで軽いティントを追加してコントラストを向上
-       final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
-       if (themeProvider.useMaterialYou) {
-         backgroundColor = backgroundColor.withOpacity(0.9);
-       }
+      // デフォルトの背景色とテキスト色を設定
+      backgroundColor = Theme.of(context).colorScheme.surfaceContainerHighest;
+      textColor = Theme.of(context).colorScheme.onSurfaceVariant;
+
+      // MaterialYou使用時はプライマリカラーで軽いティントを追加してコントラストを向上
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      if (themeProvider.useMaterialYou) {
+        backgroundColor = backgroundColor.withOpacity(0.9);
+      }
     }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: ElevatedButton(
         onPressed: () {
-           if (_currentUrl != url) {
-             _currentUrl = url;
-             if (mounted) {
-               setState(() { _isLoadingWebView = true; _loadFailed = false; });
-             }
-             _controller.loadRequest(Uri.parse(url));
-           } else {
-             developer.log('Button pressed for already loaded URL: $url', name: 'BrowserScreenButton');
-             // Optionally reload:
-             // if (mounted) { setState(() { _isLoadingWebView = true; _loadFailed = false; }); }
-             // _controller.reload();
-           }
+          if (_currentUrl != url) {
+            _currentUrl = url;
+            if (mounted) {
+              setState(() {
+                _isLoadingWebView = true;
+                _loadFailed = false;
+              });
+            }
+            _controller.loadRequest(Uri.parse(url));
+          } else {
+            developer.log(
+              'Button pressed for already loaded URL: $url',
+              name: 'BrowserScreenButton',
+            );
+            // Optionally reload:
+            // if (mounted) { setState(() { _isLoadingWebView = true; _loadFailed = false; }); }
+            // _controller.reload();
+          }
         },
         onLongPress: onLongPress,
         style: ElevatedButton.styleFrom(
           backgroundColor: backgroundColor,
           foregroundColor: textColor,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           elevation: 1,
         ),
         child: Row(
@@ -455,7 +513,10 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
                 height: 20,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: textColor.withOpacity(0.5), width: 1.0),
+                  border: Border.all(
+                    color: textColor.withOpacity(0.5),
+                    width: 1.0,
+                  ),
                 ),
                 child: ClipOval(
                   child: Image.network(
@@ -463,17 +524,23 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
                     width: 20,
                     height: 20,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Icon(Icons.public, size: 18, color: textColor.withOpacity(0.8)),
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.public,
+                      size: 18,
+                      color: textColor.withOpacity(0.8),
+                    ),
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
                       return SizedBox(
-                         width: 18, height: 18,
-                         child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                                : null,
-                         )
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                              : null,
+                        ),
                       );
                     },
                   ),
@@ -482,7 +549,12 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
             else
               Icon(Icons.public, size: 18, color: textColor.withOpacity(0.8)),
             const SizedBox(width: 8),
-            Text(title, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: textColor)),
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(color: textColor),
+            ),
           ],
         ),
       ),
@@ -501,27 +573,28 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
           height: 60,
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            scrollDirection: Axis.horizontal,            children: [
+            scrollDirection: Axis.horizontal,
+            children: [
               // Default sites
-              ...BrowserConstants.defaultSites.map((defaultSite) => 
-                _buildSiteButton(
+              ...BrowserConstants.defaultSites.map(
+                (defaultSite) => _buildSiteButton(
                   title: defaultSite.title,
                   url: defaultSite.url,
                   faviconUrl: defaultSite.faviconUrl,
                   colorHex: defaultSite.colorHex,
-                )
+                ),
               ),
               // User-added sites
               ..._sites.asMap().entries.map((entry) {
-                 int index = entry.key;
-                 BrowserSite site = entry.value;
-                 return _buildSiteButton(
-                   title: site.title,
-                   url: site.url,
-                   faviconUrl: site.faviconUrl,
-                   colorHex: site.colorHex,
-                   onLongPress: () => _editSite(index),
-                 );
+                int index = entry.key;
+                BrowserSite site = entry.value;
+                return _buildSiteButton(
+                  title: site.title,
+                  url: site.url,
+                  faviconUrl: site.faviconUrl,
+                  colorHex: site.colorHex,
+                  onLongPress: () => _editSite(index),
+                );
               }),
               // Add site button
               Padding(
@@ -529,8 +602,13 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
                 child: ElevatedButton(
                   onPressed: _addSite,
                   style: ElevatedButton.styleFrom(
-                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                   child: const Icon(Icons.add),
                 ),
@@ -549,25 +627,35 @@ class _BrowserScreenState extends State<BrowserScreen> with AutomaticKeepAliveCl
               if (_isControllerReady && _loadFailed)
                 Center(
                   child: Container(
-                     padding: const EdgeInsets.all(20),
-                     color: Theme.of(context).colorScheme.surfaceContainerHigh.withOpacity(0.9),
-                     child: Column(
-                       mainAxisAlignment: MainAxisAlignment.center,
-                       mainAxisSize: MainAxisSize.min,
-                       children: [
-                         Text('ページを読み込めませんでした', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                         const SizedBox(height: 16),
-                         ElevatedButton(
-                           onPressed: () {
-                             if (mounted) {
-                               setState(() { _isLoadingWebView = true; _loadFailed = false; });
-                             }
-                             _controller.loadRequest(Uri.parse(_currentUrl));
-                           },
-                           child: const Text('再試行'),
-                         ),
-                       ],
-                     ),
+                    padding: const EdgeInsets.all(20),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHigh.withOpacity(0.9),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'ページを読み込めませんでした',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            if (mounted) {
+                              setState(() {
+                                _isLoadingWebView = true;
+                                _loadFailed = false;
+                              });
+                            }
+                            _controller.loadRequest(Uri.parse(_currentUrl));
+                          },
+                          child: const Text('再試行'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
