@@ -4,7 +4,7 @@ homepage: https://github.com/tsukuba-denden/shojin_app
 
 publish_to: 'none'
 
-version: 0.6.4-Beta
+version: 1.0.0
 
 environment:
   sdk: ^3.8.1
