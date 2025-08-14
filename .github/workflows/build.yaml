@@ -7,7 +7,7 @@ on:
       - '**'
     paths:
       # このファイル名に合わせてパスを更新
-      - '.github/workflows/flutter-ci.yml'
+      - '.github/workflows/build.yaml'
       - 'android/**'
       - 'test/**'
       - 'ios/**'
@@ -15,7 +15,6 @@ on:
       - '*.lock'
       - 'lib/**'
 
-  pull_request:
   workflow_dispatch:
     inputs:
       release:
@@ -77,6 +76,8 @@ jobs:
     # 'analyze_and_test' ジョブが成功した場合のみ実行
     needs: analyze_and_test
     runs-on: ubuntu-latest
+    env:
+      BUILD_TYPE: ${{ github.event.inputs.build_type || 'split' }}
     outputs:
       version: ${{ steps.get_version.outputs.version }}
       build_type: ${{ github.event.inputs.build_type || 'split' }}
@@ -103,12 +104,12 @@ jobs:
 
       # 分割APKをビルド (デフォルトまたは手動で'split'を選択した場合)
       - name: Build APK (Split per ABI)
-        if: "contains(needs.build_android.outputs.build_type, 'split')"
+        if: ${{ contains(env.BUILD_TYPE, 'split') }}
         run: flutter build apk --release --split-per-abi --build-number=${{ github.run_number }}
 
       # 単一APKをビルド (手動で'single'を選択した場合)
       - name: Build APK (Single Universal)
-        if: "contains(needs.build_android.outputs.build_type, 'single')"
+        if: ${{ contains(env.BUILD_TYPE, 'single') }}
         run: flutter build apk --release --build-number=${{ github.run_number }}
         
       - name: Read version from pubspec.yaml
@@ -118,7 +119,7 @@ jobs:
 
       # 分割APKをアップロード
       - name: Upload Split APKs Artifact
-        if: "contains(needs.build_android.outputs.build_type, 'split')"
+        if: ${{ contains(env.BUILD_TYPE, 'split') }}
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
@@ -126,7 +127,7 @@ jobs:
 
       # 単一APKをアップロード
       - name: Upload Single APK Artifact
-        if: "contains(needs.build_android.outputs.build_type, 'single')"
+        if: ${{ contains(env.BUILD_TYPE, 'single') }}
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
@@ -137,7 +138,9 @@ jobs:
     runs-on: ubuntu-latest
     # 'build_android' ジョブの完了を待つ
     needs: build_android
-    if: github.event.inputs.release == true
+    if: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.release) }}
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -152,7 +155,7 @@ jobs:
 
       # 分割APKをリリース
       - name: Release with Split APKs
-        if: "contains(needs.build_android.outputs.build_type, 'split')"
+        if: ${{ contains(needs.build_android.outputs.build_type, 'split') }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.build_android.outputs.version }}
@@ -163,7 +166,7 @@ jobs:
 
       # 単一APKをリリース
       - name: Release with Single APK
-        if: "contains(needs.build_android.outputs.build_type, 'single')"
+        if: ${{ contains(needs.build_android.outputs.build_type, 'single') }}
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.build_android.outputs.version }}
