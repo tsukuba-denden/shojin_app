@@ -69,11 +69,11 @@ class Contest {
     final hours = durationMin ~/ 60;
     final minutes = durationMin % 60;
       if (hours == 0) {
-      return '${minutes}分';
+      return '$minutes分';
     } else if (minutes == 0) {
-      return '${hours}時間';
+      return '$hours時間';
     } else {
-      return '${hours}時間${minutes}分';
+      return '$hours時間$minutes分';
     }
   }
 }

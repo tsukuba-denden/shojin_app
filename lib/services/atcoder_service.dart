@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as parser;
 import 'package:html/dom.dart';
 import '../models/atcoder_user_history.dart';
+import '../models/atcoder_rating_info.dart';
 import '../models/problem.dart';
 import '../models/problem_difficulty.dart';
 import 'dart:developer' as developer;
@@ -21,6 +22,28 @@ class AtCoderService {
           data.map((item) => AtCoderUserHistory.fromJson(item)).toList();
       history.sort((a, b) => b.endTime.compareTo(a.endTime));
       return history.first.newRating;
+    } else {
+      throw Exception('Failed to load user history');
+    }
+  }
+
+  Future<AtcoderRatingInfo?> fetchAtcoderRatingInfo(String name) async {
+    final url = Uri.parse('https://atcoder.jp/users/$name/history/json');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      if (data.isEmpty) {
+        return null;
+      }
+      final history =
+          data.map((item) => AtCoderUserHistory.fromJson(item)).toList();
+      if (history.isEmpty) return null;
+      history.sort((a, b) => b.endTime.compareTo(a.endTime));
+      final latest = history.first.newRating;
+      // Count only rated contests
+      final ratedCount = history.where((h) => h.isRated).length;
+      return AtcoderRatingInfo(latestRating: latest, contestCount: ratedCount);
     } else {
       throw Exception('Failed to load user history');
     }

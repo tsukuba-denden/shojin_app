@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/problem_difficulty.dart';
 import '../services/atcoder_service.dart';
 import 'problem_detail_screen.dart';
+import '../utils/atcoder_colors.dart';
+import '../utils/rating_utils.dart';
 
 class RecommendScreen extends StatefulWidget {
   const RecommendScreen({super.key});
@@ -20,7 +22,7 @@ class _RecommendScreenState extends State<RecommendScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   String? _savedUsername; // 設定済みユーザー名
-  int? _currentRating; // 取得したレート
+  int? _currentRating; // 取得したレート（表示用: 最新レート）
 
   // AtCoder カラー判定
   Color _ratingColor(int rating) {
@@ -51,6 +53,43 @@ class _RecommendScreenState extends State<RecommendScreen> {
           const SizedBox(width: 6),
           Text(
             rating.toString(),
+            style: TextStyle(
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Difficulty 表示用バッジ（補正後diffで表示。色も補正後ベース）
+  Widget _difficultyBadge(int? difficulty) {
+    int? mappedInt;
+    if (difficulty != null) {
+      final mapped = difficulty <= 400
+          ? RatingUtils.mapRating(difficulty)
+          : difficulty.toDouble();
+      mappedInt = mapped.round();
+    }
+    final color = (mappedInt != null)
+        ? atcoderRatingToColor(mappedInt)
+        : const Color(0xFF808080);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        border: Border.all(color: color, width: 1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.bolt, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            mappedInt?.toString() ?? 'N/A',
             style: TextStyle(
               color: color,
               fontSize: 14,
@@ -131,31 +170,44 @@ class _RecommendScreenState extends State<RecommendScreen> {
         throw Exception('ユーザー名を入力してください');
       }
       
-      final rating = await _atcoderService.fetchAtCoderRate(username);
-      if (rating == null) {
+      final ratingInfo = await _atcoderService.fetchAtcoderRatingInfo(username);
+      if (ratingInfo == null) {
         throw Exception('ユーザーが見つからないか、レーティングがありません');
       }
 
       // レートを保存してUIに表示
       if (mounted) {
         setState(() {
-          _currentRating = rating;
+          _currentRating = ratingInfo.latestRating;
         });
       }
 
       final allProblems = await _atcoderService.fetchProblemDifficulties();
+      // TrueRating を計算（数式(10)）
+      final trueRating = RatingUtils.trueRating(
+        rating: ratingInfo.latestRating,
+        contests: ratingInfo.contestCount,
+      );
 
       final recommended = allProblems.entries.where((entry) {
         final difficulty = entry.value.difficulty;
-        return difficulty != null &&
-            difficulty >= rating + lowerDelta &&
-            difficulty <= rating + upperDelta;
+        if (difficulty == null) return false;
+        // 400 以下の diff は mapRating で補正（比較用のみ）
+        final mappedDiff = difficulty <= 400
+            ? RatingUtils.mapRating(difficulty)
+            : difficulty.toDouble();
+        return mappedDiff >= trueRating + lowerDelta &&
+            mappedDiff <= trueRating + upperDelta;
       }).toList();
 
       // 自分のレートに近い順に並べ替え（差の絶対値の昇順）
       recommended.sort((a, b) {
-        final da = (a.value.difficulty! - rating).abs();
-        final db = (b.value.difficulty! - rating).abs();
+        final ad = a.value.difficulty!;
+        final bd = b.value.difficulty!;
+        final mad = ad <= 400 ? RatingUtils.mapRating(ad) : ad.toDouble();
+        final mbd = bd <= 400 ? RatingUtils.mapRating(bd) : bd.toDouble();
+        final da = (mad - trueRating).abs();
+        final db = (mbd - trueRating).abs();
         final cmp = da.compareTo(db);
         if (cmp != 0) return cmp;
         // 差が同じ場合は難易度の昇順で安定化
@@ -275,13 +327,18 @@ class _RecommendScreenState extends State<RecommendScreen> {
                   itemCount: _recommendedProblems.length,
                   itemBuilder: (context, index) {
                     final problem = _recommendedProblems[index];
+                    final diff = problem.value.difficulty;
                     return ListTile(
                       title: Text(problem.key),
-                      subtitle: Text(
-                          'Difficulty: ${problem.value.difficulty ?? "なし"}'),
-                      trailing: const Icon(Icons.open_in_new),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _difficultyBadge(diff),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.open_in_new),
+                        ],
+                      ),
                       onTap: () {
-                        // 問題詳細へ遷移（WebView連携と同様にIDからページを開く）
                         Navigator.push(
                           context,
                           MaterialPageRoute(

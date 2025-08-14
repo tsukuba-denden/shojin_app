@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:animations/animations.dart';
 import 'screens/problem_detail_screen.dart';
 import 'screens/editor_screen.dart';
 import 'screens/settings_screen.dart';
