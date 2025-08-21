@@ -4,13 +4,16 @@ import 'package:yaml/yaml.dart';
 import '../models/contest.dart';
 
 class ContestService {
+  static const String _userAgent =
+      'ShojinApp/1.0 (+https://github.com/yuubinnkyoku/Shojin_App)';
+  static const _headers = {'User-Agent': _userAgent};
   static const String _contestUrl =
       'https://github.com/yuubinnkyoku/atcoder-contest-info/raw/refs/heads/main/contests.yaml';
 
   /// すべてのコンテスト情報を取得
   Future<List<Contest>> fetchAllContests() async {
     try {
-      final response = await http.get(Uri.parse(_contestUrl));
+      final response = await http.get(Uri.parse(_contestUrl), headers: _headers);
 
       if (response.statusCode == 200) {
         // UTF-8でデコード

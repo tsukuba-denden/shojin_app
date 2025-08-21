@@ -7,11 +7,18 @@ import '../models/atcoder_rating_info.dart';
 import '../models/problem.dart';
 import '../models/problem_difficulty.dart';
 import 'dart:developer' as developer;
+import 'cache_manager.dart';
+import 'dart:io';
 
 class AtCoderService {
+  final CacheManager _cacheManager = CacheManager();
+  static const String _userAgent =
+      'ShojinApp/1.0 (+https://github.com/yuubinnkyoku/Shojin_App)';
+  static const _headers = {'User-Agent': _userAgent};
+
   Future<int?> fetchAtCoderRate(String name) async {
     final url = Uri.parse('https://atcoder.jp/users/$name/history/json');
-    final response = await http.get(url);
+    final response = await http.get(url, headers: _headers);
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
@@ -29,7 +36,7 @@ class AtCoderService {
 
   Future<AtcoderRatingInfo?> fetchAtcoderRatingInfo(String name) async {
     final url = Uri.parse('https://atcoder.jp/users/$name/history/json');
-    final response = await http.get(url);
+    final response = await http.get(url, headers: _headers);
 
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
@@ -69,99 +76,114 @@ class AtCoderService {
   /// AtCoderの問題ページをスクレイピングして問題データを取得する
   Future<Problem> fetchProblem(String url) async {
     try {
-      final response = await http.get(Uri.parse(url));
-      
-      if (response.statusCode == 200) {
-        final document = parser.parse(response.body);
-        
-        // タイトルの取得
-        final titleElement = document.querySelector('.h2');
-        final String title;
-        if (titleElement != null) {
-          // cloneして、中のaタグ（Editorialへのリンク）を削除してからtextを取得する
-          final clonedElement = titleElement.clone(true);
-          clonedElement.querySelector('a')?.remove();
-          title = clonedElement.text.trim();
+      String responseBody;
+      final File? cachedFile = await _cacheManager.getCachedFile(url);
+
+      if (cachedFile != null) {
+        // Use cached data
+        developer.log('Using cached data for $url', name: 'AtCoderService');
+        responseBody = await cachedFile.readAsString();
+      } else {
+        // Fetch from network
+        developer.log('Fetching from network for $url', name: 'AtCoderService');
+        final response = await http.get(Uri.parse(url), headers: _headers);
+
+        if (response.statusCode == 200) {
+          responseBody = response.body;
+          // Cache the new data
+          await _cacheManager.cacheFile(url, response.bodyBytes);
         } else {
-          title = 'タイトルが見つかりません';
+          throw Exception('Failed to load problem: ${response.statusCode}');
+        }
+      }
+
+      final document = parser.parse(responseBody);
+
+      // タイトルの取得
+      final titleElement = document.querySelector('.h2');
+      final String title;
+      if (titleElement != null) {
+        // cloneして、中のaタグ（Editorialへのリンク）を削除してからtextを取得する
+        final clonedElement = titleElement.clone(true);
+        clonedElement.querySelector('a')?.remove();
+        title = clonedElement.text.trim();
+      } else {
+        title = 'タイトルが見つかりません';
+      }
+
+      // コンテストIDの取得
+      final contestId = _extractContestId(url);
+
+      // コンテスト名の取得
+      final contestTitleElement = document.querySelector('.contest-title');
+      final contestName = contestTitleElement?.text.trim() ?? 'コンテスト名が見つかりません';
+
+      // デバッグ: HTMLの構造を調査
+      developer.log("HTML構造の分析を開始...");
+      _analyzeHtmlStructure(document);
+
+      // 問題文、制約、入出力形式を取得
+      var statement = '';
+      var constraints = '';
+      var inputFormat = '';
+      var outputFormat = '';
+
+      // task-statementセクションから抽出
+      final taskStatement = document.querySelector('#task-statement');
+      if (taskStatement != null) {
+        developer.log("task-statementセクションが見つかりました");
+
+        // 見出し要素の取得
+        final h3Elements = taskStatement.querySelectorAll('h3');
+        developer.log("h3要素の数: ${h3Elements.length}");
+
+        // 各見出しからテキストを抽出してログに出力
+        for (var i = 0; i < h3Elements.length; i++) {
+          developer.log("h3[$i]テキスト: ${h3Elements[i].text.trim()}");
         }
         
-        // コンテストIDの取得
-        final contestId = _extractContestId(url);
+        // 問題文セクションを探して内容を抽出
+        statement = _extractSectionContent(taskStatement, ['問題文', 'Problem']);
+        developer.log("抽出した問題文: $statement");
 
-        // コンテスト名の取得
-        final contestTitleElement = document.querySelector('.contest-title');
-        final contestName = contestTitleElement?.text.trim() ?? 'コンテスト名が見つかりません';
+        // 制約セクションを探して内容を抽出
+        constraints = _extractSectionContent(taskStatement, ['制約', 'Constraints']);
+        developer.log("抽出した制約: $constraints");
 
-        // デバッグ: HTMLの構造を調査
-        developer.log("HTML構造の分析を開始...");
-        _analyzeHtmlStructure(document);
+        // 入力形式セクションを探して内容を抽出
+        inputFormat = _extractSectionContent(taskStatement, ['入力', 'Input']);
+        developer.log("抽出した入力形式: $inputFormat");
         
-        // 問題文、制約、入出力形式を取得
-        var statement = '';
-        var constraints = '';
-        var inputFormat = '';
-        var outputFormat = '';
+        // 出力形式セクションを探して内容を抽出
+        outputFormat = _extractSectionContent(taskStatement, ['出力', 'Output']);
+        developer.log("抽出した出力形式: $outputFormat");
 
-        // task-statementセクションから抽出
-        final taskStatement = document.querySelector('#task-statement');
-        if (taskStatement != null) {
-          developer.log("task-statementセクションが見つかりました");
-          
-          // 見出し要素の取得
-          final h3Elements = taskStatement.querySelectorAll('h3');
-          developer.log("h3要素の数: ${h3Elements.length}");
-          
-          // 各見出しからテキストを抽出してログに出力
-          for (var i = 0; i < h3Elements.length; i++) {
-            developer.log("h3[$i]テキスト: ${h3Elements[i].text.trim()}");
-          }
-          
-          // 問題文セクションを探して内容を抽出
-          statement = _extractSectionContent(taskStatement, ['問題文', 'Problem']);
-          developer.log("抽出した問題文: $statement");
-          
-          // 制約セクションを探して内容を抽出
-          constraints = _extractSectionContent(taskStatement, ['制約', 'Constraints']);
-          developer.log("抽出した制約: $constraints");
-          
-          // 入力形式セクションを探して内容を抽出
-          inputFormat = _extractSectionContent(taskStatement, ['入力', 'Input']);
-          developer.log("抽出した入力形式: $inputFormat");
-          
-          // 出力形式セクションを探して内容を抽出
-          outputFormat = _extractSectionContent(taskStatement, ['出力', 'Output']);
-          developer.log("抽出した出力形式: $outputFormat");
-          
-          // 各セクションが空の場合は、varタグとサンプル入出力から推測する
-          if (statement.isEmpty || constraints.isEmpty || inputFormat.isEmpty || outputFormat.isEmpty) {
-            developer.log("セクション内容が不完全なため、代替抽出方法を試みます");
-            _extractFromVarAndSamples(document, statement, constraints, inputFormat, outputFormat);
-          }
-        } else {
-          developer.log("task-statementセクションが見つかりません");
-          // varタグとサンプル入出力から問題内容を推測
+        // 各セクションが空の場合は、varタグとサンプル入出力から推測する
+        if (statement.isEmpty || constraints.isEmpty || inputFormat.isEmpty || outputFormat.isEmpty) {
+          developer.log("セクション内容が不完全なため、代替抽出方法を試みます");
           _extractFromVarAndSamples(document, statement, constraints, inputFormat, outputFormat);
         }
-        
-        // 入出力例を取得
-        final samples = _extractSamples(document);
-        developer.log("最終的に抽出されたサンプルの数: ${samples.length}");
-        
-        return Problem(
-          title: title,
-          contestId: contestId,
-          contestName: contestName,
-          statement: statement,
-          constraints: constraints,
-          inputFormat: inputFormat,
-          outputFormat: outputFormat,
-          samples: samples,
-          url: url,
-        );
       } else {
-        throw Exception('Failed to load problem: ${response.statusCode}');
+        developer.log("task-statementセクションが見つかりません");
+        // varタグとサンプル入出力から問題内容を推測
+        _extractFromVarAndSamples(document, statement, constraints, inputFormat, outputFormat);
       }
+
+      // 入出力例を取得
+      final samples = _extractSamples(document);
+      developer.log("最終的に抽出されたサンプルの数: ${samples.length}");
+
+      return Problem(
+        title: title,
+        contestId: contestId,
+        contestName: contestName,
+        statement: statement,
+        constraints: constraints,
+        inputFormat: inputFormat,
+        outputFormat: outputFormat,
+        samples: samples,
+        url: url,
+      );
     } catch (e) {
       developer.log("エラーが発生しました: $e");
       rethrow;
